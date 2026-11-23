@@ -12,6 +12,7 @@
 | B-003 | 契约归属 | `metric_dict.csv`（K-14）含 `target_value` 等业务数值，按 H-5 须拦 PLACEHOLDER，但 SDD [L877] 的 config.py 加载清单不含该 csv（由 io_loaders 读取，[L888]），拦截归属 SDD 未明说 | 评价管理部门（指标负责人）+ 设计方 | 确认 PLACEHOLDER 拦截归属。当前按 `docs/adr/ORCH-12.md` 执行：config.py 出可复用扫描器（S1-T05）→ io_loaders 逐行复用（S3-T01）→ preflight 合并成一次性清单（S3-T02） | 否（已有保守超集裁决，S1 不阻塞） | 2026-11-23 |
 | B-004 | 契约缺口 | `ScoringContext` 在 SDD 全文仅 [L1014] 作为签名类型名出现，**无字段清单** | 设计方 | 确认字段闭包。当前按 `docs/adr/ORCH-13.md` 裁决 1 实现（运行上下文 7 字段 + Step 1-4 结果 8 字段，每字段均指回 SDD 行号）；R4 逐字段核对，指不回原文的字段一律删除 | 否（§10.2-4 预留并登记） | 2026-11-23 |
 | B-005 | 契约缺口 | `NormalizedFrame`（[L939-945]）与 `RedlineFrame`（[L988-994]）SDD 只给签名+语义，**未列逐字段表**（其余 5 个 Frame 均有字段行） | 设计方 | 确认字段表。当前按 `docs/adr/ORCH-13.md` 裁决 2 取「语义所需最小字段集」并逐字段标注推导依据行号 | 否（同上） | 2026-11-23 |
+| B-006 | 计量缺口 | 本运行时**未向 Orchestrator 暴露子智能体的 token 计量**（`spawn_agent` / `wait_agent` 均不返回 usage），ORCH §3.4 成本护栏中「flash ≤ 35% token 消耗」「max ≤ 65% token」两项**无法用实测数字核算** | Orchestrator 规程维护者 / 运行时提供方 | 运行时提供 per-agent token usage 回传；在此之前 §3.4 只核算可实测的三项：任务数按 C1/C2/C3 分布、低档任务数占比 ≥60%、升级次数与返工轮次。`dag-state.json` 各任务 `tokens_used` 一律记 `null`（**不估算、不编造**，H-10），阶段对账单第④段的 token 列一律记 ❌ 无实测证据 | 否（不阻塞开发；阻塞的是成本护栏的完整核算，交付时如实披露） | 2026-11-23 |
 
 ## 二、K-01 ~ K-20 业务数值待行方签认（H-5：一律写 PLACEHOLDER，严禁拟定）
 

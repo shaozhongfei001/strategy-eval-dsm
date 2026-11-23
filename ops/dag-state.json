@@ -11,12 +11,13 @@
     "path": "/home/szf/dev/strategy-eval-dsm",
     "branch": "main",
     "remote": "git@github.com:shaozhongfei001/strategy-eval-dsm.git",
-    "head": "cd360716b018",
+    "head": "55e88e6b274b",
     "head_ancestors": [
       "72a04b3",
       "940d683",
       "56aee09",
-      "cd36071"
+      "cd36071",
+      "55e88e6"
     ],
     "note": "校验用祖先链包含，不用 HEAD 定值（ORCH-v1.0 §1.3）"
   },
@@ -116,14 +117,72 @@
       "roles": [
         "R1"
       ],
-      "status": "pending",
-      "attempts": 0,
-      "loop_rounds": 0,
-      "evidence": {},
+      "status": "done",
+      "attempts": 1,
+      "loop_rounds": 3,
+      "evidence": {
+        "digest_files": {
+          "docs/digest/S1-T01.md": 119,
+          "docs/digest/S1-T01b.md": 43,
+          "docs/digest/S1-T01c.md": 49,
+          "docs/digest/S1-T01d.md": 106,
+          "docs/digest/S1-T01e.md": 73,
+          "docs/digest/INDEX.md": 8
+        },
+        "digest_lines_total": 398,
+        "digest_cap_120_ok": true,
+        "sdd_ranges_extracted": [
+          "860-873",
+          "1093-1245",
+          "1246-1261",
+          "1886-1904",
+          "874-893",
+          "921-1043",
+          "1076-1092",
+          "1261-1275",
+          "1421-1440",
+          "1490-1518",
+          "1606-1641",
+          "1734-1840"
+        ],
+        "sdd_fingerprint_reverified_each_round": "708679e9a83d / 2003 lines / 177646 B",
+        "extraction_method": "sed -n A,Bp only + grep -n locate; no full-text read",
+        "adr_files": [
+          "ORCH-05",
+          "ORCH-06",
+          "ORCH-07",
+          "ORCH-08",
+          "ORCH-09",
+          "ORCH-10",
+          "ORCH-11",
+          "ORCH-12",
+          "ORCH-13"
+        ],
+        "blockers_registered": [
+          "B-001",
+          "B-002",
+          "B-003",
+          "B-004",
+          "B-005",
+          "B-006"
+        ],
+        "k_placeholders_registered": 20,
+        "l0_first_round_verdict": "FAIL (digest 未覆盖全部验收项原文, §7.2 L0 判据) -> 补取证后 PASS",
+        "tests_total": 86,
+        "tests_passed": 86,
+        "tests_failed": 0,
+        "tests_skipped": 0,
+        "duration_s": 0.73,
+        "normalize_check": "NEEDS_NORMALIZATION 0 of 31",
+        "encoding": "16 new/changed files all BOM=False CRLF=False TAB=0",
+        "files_changed": 16,
+        "commit": "55e88e6",
+        "pushed": "50b1851..55e88e6 main -> main"
+      },
       "blockers": [],
-      "tokens_used": 0,
+      "tokens_used": null,
       "token_budget": 15000,
-      "updated_at": "2026-11-23T00:00:00+08:00"
+      "updated_at": "2026-11-23T22:10:00+08:00"
     },
     {
       "task_id": "S1-T02",
@@ -277,10 +336,10 @@
     }
   ],
   "counters": {
-    "flash_tasks": 0,
+    "flash_tasks": 1,
     "max_tasks": 0,
     "escalations": 0,
-    "rework_rounds": 0,
+    "rework_rounds": 2,
     "quality_incidents": 0
   },
   "session_log": [
@@ -320,7 +379,8 @@
         "第1步自检[E] 全量 pytest = 86 passed in 0.65s，0 failed / 0 error / 0 skipped（与基线逐字一致）",
         "STATE_DRIFT-1：CampaignLab tag R19-S14add 实测不存在 → 以实测快照覆盖，登记 ops/blockers.md B-001",
         "STATE_DRIFT-2：ORCH-v1.0 正文无 §8.2「三级自续跑」(仅 §8.1)，但 dag-state session_log seq=1 与本会话提示词均引用之 → 登记 ops/blockers.md B-002，交接按 T3 语义执行",
-        "自检结论：ALL GREEN，无 §10.1 停机条件，开工 S1-T01"
+        "自检结论：ALL GREEN，无 §10.1 停机条件，开工 S1-T01",
+        "S1-T01 done (commit 55e88e6): digest 5 文件 398 行全部 ≤120 且带 SDD 行号；ADR ORCH-05~ORCH-13 共 9 份；blockers B-001~B-006；K-01~K-20 全表 PLACEHOLDER 登记。L0 首轮判未通过并补取证 2 轮（记 rework_rounds+2）。实测发现 MoneyMinor/Ratio/Annotated/from_float 在 SDD 全文 0 命中、ORCH 区间 860-873 漏配 §3.3.4(L874-893)、SDD L868 中间模型为 7 Frame+PoolStats，均已裁决入 ADR。"
       ],
       "selfcheck": {
         "docs_fingerprint_ok": 7,
@@ -349,7 +409,7 @@
         },
         "verdict": "ALL GREEN"
       },
-      "next_task": "S1-T01"
+      "next_task": "S1-T02"
     }
   ],
   "artifacts": {
