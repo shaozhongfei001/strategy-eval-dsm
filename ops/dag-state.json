@@ -14,7 +14,8 @@
     "head": "940d6838a739",
     "head_ancestors": [
       "72a04b3",
-      "940d683"
+      "940d683",
+      "56aee09"
     ],
     "note": "校验用祖先链包含，不用 HEAD 定值（ORCH-v1.0 §1.3）"
   },
@@ -277,13 +278,28 @@
       "date": "2026-11-23",
       "session": "parent(交互)",
       "did": [
-        "S0-T00 完成并提交推送",
-        "ORCH-v1.0 编写入库（506 行）",
-        "修复 §1.3 基线校验方式（祖先链）",
-        "新增 §8.1 会话边界与交接协议",
-        "初始化本状态文件"
+        "S0-T00 完成并提交推送（commit 72a04b3）",
+        "ORCH-v1.0 编写入库（505 行，commit 940d683）",
+        "修复基线校验方式：HEAD 定值 -> 祖先链包含（§1.3）",
+        "新增 §8.1 会话边界与交接协议、§8.2 三级自续跑",
+        "初始化本状态文件（commit 56aee09）"
+      ],
+      "next_task": "S1-T01"
+    },
+    {
+      "seq": 2,
+      "date": "2026-11-23",
+      "session": "parent(交互)",
+      "did": [
+        "ORCH-TEMPLATE-v1.0 项目无关模板入库（427 行 / 42 个槽位 / §A 五步适配程序 / 附录 R 反模式清单）",
+        "RUN-UNATTENDED-v1.0 无人值守总控提示词入库（126 行，可重入，覆盖 S1->S9 全交付）"
       ],
       "next_task": "S1-T01"
     }
-  ]
+  ],
+  "artifacts": {
+    "orch_instance": "docs/ORCHESTRATION-v1.0.md",
+    "orch_template": "docs/ORCH-TEMPLATE-v1.0.md",
+    "run_prompt": "docs/RUN-UNATTENDED-v1.0.md"
+  }
 }
