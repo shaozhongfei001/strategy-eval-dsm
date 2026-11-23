@@ -1,0 +1,28 @@
+[build-system]
+requires = ['setuptools>=68']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'strategy-eval-dsm'
+version = '0.1.0'
+description = 'DSM - Defensible Scoring Model for marketing strategy evaluation (offline batch, auditable, reproducible)'
+readme = 'README.md'
+requires-python = '>=3.11'
+dependencies = [
+    'pandas>=2.0',
+    'numpy>=1.26',
+    'pydantic>=2.5',
+    'typer>=0.12',
+    'PyYAML>=6.0',
+]
+
+[project.optional-dependencies]
+dev = ['pytest>=8.0', 'hypothesis>=6.90']
+
+[tool.setuptools.packages.find]
+include = ['dsm*']
+
+[tool.pytest.ini_options]
+testpaths = ['tests']
+pythonpath = ['.']
+addopts = '-q'
