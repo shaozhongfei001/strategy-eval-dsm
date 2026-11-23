@@ -11,13 +11,16 @@
     "path": "/home/szf/dev/strategy-eval-dsm",
     "branch": "main",
     "remote": "git@github.com:shaozhongfei001/strategy-eval-dsm.git",
-    "head": "55e88e6b274b",
+    "head": "ffa9a305c8c3",
     "head_ancestors": [
       "72a04b3",
       "940d683",
       "56aee09",
       "cd36071",
-      "55e88e6"
+      "55e88e6",
+      "50b1851",
+      "7ab1e9b",
+      "ffa9a30"
     ],
     "note": "校验用祖先链包含，不用 HEAD 定值（ORCH-v1.0 §1.3）"
   },
@@ -193,21 +196,117 @@
       ],
       "complexity": "C2",
       "complexity_score": 2,
-      "model": "qwen3.8-flash",
-      "model_escalated_from": null,
+      "model": "qwen3.8-max",
+      "model_escalated_from": "qwen3.8-flash",
       "roles": [
         "R3",
         "R2",
         "R4"
       ],
-      "status": "pending",
-      "attempts": 0,
-      "loop_rounds": 0,
-      "evidence": {},
+      "status": "done",
+      "attempts": 1,
+      "loop_rounds": 3,
+      "evidence": {
+        "files_bytes": {
+          "dsm/models.py": 17762,
+          "tests/test_models_input.py": 48280
+        },
+        "files_lines": {
+          "dsm/models.py": 373,
+          "tests/test_models_input.py": 1146
+        },
+        "models_input_rows": [
+          "StrategyMasterRow",
+          "MetricDictRow",
+          "MetricFactRow",
+          "DesignCardRow",
+          "RedlineRow",
+          "WeightVersionDoc",
+          "GradeRuleRow",
+          "AnchorSetDoc"
+        ],
+        "models_input_rows_count": 8,
+        "models_input_rows_measured_by": "vars(dsm.models) 实测（非 commit message 值，见 ORCH-19 勘误）",
+        "models_base_class": "_InputRow @ models.py L203, ConfigDict(frozen=True, extra='forbid')",
+        "literal_enums": [
+          "StrategyStatus",
+          "MissingRule",
+          "AttainmentFormula",
+          "MetricUnit",
+          "DataQualityFlag",
+          "EvalMethod",
+          "ControlArrangement",
+          "CardStatus",
+          "RedlineLevel",
+          "Comparator",
+          "WeightVersionStatus",
+          "GradeCode",
+          "EvidenceClass"
+        ],
+        "literal_enums_count": 13,
+        "numeric_gates": [
+          "MoneyMinor(L102)",
+          "Ratio(L103)",
+          "FactValue(L110=MoneyMinor|Ratio)",
+          "MinorUnits(L127)",
+          "UnitValue(L128=MinorUnits|Ratio)",
+          "StrictInt(L186)",
+          "StrictBool(L187)",
+          "ReasonCode(L153)",
+          "MetricDirection(L163)"
+        ],
+        "public_names_total": 43,
+        "test_funcs_defined": 62,
+        "test_cases_new": 341,
+        "tests_total": 427,
+        "tests_passed": 427,
+        "tests_failed": 0,
+        "tests_error": 0,
+        "tests_skipped": 0,
+        "duration_s": 0.96,
+        "baseline_delta": "86 -> 427 passed (+341)",
+        "normalize_check": "NEEDS_NORMALIZATION 0 of 38 files",
+        "encoding": "7 new/changed files BOM=False CR=False TAB=0 strict-utf8=True",
+        "orch_verify_L3": "ALL GREEN (8 sections: pytest / porcelain / normalize / encoding / H-9 INV-1 / H-8 clock / new skip-xfail / H-7 bare reason_code)",
+        "r4_reviewer": "独立 agent 实例（非实现者），输入仅 digest + pytest 输出 + git diff，不读实现者推理",
+        "r4_verdict": "PASS（三审，输出留存 dsm_ops/S1-T02-r4b/out.txt 4902B）",
+        "r4_census": "97 字段全普查；UNTYPED-GATE int/bool = 空；BOOL 4 / INT 1 / RATIO 1 / POLY 8 / OTHER 83",
+        "r4_regression_probes": "direction 13 探针仅 1/-1 通过；reason_code 7 探针仅已注册大写码通过；unit 多态 8 组合按 MONEY_MINOR/COUNT/RATIO/DURATION_SEC 分别拒绝错型",
+        "r4_no_greenwash": "无 skip / xfail / assertTrue / 注释掉的断言；无放宽断言、无改 golden、无删测试、无绕过分支",
+        "r4_followup_for_S1-T03": "落地 provenance 时须删除字段完备性白名单中的 WeightVersionDoc.provenance 预授权项；扫描测试遍历 INPUT_ROWS，新增模型必须注册",
+        "r6_rounds": 2,
+        "escalation_reason": "flash 连续 2 次同错误签名未过门禁 -> 按 §4 升 qwen3.8-max 并附两轮失败日志",
+        "l1_red_log_retained": false,
+        "l1_red_note": "RED 轮原始 pytest 日志未留存（B-013）；S1-T03 起强制落 ops/evidence/<task_id>/L1-red.txt 与 L3-green.txt",
+        "adr_files": [
+          "ORCH-14",
+          "ORCH-15",
+          "ORCH-16",
+          "ORCH-17",
+          "ORCH-18",
+          "ORCH-19"
+        ],
+        "blockers_registered": [
+          "B-007",
+          "B-008",
+          "B-009",
+          "B-010",
+          "B-011",
+          "B-012",
+          "B-013",
+          "B-014",
+          "B-015"
+        ],
+        "commit": "ffa9a30",
+        "pushed": "7ab1e9b..ffa9a30 main -> main",
+        "erratum": "ORCH-19：commit ffa9a30 message 的 8 个 Row 类名有误，H-12 禁改历史故不 amend，以 ORCH-19 + 本 evidence 为权威记录",
+        "digest_source": "docs/digest/S1-T01.md + S1-T01b~e（SDD 708679e9a83d / 2003 行 / 177646 B）",
+        "readonly_check": "CampaignLab m0-framework / 0cccb76 / porcelain 空，与启动快照一致，全程只读"
+      },
       "blockers": [],
-      "tokens_used": 0,
+      "tokens_used": null,
       "token_budget": 40000,
-      "updated_at": "2026-11-23T00:00:00+08:00"
+      "updated_at": "2026-11-23T23:45:00+08:00"
     },
     {
       "task_id": "S1-T03",
@@ -336,10 +435,10 @@
     }
   ],
   "counters": {
-    "flash_tasks": 1,
-    "max_tasks": 0,
-    "escalations": 0,
-    "rework_rounds": 2,
+    "flash_tasks": 2,
+    "max_tasks": 1,
+    "escalations": 1,
+    "rework_rounds": 4,
     "quality_incidents": 0
   },
   "session_log": [
@@ -410,11 +509,31 @@
         "verdict": "ALL GREEN"
       },
       "next_task": "S1-T02"
+    },
+    {
+      "date": "2026-11-23",
+      "session": "orchestrator-unattended-S1-resumed",
+      "did": [
+        "恢复后第一动作：实测核对工作树与交接摘要一致 —— git log -8 / status --porcelain（7 项未提交）/ pytest 427 passed 0.96s / normalize 0 of 38 / CampaignLab m0-framework+0cccb76+porcelain 空",
+        "orch_verify.py L3 八段扫描判 ALL GREEN（H-9 INV-1、H-8 墙钟、H-7 裸 reason_code、新增 skip/xfail 均 clean）",
+        "L6/R5 落库 S1-T02：git add -A -> 中文 commit ffa9a30（8 files, +1745）-> git ls-remote origin 探活 rc=0 -> git push origin main（7ab1e9b..ffa9a30）-> 工作树 clean",
+        "落库后自检发现 commit message 的 8 个 Row 类名与代码不符（源自交接摘要转述）；依 H-12 禁 force/改历史，不 amend，改写 docs/adr/ORCH-19.md 作权威勘误，evidence 全部改为 vars(dsm.models) 实测值",
+        "实测 models.py：公开名 43 个 = 8 输入 Row + 13 Literal 枚举 + 9 数值闸门 + 基类/工具；tests 定义 62 函数 / collect 341 用例",
+        "新建 _orch/set_task.py 状态落库器（patch json -> staging -> rsync -> normalize；repo_head 由 git rev-parse 自动取，避免手写哈希）",
+        "登记 B-012（message/evidence 数据必须先实测后写）、B-013（R3 RED 轮日志未留存 -> S1-T03 起强制落 ops/evidence/<task_id>/L1-red.txt 与 L3-green.txt）",
+        "R4 三审输出已定位并留档引用：dsm_ops/S1-T02-r4b/out.txt（97 字段普查、UNTYPED-GATE 空、无 greenwash）",
+        "踩坑并处置 B-014：staging 脚本把 Windows 路径 C:/... 交给 WSL python，被当相对路径在 cwd 建出名为 C: 的目录树，导致 ops/blockers.md 静默漏改（porcelain 未显示 M）；靠 grep -c B-012 = 0 发现。已抢救内容 + 逐层 find -printf 核实后 rm -rf 误建目录，并把 B-014 追加进 ORCH §7.1 坑清单认知：WSL 侧脚本路径一律 /mnt/c/...，写后必须 wc -c + grep 断言落点",
+        "踩坑并处置 B-015：set_task.py 首版以工作树 dag-state.json 为基线，rsync 后重跑导致 counters 二次累加（实测 flash3/max2/esc2/rework6 虚增）；已改为以 git show HEAD:ops/dag-state.json 为基线 + git checkout 回滚污染副本，重跑后实测单次递增正确（flash 1→2 / max 0→1 / esc 0→1 / rework 2→4，session_log 3→4）"
+      ],
+      "next_task": "S1-T03",
+      "resume_level": "T1（同会话直接续跑下一阶段任务）",
+      "seq": 4
     }
   ],
   "artifacts": {
     "orch_instance": "docs/ORCHESTRATION-v1.0.md",
     "orch_template": "docs/ORCH-TEMPLATE-v1.0.md",
     "run_prompt": "docs/RUN-UNATTENDED-v1.0.md"
-  }
+  },
+  "next_task": "S1-T03"
 }
