@@ -1,4 +1,6 @@
-'''dsm.models -- the eight input rows of the DSM (layer L1, design doc 3.3.3).
+'''dsm.models -- the DSM contract layer L1: the eight input rows (design doc
+3.3.3), the WeightProvenance snapshot chain (3.11.4, [L1228]-[L1245]) and the
+EvidenceSource literal ([L1895]).
 
 Pure declaration layer: contracts only, no computation, no I/O, no defaults that
 would smuggle in a business number.
@@ -53,8 +55,11 @@ Contract rules this module implements (all [LNNN] are docs/digest line refs):
     behaviour in this version ([L1890]). interpretation_limit is a formal
     nullable field ([L1172], ORCH-02), not one of the seven.
 
-Not in scope for S1-T02 (ORCH-13): WeightProvenance and the CEL-0 contract
-wiring (S1-T03), the output rows and the eight intermediate Frames (S1-T04),
+WeightProvenance, its four segments and the EvidenceSource literal have now
+landed (S1-T03), and the seven CEL-0 reserves were already declared on
+DesignCardRow at HEAD (S1-T02), so neither is out of scope any more. Still
+not in scope (ORCH-13): the six output models and the eight intermediate
+Frames / PoolStats / ScoringContext (S1-T04),
 PLACEHOLDER interception and the semantic checks of 3.3.4 [L879]-[L880]
 (S1-T05/S1-T06). The digest wordings 'default L4' [L1182] and 'default L3'
 [L1206] are therefore not modelled as defaults here (H-5): a field is either
@@ -74,17 +79,24 @@ from dsm import numeric
 from dsm import reason_codes
 
 __all__ = [
+    'AhpSegment',
+    'AlphaBasisSegment',
     'AnchorSetDoc',
+    'CombineSegment',
     'DesignCardRow',
+    'EntropySegment',
+    'EvidenceSource',
     'GradeRuleRow',
     'MetricDictRow',
     'MetricFactRow',
+    'MetricWeightComparison',
     'MoneyMinor',
     'Ratio',
     'RedlineRow',
     'StrategyMasterRow',
     'StrictBool',
     'StrictInt',
+    'WeightProvenance',
     'WeightVersionDoc',
 ]
 
@@ -198,6 +210,7 @@ Comparator = Literal['GT', 'GTE', 'LT', 'LTE']  # [L1181]
 WeightVersionStatus = Literal['DRAFT', 'FROZEN']  # [L1190]
 GradeCode = Literal['L1', 'L2', 'L3', 'L4']  # [L1200]
 EvidenceClass = Literal['A', 'B', 'C', 'D']  # [L1895]
+EvidenceSource = Literal['CARD_ONLY', 'CEL_ESTIMATED']  # [L1895]
 
 
 class _InputRow(BaseModel):
@@ -333,9 +346,148 @@ class RedlineRow(_InputRow):
     waiver_allowed: StrictBool  # [L1184] needs an approval trail to count
 
 
+# ---------------------------------------------------------------------------
+# S1-T03: WeightProvenance and its four snapshot segments ([L1228]-[L1245]),
+# plus the EvidenceSource Literal ([L1895]).
+#
+# Each segment is an independent frozen + extra=forbid sub-model - a data
+# snapshot, never a callable (INV-3 type isolation, [L535]). Per ORCH-20:
+#   * ruling 1: the four segments are nullable (Optional[...] = None) at the
+#     models layer; the FROZEN completeness / kind-conditional presence checks
+#     are config-layer policy ([L880], [L1281], [L1435] P-11; S1-T06), never a
+#     models-layer default (forcing EXPERT_ONLY / AHP_ONLY to pad an entropy
+#     snapshot would invent zero values, H-5).
+#   * ruling 3: the alpha_basis class is NOT named CalibrationReport - [L1072]
+#     reserves that name for weights_calibrate.py (L0b, S7); it stays out of
+#     dsm/models.py (H-9). per_period_entropy / drift_by_metric are the verbatim
+#     names of [L1777] (RK-13, ORCH-16).
+#   * ruling 5: alpha dict keys are Ratio (Decimal), never str - a str key would
+#     dodge the numeric gate (H-4), inflate the candidate set ('0.5' != '0.50')
+#     and break the lexicographic minimum-alpha search of [L1072].
+#   * ruling 6: alpha_basis.seed ([L636] "seed when MC is involved") and the
+#     entropy_weight comparison column ([L1235] INACTIVE zero-variance has no
+#     defined entropy weight) are nullable; ahp_weight / combined_weight stay
+#     required Ratio and is_fallback stays a required StrictBool so S8-T01 can
+#     check "a fallback metric's combined weight equals its AHP weight".
+#   * ruling 7 (B-016): hard_check_results fixes only "values are strict bools"
+#     (ORCH-18); its key set is NOT closed here (the SDD H-1~H-5 definitions are
+#     outside the authorised ranges and belong to S8-T01).
+# No business literal default appears in any of these classes (H-5): every
+# column is either required or defaults to None.
+# ---------------------------------------------------------------------------
+class AhpSegment(_InputRow):
+    '''AHP derivation snapshot [L1232]-[L1233]: expert pairwise comparison
+    matrices, the consistency chain (lambda_max / CI / RI / CR), expert head
+    count, interview dates, and both weight methods with their max gap.'''
+
+    comparison_matrices: dict[str, dict[str, dict[str, Ratio]]]  # [L1232] expert x metric x metric
+    lambda_max: Ratio  # [L1232]
+    ci: Ratio  # [L1232] consistency index
+    ri: Ratio  # [L1232] random index
+    cr: Ratio  # [L1232] consistency ratio
+    expert_count: StrictInt  # [L1232] expert head count (a count, H-4)
+    interview_dates: list[date]  # [L1232] ISO [L889]; injected, never wall clock (H-8)
+    weights_geometric: dict[str, Ratio]  # [L1233] geometric-mean method weights
+    weights_eigenvector: dict[str, Ratio]  # [L1233] eigenvector method weights
+    max_method_gap: Ratio  # [L1233] max difference of the two weight sets
+
+
+class EntropySegment(_InputRow):
+    '''Entropy calibration snapshot [L1234]-[L1235]. per_period_entropy and
+    drift_by_metric are the verbatim field names of [L1777] (RK-13, ORCH-16).
+    excluded_periods values pass the ReasonCode gate (H-6/H-7); period ids stay
+    str (ORCH-20 ruling 8).'''
+
+    calibration_periods: list[str]  # [L1234] window period list (identifiers, str)
+    per_period_entropy: dict[str, dict[str, Ratio]]  # [L1234]/[L1777] period -> metric -> weight
+    median_entropy: dict[str, Ratio]  # [L1234] median entropy weight per metric
+    drift_by_metric: dict[str, Ratio]  # [L1234]/[L1777] drift_j per metric
+    inactive_fallback_metrics: list[str]  # [L1235] INACTIVE fallback metric ids
+    excluded_periods: dict[str, ReasonCode]  # [L1235] excluded period id -> registered reason
+
+
+class MetricWeightComparison(_InputRow):
+    '''One row of the per-metric four-column comparison table [L1237]: AHP
+    weight / entropy weight / combined weight / fallback flag. Per ORCH-20
+    ruling 6 entropy_weight is nullable (an INACTIVE zero-variance metric has no
+    mathematically defined entropy weight; forcing one would invent a business
+    number, H-5), while ahp_weight / combined_weight stay required Ratio and
+    is_fallback stays a required StrictBool.'''
+
+    ahp_weight: Ratio  # [L1237] AHP value
+    entropy_weight: Ratio | None = None  # [L1237] entropy weight value (nullable, ORCH-20 r6)
+    combined_weight: Ratio  # [L1237] combined value
+    is_fallback: StrictBool  # [L1237] fallback flag (ORCH-18)
+
+
+class CombineSegment(_InputRow):
+    '''AHP/entropy combine snapshot [L1236]-[L1238]: the chosen alpha and its
+    source, the calibration report reference, the per-metric four-column
+    comparison table, and the H-1~H-5 hard-check results. Per ORCH-20 ruling 7
+    (B-016) the models layer fixes only "values are strict bools"; the hard-check
+    key set is not closed here (S8-T01).'''
+
+    alpha: Ratio  # [L1236] alpha value
+    alpha_source: Literal['CALIBRATED', 'MANUAL']  # [L1236] alpha origin
+    # [L1236]/[L634] nullable (ORCH-21 ruling 9): when the calibration is
+    # skipped (alpha=1, ENTROPY_INSUFFICIENT_SAMPLE [L634]) or alpha_source is
+    # MANUAL [L1236], no CalibrationReport [L636] exists to cite; a required
+    # str would force fabricating an audit-looking ref and pollute the [L636]
+    # audit chain, so the column is nullable and never invents a reference.
+    calibration_report_ref: str | None = None  # [L1236]/[L634] no report to cite
+    comparison_by_metric: dict[str, MetricWeightComparison]  # [L1237] metric -> four columns
+    hard_check_results: dict[str, StrictBool]  # [L1238] H-1~H-5 results (open key set, r7)
+
+
+class AlphaBasisSegment(_InputRow):
+    '''The whole CalibrationReport snapshot that lands in provenance.alpha_basis
+    ([L636]/[L1072]/[L1239]-[L1240]): candidate alpha x metric matrix, alpha*,
+    binding constraints, excluded alphas with reasons, window periods, run_id and
+    seed. Per ORCH-20 ruling 5 the alpha keys are Ratio (Decimal), never str; per
+    ruling 6 seed is nullable ([L636] "seed when MC is involved"). The class is
+    deliberately NOT named CalibrationReport - [L1072] reserves that name for
+    weights_calibrate.py (L0b, S7), so it stays out of dsm/models.py (ruling 3,
+    H-9). Identifier columns (constraint names, period ids, run_id) stay str.'''
+
+    candidate_alpha_matrix: dict[Ratio, dict[str, Ratio]]  # [L636]/[L1239] alpha x metric
+    alpha_star: Ratio  # [L636]/[L1239] alpha*
+    binding_constraints: list[str]  # [L636]/[L1239] constraint names (identifiers, str)
+    excluded_alphas: dict[Ratio, ReasonCode]  # [L636]/[L1240] excluded alpha -> reason
+    window_periods: list[str]  # [L636]/[L1240] window period list (identifiers, str)
+    run_id: str  # [L636]/[L1240] calibration run id
+    seed: StrictInt | None = None  # [L636]/[L1240] seed only when MC is involved (nullable, r6)
+
+
+class WeightProvenance(_InputRow):
+    '''3.11.4 WeightProvenance [L1228]-[L1245] (v1.1 extends AhpProvenance,
+    backward compatible): the full derivation chain answering "on what basis does
+    this contribution weigh X" - AHP + CR + entropy + alpha calibration - plus
+    the whatif run and the sign-off quartet. frozen + extra=forbid ([L865], V-5
+    [L871]). The four segments are independent sub-models and nullable at the
+    models layer (ORCH-20 ruling 1); their kind-conditional presence and the
+    FROZEN completeness rule are config-layer policy ([L880], [L1281], [L1435]
+    P-11; S1-T06), never a models-layer default (H-5). No status column here:
+    status lives on WeightVersionDoc [L1190], and re-declaring it to "help" the
+    FROZEN check would cross the layer boundary.'''
+
+    kind: Literal['AHP_ONLY', 'AHP_ENTROPY_COMBINED', 'EXPERT_ONLY']  # [L1231]
+    ahp: AhpSegment | None = None  # [L1232]-[L1233] AHP snapshot (nullable, ORCH-20 r1)
+    entropy: EntropySegment | None = None  # [L1234]-[L1235] entropy snapshot (nullable, r1)
+    combine: CombineSegment | None = None  # [L1236]-[L1238] combine snapshot (nullable, r1)
+    alpha_basis: AlphaBasisSegment | None = None  # [L1239]-[L1240] CalibrationReport snapshot (nullable, r1)
+    whatif_run_id: str | None = None  # [L1241] whatif run number; FROZEN-missing check is config layer (S1-T06)
+    approved_by: str  # [L1242] sign-off owner
+    approved_date: date  # [L1242] ISO [L889]
+    effective_from: date  # [L1242] ISO [L889]
+    effective_to: date  # [L1242] ISO [L889]
+
+
 class WeightVersionDoc(_InputRow):
     '''T6 weights, grain version; annual sign-off, frozen within a period
-    ([L1104], [L1186]-[L1194]). provenance [L1193] is S1-T03 scope (ORCH-13),
+    ([L1104], [L1186]-[L1194]). provenance [L1193] carries the 3.11.4
+    WeightProvenance snapshot and is nullable at the models layer (ORCH-20
+    ruling 2); its FROZEN-presence rule ([L1435] P-11) is config-layer policy
+    (S1-T06),
     and the FROZEN consistency checks of [L880] belong to the loading layer.
     '''
 
@@ -347,6 +499,7 @@ class WeightVersionDoc(_InputRow):
     level2_weights: dict[str, dict[str, Ratio]]  # [L1192] weights within a dim
     approved_by: str  # [L1194]
     approved_date: date  # [L1194]
+    provenance: WeightProvenance | None = None  # [L1193] 3.11.4; nullable per ORCH-20 r2
 
 
 class GradeRuleRow(_InputRow):

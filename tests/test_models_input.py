@@ -172,8 +172,9 @@ def weight_version_payload():
     '''T6 weights [L1190-L1194].
 
     status stays DRAFT here: the FROZEN consistency checks (whatif_run_id etc.)
-    belong to config.py loading per [L880], which is S1-T05/T06 scope, and
-    provenance.* is S1-T03 scope, so neither branch is pre-implemented.
+    belong to config.py loading per [L880], which is S1-T05/T06 scope, so no
+    check is pre-implemented. provenance stays absent: the column is nullable
+    (S1-T03, [L1193]); its FROZEN presence is config-layer policy [L1435].
     '''
     return {
         'weight_version_id': 'SYN-W-2026',
@@ -577,8 +578,9 @@ def test_models_layer_reads_no_wall_clock():
 # column (7.2 L2 minimal-implementation discipline). Field names below are
 # copied verbatim from docs/digest/S1-T01.md, line refs inline.
 #
-# Deliberate scope cuts: WeightVersionDoc.provenance is NOT asserted here
-# (S1-T03 owns WeightProvenance [L1193]/[L1228-L1244]); DesignCardRow's
+# Deliberate scope cuts: the WeightProvenance sub-models are asserted in
+# tests/test_models_provenance.py (S1-T03, [L1193]/[L1228-L1244]); the
+# provenance column itself is digest-named below. DesignCardRow's
 # strategy_id/version_id locator keys are not named in [L1162-L1174] (they come
 # from the table grain "策略×版本" [L1102]) so they stay out of this set and are
 # instead gated by the construction / extra=forbid tests above, which already
@@ -620,9 +622,10 @@ DIGEST_FIELDS = {
         'reason_code', 'waiver_allowed',
     },
     'WeightVersionDoc': {
-        # [L1190-L1194]; provenance deliberately excluded (S1-T03)
+        # [L1190-L1194]; provenance named per [L1193] (S1-T03, §3.11.4)
         'weight_version_id', 'status', 'effective_from', 'effective_to',
         'level1_weights', 'level2_weights', 'approved_by', 'approved_date',
+        'provenance',
     },
     'GradeRuleRow': {
         # [L1200-L1206] including actions / action_gate [L1205]
@@ -656,11 +659,6 @@ DECLARED_BUT_NOT_DIGEST_NAMED = {
     # DesignCardRow locator keys: the grain is strategy x version ([L1102])
     # while [L1162]-[L1174] names the payload columns only.
     'DesignCardRow': {'strategy_id', 'version_id'},
-    # RESERVED FOR S1-T03 (ORCH-13): WeightProvenance is [L1193] and
-    # [L1228]-[L1244] scope, so provenance is NOT declared in S1-T02. This entry
-    # pre-authorises exactly that one later addition instead of leaving the gate
-    # to be loosened when S1-T03 lands.
-    'WeightVersionDoc': {'provenance'},
 }
 
 
