@@ -1,0 +1,40 @@
+S1-T04 / L4 independent review (R4) - probe 4: the two artifact groups R4 wrote, measured after
+the H-2 pipeline (staging C:/Users/szf/AppData/Local/Temp/dsm_stage_S1-T04_r4 -> rsync -a -> python3 tools/normalize.py)
+
+== per-file byte / line / BOM / CR / TAB ==
+L4-4 (this file) is deliberately NOT self-measured: a file cannot report its own final byte count.
+docs/adr/ORCH-22-review-S1-T04.md | bytes=37536 | lines=484 | BOM=False | CR=False | TAB=0 | ends_with_LF=True | sha256[:12]=39383eeb9bc4
+ops/evidence/S1-T04/L4-1-structure.txt | bytes=9284 | lines=118 | BOM=False | CR=False | TAB=0 | ends_with_LF=True | sha256[:12]=cead783c8cf8
+ops/evidence/S1-T04/L4-2-c8-nullable-columns.txt | bytes=11946 | lines=157 | BOM=False | CR=False | TAB=0 | ends_with_LF=True | sha256[:12]=b0849447452a
+ops/evidence/S1-T04/L4-3-pytest-and-anticheat.txt | bytes=2802 | lines=55 | BOM=False | CR=False | TAB=0 | ends_with_LF=True | sha256[:12]=4bde599977bb
+
+== review doc internal completeness (must be the C10 deliverable: 32 classes / 219 fields) ==
+class headings = 32 | field rows = 219 | empty contract-type cells = 0
+verdict line = ['**R4 VERDICT: PASS**（C1~C11 全 ✅；R6 待修清单：**无阻塞项**，仅 2 条非阻塞建议见 §6）']
+QUALITY_INCIDENT occurrences = 2 (all in the "no incident" sentences)
+
+== worktree state after R4 writes (R4 performed NO git write; H-12) ==
+   M docs/digest/INDEX.md
+   M dsm/models.py
+  ?? docs/adr/ORCH-22-review-S1-T04.md
+  ?? docs/adr/ORCH-22.md
+  ?? docs/digest/S1-T04.md
+  ?? docs/digest/S1-T05.md
+  ?? ops/evidence/S1-T04/
+  ?? tests/test_models_output.py
+
+== the 7 pre-existing in-work items are untouched by R4 ==
+  docs/digest/INDEX.md | bytes=1737 | BOM=False | CR=False | TAB=0
+  dsm/models.py | bytes=71794 | BOM=False | CR=False | TAB=0
+  docs/adr/ORCH-22.md | bytes=42824 | BOM=False | CR=False | TAB=0
+  docs/digest/S1-T04.md | bytes=12869 | BOM=False | CR=False | TAB=0
+  docs/digest/S1-T05.md | bytes=14892 | BOM=False | CR=False | TAB=0
+  ops/evidence/S1-T04 | bytes=0 | BOM=False | CR=False | TAB=0 (directory)
+  tests/test_models_output.py | bytes=77740 | BOM=False | CR=False | TAB=0
+dsm/models.py sha256[:12] = 6ad7a930bfd1
+tests/test_models_output.py sha256[:12] = 42cbbc85e7a8 (unchanged from the L1 record)
+git diff --numstat dsm/models.py -> 836   0   dsm/models.py
+
+== tools/normalize.py --check (run before this file was written; re-run after) ==
+  cmd=python3 tools/normalize.py --check rc=0
+    NEEDS_NORMALIZATION 0 of 56 files

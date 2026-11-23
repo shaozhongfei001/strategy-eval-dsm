@@ -1,0 +1,55 @@
+S1-T04 / L4 independent review (R4) - probe 3: C7 anti-cheat gates and my own pytest re-runs
+run form: /home/szf/venvs/dsm/bin/python -m pytest ... (no extra -q; pyproject addopts = -q), -p no:cacheprovider --color=no
+
+== C7.1 test file integrity (read-only file, must equal the L1 RED record) ==
+measured: bytes=77740 | lines=1753 | sha256[:12]=42cbbc85e7a8 | def test_ (module level)=83 | pytest.mark.skip/xfail/pytest.skip occurrences=0
+collected: 602 tests collected in 0.28s | rc=0
+L1-red.txt baseline lines (verbatim):
+  FILE STATS: 77740 bytes, 1753 lines, 83 module-level test functions
+  COLLECTED: 602 tests collected in 0.23s
+  587 failed, 15 passed in 13.75s
+  RUN 1 count line: 587 failed, 15 passed in 13.75s
+  587 failed, 681 passed in 13.83s
+  587 failed, 15 passed in 0.79s
+
+== C7.2 no test was rewritten / deleted / marked; only dsm/models.py carries the implementation ==
+git status --porcelain (verbatim):
+   M docs/digest/INDEX.md
+   M dsm/models.py
+  ?? docs/adr/ORCH-22-review-S1-T04.md
+  ?? docs/adr/ORCH-22.md
+  ?? docs/digest/S1-T04.md
+  ?? docs/digest/S1-T05.md
+  ?? ops/evidence/S1-T04/
+  ?? tests/test_models_output.py
+git diff --numstat (whole worktree):
+  10   6   docs/digest/INDEX.md
+  836   0   dsm/models.py
+tests/test_models_output.py tracked? False (1 = not tracked => no commit could have altered it; hash above equals the L1 record)
+any other file in tests/ modified: []
+repo-wide skip/xfail hits:
+  tests/test_numeric_properties.py:114:        pytest.skip('needs at least 3 observations')
+(the only hit is tests/test_numeric_properties.py, a pre-existing hypothesis guard at HEAD: False = modified?)
+dsm/models.py git diff deletions must be 0 -> 836   0   dsm/models.py
+
+== C7.3 the existing 14 public models are byte-identical to HEAD ==
+classes at HEAD=15 | byte-identical=15 | changed=[]
+
+== C7.4 pytest re-runs (R4 own measurements) ==
+full suite: rc=0 | last line: 1268 passed in 1.42s
+lines mentioning skipped / xfailed / error: []
+S1-T04 file only: rc=0 | last line: 602 passed in 0.54s
+  -k b02 -> rc=0 | 8 passed, 594 deselected in 0.27s
+  -k b03 -> rc=0 | 8 passed, 594 deselected in 0.29s
+  -k b04 -> rc=0 | 8 passed, 594 deselected in 0.28s
+  -k c03 -> rc=0 | 1 passed, 601 deselected in 0.28s
+  -k d01 -> rc=0 | 32 passed, 570 deselected in 0.26s
+  -k d12 -> rc=0 | 1 passed, 601 deselected in 0.29s
+  -k j02 -> rc=0 | 32 passed, 570 deselected in 0.30s
+  -k j03 -> rc=0 | 32 passed, 570 deselected in 0.30s
+  -k j05 -> rc=0 | 1 passed, 601 deselected in 0.30s
+  -k m01 -> rc=0 | 32 passed, 570 deselected in 0.27s
+  -k n01 -> rc=0 | 1 passed, 601 deselected in 0.27s
+  -k o01 -> rc=0 | 1 passed, 601 deselected in 0.25s
+  -k p01 -> rc=0 | 8 passed, 594 deselected in 0.26s
+regression of the two pre-existing model files: rc=0 | 580 passed in 0.57s
