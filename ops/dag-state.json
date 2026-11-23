@@ -1,0 +1,289 @@
+{
+  "orch_version": "ORCH-v1.0",
+  "sdd_fingerprint": {
+    "file": "开发设计文档-策略评价可辩护评分模型DSM-v1.1.md",
+    "sha256_12": "708679e9a83d",
+    "lines": 2003,
+    "bytes": 177646,
+    "readonly_docs_dir": "/mnt/d/ws/codex_rd/ss_campaignlab/工行参考文件"
+  },
+  "repo": {
+    "path": "/home/szf/dev/strategy-eval-dsm",
+    "branch": "main",
+    "remote": "git@github.com:shaozhongfei001/strategy-eval-dsm.git",
+    "head": "940d6838a739",
+    "head_ancestors": [
+      "72a04b3",
+      "940d683"
+    ],
+    "note": "校验用祖先链包含，不用 HEAD 定值（ORCH-v1.0 §1.3）"
+  },
+  "readonly_neighbors": {
+    "/home/szf/dev/CampaignLab": {
+      "branch": "m0-framework",
+      "tag": "R19-S14add",
+      "rule": "H-1 全程只读，不得触碰工作树 / HEAD / counts 面"
+    }
+  },
+  "phase_current": "S1",
+  "phase_order": [
+    "S0",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "S7",
+    "S8",
+    "S9"
+  ],
+  "tasks": [
+    {
+      "task_id": "S0-T00",
+      "phase": "S0",
+      "title": "骨架 + 数值语义层 numeric.py + reason_code 注册表（SDD 3.17.2 step 1）",
+      "deps": [],
+      "complexity": "C3",
+      "complexity_score": 6,
+      "model": "parent-session",
+      "model_escalated_from": null,
+      "roles": [
+        "R2",
+        "R3",
+        "R4",
+        "R5"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "loop_rounds": 2,
+      "evidence": {
+        "tests_total": 86,
+        "tests_passed": 86,
+        "tests_failed": 0,
+        "tests_skipped": 0,
+        "duration_s": 0.65,
+        "files": {
+          "dsm/__init__.py": 815,
+          "dsm/numeric.py": 8316,
+          "dsm/reason_codes.py": 12739,
+          "tests/test_numeric.py": 11274,
+          "tests/test_numeric_properties.py": 3716,
+          "tests/test_reason_codes.py": 6953,
+          "tools/normalize.py": 2143
+        },
+        "reason_codes_registered": 79,
+        "reason_codes_by_severity": {
+          "BLOCK": 28,
+          "WARN": 38,
+          "INFO": 13
+        },
+        "defects_fixed": [
+          "spearman: sqrt(num/den) -> num/sqrt(den)",
+          "safe_div(on_zero=None) 崩溃 -> 返回 None"
+        ],
+        "traps_pinned": [
+          "str(RC.STABLE) == 'RC.STABLE'，CSV 与 hash 必须用 .value"
+        ],
+        "commit": "72a04b3487ad"
+      },
+      "blockers": [],
+      "tokens_used": null,
+      "token_budget": 90000,
+      "updated_at": "2026-11-23T00:00:00+08:00"
+    },
+    {
+      "task_id": "S1-T01",
+      "phase": "S1",
+      "title": "digest: SDD 3.3.3 / 3.11.1-3.11.4 / 5.8.1 / 3.12 摘录",
+      "deps": [],
+      "complexity": "C1",
+      "complexity_score": 0,
+      "model": "qwen3.8-flash",
+      "model_escalated_from": null,
+      "roles": [
+        "R1"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "loop_rounds": 0,
+      "evidence": {},
+      "blockers": [],
+      "tokens_used": 0,
+      "token_budget": 15000,
+      "updated_at": "2026-11-23T00:00:00+08:00"
+    },
+    {
+      "task_id": "S1-T02",
+      "phase": "S1",
+      "title": "models.py 输入模型：8 个 Row + Literal 枚举 + frozen/extra=forbid + Ratio/MoneyMinor 注解",
+      "deps": [
+        "S1-T01"
+      ],
+      "complexity": "C2",
+      "complexity_score": 2,
+      "model": "qwen3.8-flash",
+      "model_escalated_from": null,
+      "roles": [
+        "R3",
+        "R2",
+        "R4"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "loop_rounds": 0,
+      "evidence": {},
+      "blockers": [],
+      "tokens_used": 0,
+      "token_budget": 40000,
+      "updated_at": "2026-11-23T00:00:00+08:00"
+    },
+    {
+      "task_id": "S1-T03",
+      "phase": "S1",
+      "title": "models.py WeightProvenance 四段 + CEL-0 七字段预留（裁决 ORCH-02）",
+      "deps": [
+        "S1-T02"
+      ],
+      "complexity": "C3",
+      "complexity_score": 5,
+      "model": "qwen3.8-max",
+      "model_escalated_from": null,
+      "roles": [
+        "R3",
+        "R2",
+        "R4"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "loop_rounds": 0,
+      "evidence": {},
+      "blockers": [],
+      "tokens_used": 0,
+      "token_budget": 90000,
+      "updated_at": "2026-11-23T00:00:00+08:00"
+    },
+    {
+      "task_id": "S1-T04",
+      "phase": "S1",
+      "title": "models.py 输出模型 6 个 + 中间 Frame 8 个 + PoolStats + ScoringContext",
+      "deps": [
+        "S1-T02"
+      ],
+      "complexity": "C2",
+      "complexity_score": 3,
+      "model": "qwen3.8-flash",
+      "model_escalated_from": null,
+      "roles": [
+        "R3",
+        "R2",
+        "R4"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "loop_rounds": 0,
+      "evidence": {},
+      "blockers": [],
+      "tokens_used": 0,
+      "token_budget": 40000,
+      "updated_at": "2026-11-23T00:00:00+08:00"
+    },
+    {
+      "task_id": "S1-T05",
+      "phase": "S1",
+      "title": "config.py PLACEHOLDER 递归拦截，一次性列出全部未填路径",
+      "deps": [
+        "S1-T03",
+        "S1-T04"
+      ],
+      "complexity": "C3",
+      "complexity_score": 5,
+      "model": "qwen3.8-max",
+      "model_escalated_from": null,
+      "roles": [
+        "R3",
+        "R2",
+        "R4"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "loop_rounds": 0,
+      "evidence": {},
+      "blockers": [],
+      "tokens_used": 0,
+      "token_budget": 90000,
+      "updated_at": "2026-11-23T00:00:00+08:00"
+    },
+    {
+      "task_id": "S1-T06",
+      "phase": "S1",
+      "title": "config.py 语义校验 + 权重版本校验（FROZEN / 生效期 / whatif_run_id 强制）",
+      "deps": [
+        "S1-T05"
+      ],
+      "complexity": "C2",
+      "complexity_score": 3,
+      "model": "qwen3.8-flash",
+      "model_escalated_from": null,
+      "roles": [
+        "R3",
+        "R2",
+        "R4"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "loop_rounds": 0,
+      "evidence": {},
+      "blockers": [],
+      "tokens_used": 0,
+      "token_budget": 40000,
+      "updated_at": "2026-11-23T00:00:00+08:00"
+    },
+    {
+      "task_id": "S1-T07",
+      "phase": "S1",
+      "title": "S1 阶段回归 + 独立复核 + 提交（门禁：V-5 / P-10 / CEL-0 一致性）",
+      "deps": [
+        "S1-T06"
+      ],
+      "complexity": "C2",
+      "complexity_score": 1,
+      "model": "qwen3.8-flash",
+      "model_escalated_from": null,
+      "roles": [
+        "R4",
+        "R5"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "loop_rounds": 0,
+      "evidence": {},
+      "blockers": [],
+      "tokens_used": 0,
+      "token_budget": 40000,
+      "updated_at": "2026-11-23T00:00:00+08:00"
+    }
+  ],
+  "counters": {
+    "flash_tasks": 0,
+    "max_tasks": 0,
+    "escalations": 0,
+    "rework_rounds": 0,
+    "quality_incidents": 0
+  },
+  "session_log": [
+    {
+      "seq": 1,
+      "date": "2026-11-23",
+      "session": "parent(交互)",
+      "did": [
+        "S0-T00 完成并提交推送",
+        "ORCH-v1.0 编写入库（506 行）",
+        "修复 §1.3 基线校验方式（祖先链）",
+        "新增 §8.1 会话边界与交接协议",
+        "初始化本状态文件"
+      ],
+      "next_task": "S1-T01"
+    }
+  ]
+}

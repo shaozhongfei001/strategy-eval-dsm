@@ -5,7 +5,7 @@
 | 版本 | ORCH-v1.0 |
 | 生成日期 | 2026-11-23 |
 | 适用仓库 | `/home/szf/dev/strategy-eval-dsm`（WSL ext4，远端 `origin = git@github.com:shaozhongfei001/strategy-eval-dsm.git`，分支 `main`） |
-| 代码基线 | commit `72a04b3487ad`（M1-1：numeric + reason_codes，86 tests green） |
+| 代码基线 | `72a04b3487ad`（M1-1：numeric + reason_codes，86 tests green）与 `940d683`（ORCH-v1.0 入库）。**校验方式是祖先链包含，不是 HEAD 等于某固定值**，见 §1.3 |
 | 权威 SDD | `开发设计文档-策略评价可辩护评分模型DSM-v1.1.md` · sha256[:12] `708679e9a83d` · 2003 行 · 177646 B |
 | 性质 | **工程附件**。不属 SDD §1.8 目录树，不改动任何设计口径；与 SDD 冲突时**一律以 SDD 为准** |
 
@@ -49,7 +49,14 @@
 
 ### 1.3 代码基线自检
 
-启动时记录 `git rev-parse HEAD`、`git status --porcelain`（必须为空）、`pytest -q` 结果（必须 0 failed）。三者任一异常 → 停机上报。
+启动时三项自检，全部通过才允许开工：
+
+1. `git status --porcelain` 为空（工作树干净）；
+2. `git merge-base --is-ancestor 72a04b3 HEAD` 与 `git merge-base --is-ancestor 940d683 HEAD` 均返回 0
+   ——**校验祖先链而非 HEAD 定值**：本文件写就后仓库必然继续前进，写死 hash 会造成新会话误判停机；
+3. 全量 `pytest -q` 为 0 failed / 0 error / **无新增 skip**。
+
+任一不成立 → 停机上报，不得自行修复。自检结果（含实测 HEAD、用例数、耗时）必须写入 `ops/dag-state.json` 的 `session_log`。
 
 ---
 
@@ -372,7 +379,26 @@ S0 基线(已完成) ─┬─> S1 契约层 ──> S2 合成数据 ──┬�
 }
 ```
 
-**续跑规则**：启动时先读 `ops/dag-state.json` → 校验 `sdd_fingerprint` 与 `repo.head` → 找出所有 `status != done` 且依赖已满足的任务 → 从最早的一个继续。**幂等**：同 task_id 已完成则跳过，不得重复提交。
+**续跑规则**：启动时先读 `ops/dag-state.json` → 校验 `sdd_fingerprint` 与 `repo.head_ancestors`（祖先链，见 §1.3）→ 找出所有 `status != done` 且依赖已满足的任务 → 从最早的一个继续。**幂等**：同 task_id 已完成则跳过，不得重复提交。
+
+**状态文件与实测冲突时，一律以实测为准**（`git log`、`pytest` 输出、文件行数）。状态文件是自述，代码不会撒谎；发现不一致 → 以实测覆盖状态文件并在 `session_log` 记一条 `STATE_DRIFT`。
+
+### 8.1 会话边界与交接协议（长程 = 可续跑，不是一个会话跑到底）
+
+**单个会话跑不完 S0~S9 的 52 个任务。**长程性由「状态文件 + 交接提示词」实现，不依赖任何一个会话的寿命：
+
+1. **主动交接触发条件**（满足任一即触发，不得硬撑到上下文耗尽）：
+   - 已完成一个完整阶段并输出对账单（**首选交接点**：阶段边界是天然检查点）；
+   - 本会话累计 token 达预算的 70%；
+   - 连续 2 个任务触发模型升级（上下文已被失败日志污染，判断力下降）；
+   - 出现 §10.1 任一停机条件。
+2. **交接动作（顺序不可颠倒）**：
+   ① 确保工作树干净：未完成的改动要么提交、要么回退，**不得留半截文件**；
+   ② 更新 `ops/dag-state.json`（含 counters 与每任务 evidence）；
+   ③ 写 `ops/handoff-<phase>-<seq>.md`：当前 HEAD、已完成任务号、下一个可派任务号、未闭合 blocker、**本会话新踩的坑**（追加进 §7.1 的坑清单）；
+   ④ 输出一段可直接粘贴到新会话的续跑提示词：§13 启动指令 + 「从 <task_id> 继续」。
+3. **新会话接手第一步**：跑 §13 启动序列的第 1~2 步（指纹自检 + 读状态文件），**不得凭交接文档的自述就相信进度**，必须以 `git log` 与 `pytest` 实测输出为准。
+4. **每会话推荐批量**：1 个阶段，或 ≤ 6 个任务，取先到者。
 
 ---
 
@@ -460,8 +486,10 @@ S0 基线(已完成) ─┬─> S1 契约层 ──> S2 合成数据 ──┬�
    用合成 fixtures 继续；严禁拟定数值、严禁编造性能与工作量数字。
 8. 遇 §10.1 六种情况 → 立即停机上报；遇 §10.2 四种情况 → 登记并继续。
 
-当前基线：commit 72a04b3487ad，S0 已完成（numeric + reason_codes，86 tests green），
-下一阶段 S1 契约层（串行，models.py → config.py），第一个任务 S1-T01。
+当前基线：HEAD 祖先链含 72a04b3 与 940d683；S0 已完成（numeric + reason_codes，86 tests green，
+证据已写入 ops/dag-state.json 的 S0-T00）；下一阶段 S1 契约层（串行，models.py → config.py），
+第一个任务 S1-T01。若本会话是从交接中恢复，先读 ops/handoff-*.md 的最新一份再定位任务号。
+按 §8.1 判断交接时机：完成一个阶段或触达 70% token 预算即写状态并交接，不要硬撑。
 现在开始，不要向我提问。
 ```
 
