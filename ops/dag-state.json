@@ -11,7 +11,7 @@
     "path": "/home/szf/dev/strategy-eval-dsm",
     "branch": "main",
     "remote": "git@github.com:shaozhongfei001/strategy-eval-dsm.git",
-    "head": "ffa9a305c8c3",
+    "head": "6e1167ab338b",
     "head_ancestors": [
       "72a04b3",
       "940d683",
@@ -20,7 +20,9 @@
       "55e88e6",
       "50b1851",
       "7ab1e9b",
-      "ffa9a30"
+      "ffa9a30",
+      "4c9318b",
+      "6e1167a"
     ],
     "note": "校验用祖先链包含，不用 HEAD 定值（ORCH-v1.0 §1.3）"
   },
@@ -324,14 +326,126 @@
         "R2",
         "R4"
       ],
-      "status": "pending",
-      "attempts": 0,
-      "loop_rounds": 0,
-      "evidence": {},
+      "status": "done",
+      "attempts": 1,
+      "loop_rounds": 3,
+      "evidence": {
+        "files_bytes": {
+          "dsm/models.py": 26975,
+          "tests/test_models_provenance.py": 45078,
+          "tests/test_models_input.py": 48144,
+          "docs/digest/S1-T03.md": 6936,
+          "docs/adr/ORCH-20.md": 11464,
+          "docs/adr/ORCH-21.md": 10921,
+          "ops/evidence/S1-T03/L1-red.txt": 245538,
+          "ops/evidence/S1-T03/L3-green.txt": 1461
+        },
+        "files_lines": {
+          "dsm/models.py": 526,
+          "tests/test_models_provenance.py": 1016,
+          "tests/test_models_input.py": 1144,
+          "docs/digest/S1-T03.md": 66,
+          "docs/adr/ORCH-20.md": 146,
+          "docs/adr/ORCH-21.md": 141
+        },
+        "git_diff_numstat": {
+          "dsm/models.py": "+157/-4",
+          "tests/test_models_input.py": "+8/-10",
+          "docs/digest/INDEX.md": "+2/-1",
+          "staged_total": "9 files, +6914/-15"
+        },
+        "new_model_classes": [
+          "AhpSegment",
+          "EntropySegment",
+          "MetricWeightComparison",
+          "CombineSegment",
+          "AlphaBasisSegment",
+          "WeightProvenance"
+        ],
+        "new_model_classes_count": 6,
+        "new_fields_census": {
+          "AhpSegment": 10,
+          "EntropySegment": 6,
+          "MetricWeightComparison": 4,
+          "CombineSegment": 5,
+          "AlphaBasisSegment": 7,
+          "WeightProvenance": 10,
+          "total": 42
+        },
+        "new_fields_census_measured_by": "主控 chk_fields2.py：git archive HEAD 建 headtree，逐类读 model_fields，注解除 0xADDR 归一后比对（非转述交接摘要，B-012）",
+        "models_class_count": "8 -> 14 (model_fields 实测)",
+        "backward_compat_gate": "ORCH-21 收敛要求第 4 条：8 个既有类字段零删除、零注解放宽（DesignCardRow 23 / MetricDictRow 21 / MetricFactRow 12 / StrategyMasterRow 12 / GradeRuleRow 9 / RedlineRow 7 / AnchorSetDoc 5 全不变），WeightVersionDoc 8->9 仅 +provenance；4 处删除行全为 docstring 改写（HEAD L1 / L56 / L57 / L338）",
+        "evidence_source_literal": "EvidenceSource = Literal['CARD_ONLY','CEL_ESTIMATED'] @ dsm/models.py L213 [L1895]；按 ORCH-15 不加到 DesignCardRow，输出侧归 S1-T04 ScoreCardRow [L870]",
+        "cel0_fields": [
+          "incremental_value",
+          "incremental_ci_lower",
+          "incremental_ci_upper",
+          "estimator_method",
+          "experiment_id",
+          "holdout_id",
+          "mde_ok"
+        ],
+        "cel0_fields_count": 7,
+        "cel0_ruling": "ORCH-02：按 [L1918] 的 7 字段口径，非 [L1894] 表的 8 项；interpretation_limit 为 DesignCardRow 常规可空字段 [L1172]（S1-T02 已落地，本任务实测未变动）",
+        "test_funcs_defined": 64,
+        "test_cases_new": 239,
+        "tests_total": 666,
+        "tests_passed": 666,
+        "tests_failed": 0,
+        "tests_error": 0,
+        "tests_skipped": 0,
+        "duration_s": 1.33,
+        "per_file_collected": {
+          "tests/test_models_input.py": 341,
+          "tests/test_models_provenance.py": 239,
+          "tests/test_numeric.py": 57,
+          "tests/test_numeric_properties.py": 11,
+          "tests/test_reason_codes.py": 18
+        },
+        "baseline_delta": "86 -> 427 (S1-T02) -> 664 -> 666 passed (+239)",
+        "l1_red": "tests/test_models_provenance.py 224 failed / 13 passed（AttributeError 223 + pydantic_core ValidationError 1）；tests/test_models_input.py 1 failed / 340 passed（AssertionError: WeightVersionDoc is missing digest-named fields: provenance @ tests/test_models_input.py:649）",
+        "l1_red_log_retained": true,
+        "l1_red_log": "ops/evidence/S1-T03/L1-red.txt 245538 B（含 R4 用 git archive HEAD 建 redtree 的独立复现补录段，未改动仓库任何一字节）",
+        "l3_green_log": "ops/evidence/S1-T03/L3-green.txt 1461 B，结尾汇总行 666 passed in 1.07s（B-013/B-017 双整改已落地）",
+        "normalize_check": "NEEDS_NORMALIZATION 0 of 45 files",
+        "encoding": "8 new/changed files BOM=False CR=False TAB=0",
+        "orch_verify_L3": "ALL GREEN（8 段：pytest / porcelain / normalize / encoding / H-9 INV-1 / H-8 墙钟 / 新增 skip-xfail / H-7 裸 reason_code），主控本次会话独立重跑一次确认",
+        "r4_reviewer": "独立 agent 实例（非实现者 R2/R3/R6），输入仅 digest + pytest 输出 + git diff，不读实现者推理",
+        "r4_verdict": "PASS（三审 35 条 = ✅28 / ⚠7 / ❌0，记录于 docs/adr/ORCH-21.md 输入栏）",
+        "r4_probes": "p01~p12 共 12 组探针（RED 分析 / 测试源扫描 / 结构普查 / 门禁覆盖 / AST 行号引用 / 裁决落地 / greenwash 扫描 / 全量重跑 / 异常类型普查）；输出留档 dsm_ops/S1-T03-r4/",
+        "r4_no_greenwash": "无 skip / xfail / 注释掉的断言；无放宽断言、无改 golden、无删测试、无绕过分支；test_models_input.py 的改动被 R4 判为门禁「加强」（删 surplus 白名单预授权 + provenance 入 DIGEST_FIELDS）",
+        "r6_rounds": 1,
+        "r6_items": "ORCH-21 裁决 9 落地（CombineSegment.calibration_report_ref 改可空 + 1 条新测试）、⚠-6 补 1 条类名钉住测试（239 = 237+2）、3 处过时 docstring 修正、4 文件行尾补 LF、L1-red.txt 追加 R4 复现段、L3-green.txt 刷新为 666 passed",
+        "escalations_this_task": 0,
+        "adr_files": [
+          "ORCH-20",
+          "ORCH-21"
+        ],
+        "adr_total_in_repo": 17,
+        "orch20_rulings": "8 项：①四段可空性归 config 层（S1-T06）②α 键必须 dict[Ratio,…] 而非 str ③CalibrationReport 名留 L0b（本层命名 AlphaBasisSegment，H-9）④seed 可空 ⑤period/run 标识保持 str ⑥entropy_weight 可空（INACTIVE 零变异无数学定义，H-5）⑦hard_check_results 只固化值为 StrictBool、不封闭键集（→B-016）⑧provenance 纳入 DIGEST_FIELDS",
+        "orch21_rulings": "裁决 9 calibration_report_ref 可空（[L634] 跳过标定无报告可引，强制必填会迫使编造审计引用）；裁决 10 ENTROPY_UNSTABLE 标注不在 models 层设载体（→B-018，S1-T04 预留位、S8-T01 填语义）；处置 11（接受现状+补录 test_models_input RED 证据）/12（接受跨 digest 引用 [L889]）/13（⚠-4/5/6 纯文档与补强定向修）",
+        "digest_source": "docs/digest/S1-T03.md 66 行 / 13 个 SDD 行区间（L533-537、L634-638、L860-873、L878-882、L898-902、L1070-1074、L1186-1194、L1228-1245、L1279-1283、L1433-1437、L1777-1781、L1888-1903、L1914-1925）+ 复用 docs/digest/S1-T01d（L921-1043）",
+        "blockers_registered": [
+          "B-016",
+          "B-017",
+          "B-018"
+        ],
+        "commit": "6e1167a",
+        "commit_full12": "6e1167ab338b",
+        "pushed": "4c9318b..6e1167a main -> main",
+        "remote_probe": "git ls-remote --heads origin rc=0，push 前远端 main = 4c9318b1f86e829966fc038d04d35889fdf25f76（= 本地 HEAD^），push 后 rev-list --count origin/main..HEAD = 0",
+        "readonly_check": "CampaignLab m0-framework / 0cccb76cdee94689448b547b6f06254c51b75d72 / porcelain 空 / rev-list 154，与启动快照逐字一致，全程只读",
+        "sdd_fingerprint_recheck": "7 份只读文档 sha256[:12] 与行数逐行比对 ORCH §1.1 全 OK；SDD 708679e9a83d / 2003 行 / 177646 B 一致",
+        "h4_note": "计数列 StrictInt（expert_count 等）、比率/权重/α/λmax/CI/RI/CR/drift 一律 Ratio(Decimal)、金额 MoneyMinor；无 float 入口，float 只能经 numeric.from_float()",
+        "h8_note": "interview_dates / calibration_periods / window_periods / run_id 全部参数注入；orch_verify 第 6 段墙钟扫描 dsm/ clean",
+        "h9_inv3_note": "WeightProvenance.entropy 是快照值非可调用对象 [L535]（类型隔离，T-CMB-06）；AlphaBasisSegment 刻意不占 CalibrationReport 名（[L1072] 属 L0b weights_calibrate.py，S7）",
+        "tokens_used_note": "本运行时未暴露子智能体 token 计量（B-006），置 null 而非填估值（H-10 不编造）；token_budget 90000 保留作档位标识",
+        "files_lines_measured_by": "wc -l 实测（2026-11-24 03:05，工作树 = commit 6e1167a 内容）。首版把 tests/test_models_input.py 误填为估值 1148，按 B-012「先实测后写」纠正为实测 1144；本条留痕以证明该纪律确实在跑，而非口号。"
+      },
       "blockers": [],
-      "tokens_used": 0,
+      "tokens_used": null,
       "token_budget": 90000,
-      "updated_at": "2026-11-23T00:00:00+08:00"
+      "updated_at": "2026-11-24T03:05:00+08:00"
     },
     {
       "task_id": "S1-T04",
@@ -436,9 +550,9 @@
   ],
   "counters": {
     "flash_tasks": 2,
-    "max_tasks": 1,
+    "max_tasks": 2,
     "escalations": 1,
-    "rework_rounds": 4,
+    "rework_rounds": 5,
     "quality_incidents": 0
   },
   "session_log": [
@@ -528,6 +642,26 @@
       "next_task": "S1-T03",
       "resume_level": "T1（同会话直接续跑下一阶段任务）",
       "seq": 4
+    },
+    {
+      "date": "2026-11-24",
+      "session": "orchestrator-unattended-S1-resumed-2",
+      "did": [
+        "恢复后第一动作（T3 续跑，next_task=S1-T03 已过 L5 待落库）：不重跑任何审次，先做只读自检 —— 7 份权威文档 sha256[:12]+行数逐行比对 ORCH §1.1 全 OK（SDD 708679e9a83d / 2003 行 / 177646 B）；CampaignLab m0-framework / 0cccb76 / porcelain 空 / rev-list 154 与快照一致；祖先链 72a04b3、940d683 均 rc=0；venv python 3.12.3；git ls-remote rc=0 ALIVE",
+        "orch_verify.py L3 八段独立重跑判 ALL GREEN：666 passed / 0 failed / 0 error / 0 skipped（1.54s 与 1.33s 两次实测）、normalize 0 of 45、8 个变更文件 BOM/CR/TAB 全清、H-9 INV-1 与 H-8 墙钟与 H-7 裸 reason_code 与新增 skip/xfail 四项 clean",
+        "B-012 纪律：commit message 与 evidence 的每个数字写前实测 —— pytest --collect-only 逐文件取 341/239/57/11/18=666；grep -c 取 test_ 函数数 64；wc -c 取 8 文件字节数；git diff --numstat 取 +157/-4、+8/-10、+2/-1",
+        "新写主控探针 chk_fields2.py 独立复验 ORCH-21 收敛要求第 4 条：git archive HEAD 建 headtree，逐类比对 model_fields（注解做 0xADDR 归一以消除跨模块实例地址差异），实测 8 个既有类零字段删除、零注解放宽，WeightVersionDoc 8->9 仅 +provenance，新增 6 类共 42 字段；4 处删除行定位为 HEAD L1/L56/L57/L338 全是 docstring 改写（ORCH-21 原文预估的 L427/L477 是 R4 时点工作树行号，与 HEAD 行号不可直接比对，已按「意图」而非「行号字面」判定通过）",
+        "L6/R5 落库 S1-T03：git add -A（9 files, +6914/-15）-> 中文 commit 6e1167a（message 6457 B / 69 行，含任务号+档位+实现+测试+裁决+证据六段）-> git ls-remote origin 探活 rc=0 -> git push origin main（4c9318b..6e1167a）-> rev-list origin/main..HEAD = 0、porcelain 空",
+        "counters 口径裁决（写进本条留痕）：§3.4 要求「按档位分布」，S1-T03 是 C3 首派 qwen3.8-max、未经 flash 首试，故 max_tasks +1（1->2）、flash_tasks 不变（保持 2）、escalations +0（保持 1）；交接摘要写的「flash_tasks 2->3」与「首派 max」自相矛盾，按实测派工事实取后者，不虚增低档占比（成本护栏「低档任务数占比 >=60%」当前 2/3=67% 仍达标）",
+        "rework_rounds 口径：只计 L5/R6 复核后返工轮次 = 1（4->5）；ORCH-20 裁决后那次「改 RED 测试」属 L1 环节内修订不计返工，故 r6_rounds=1 而 R6 实际被调用 2 次，两者差异在此显式留痕",
+        "登记 B-016（H-1~H-5 键集不在 S1-T03 授权行区间内 -> models 层不封闭键集，转 S8-T01）、B-017（pyproject addopts 已含 -q，命令行再传 -q 叠加成 -qq 会静默吞掉 pytest 汇总计数行，导致 RED/GREEN 证据静默失效）、B-018（RK-13 [L1777] 的 ENTROPY_UNSTABLE 标注是诊断输出不是快照输入，models 层不设载体；S1-T04 建 EntropyDiagnosticRow 时预留标注位，S8-T01 填语义并在 reason_codes.py 注册）",
+        "踩坑并处置：mk_blockers_t03.py 首版把 B-017 单元格里的字面 | （正则 (failed|passed) 与 pytest | grep 管道）直接写进 markdown 表格，实测该行变成 9 列而表头 7 列 -> 表格断裂；改为 esc() 统一转义为 \\| 并加断言「新行列数 == 表头列数」，重跑实测 3 行均 7 列",
+        "踩坑并处置：主控探针 chk_fields.py 首版把 sys.path 插成 modpath 的 dirname（.../dsm）导致 from dsm import numeric 失败 ModuleNotFoundError；改为插仓库根 + 每次导入前清 sys.modules 里的 dsm.* 缓存，才能在同一进程内先后加载 headtree 与工作树两份 dsm.models",
+        "会话自检 selfcheck.py 唯一 FAIL 项是 porcelain 非空（8 项 S1-T03 待落库产物），属本流程自身产生的在制品，不触发 §10.1-3（该项针对「非本流程产生的改动」）；落库后 porcelain 已实测为空"
+      ],
+      "next_task": "S1-T04",
+      "resume_level": "T1（同会话直接续跑 S1-T04，S1 严格串行）",
+      "seq": 5
     }
   ],
   "artifacts": {
@@ -535,5 +669,5 @@
     "orch_template": "docs/ORCH-TEMPLATE-v1.0.md",
     "run_prompt": "docs/RUN-UNATTENDED-v1.0.md"
   },
-  "next_task": "S1-T03"
+  "next_task": "S1-T04"
 }
