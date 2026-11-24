@@ -1575,7 +1575,7 @@
       "module": "修复 D-B1-01：attainment._apply_missing_rule 对『整行缺失』不分派，四分支塌缩（违反 G-09）",
       "cx": "C3",
       "model": "max",
-      "status": "running",
+      "status": "done",
       "deps": [
         "B1",
         "E2"
@@ -1584,12 +1584,12 @@
       "prod_max": 200,
       "tf_max": 12,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 39,
+        "prod": 299,
+        "tf": 32,
+        "pass": 40,
+        "fail": 2,
+        "commit": "996e1c3",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
@@ -1598,7 +1598,9 @@
       "effort": "high",
       "token_budget_k": 60,
       "adhoc": true,
-      "plan_scope": false
+      "plan_scope": false,
+      "gaps_reported": 4,
+      "note": "根因：_apply_missing_rule 只挂在 [L930] actual<0，而 [L1156]『缺行而不是空列』才是 fixtures 构造形态 → 四分支塌缩。改为唯一分派表（2 触发 × 4 规则）。g09 三手算值逐位命中（ZERO 0.399159663866/0.826551606617、IMPUTE 1.015000000000/0.957463649660/0.966445891652、BLOCK 0 行+DowngradeAction NOT_ASSESSED）；SKIP 仍一致 0.757511111111；g01/g02/g09 转绿，g04/g08 属 D-A1-02。用 /tmp 仅回滚本包 2 文件的对照实验排除对 spine normalize 的责任"
     },
     "SEAM-1": {
       "lane": "adhoc",
@@ -1734,7 +1736,7 @@
       "module": "E4b（test_p13b 按真实签名重写）+ E5b（ALLOWED['L0a'] 收紧为 ('L1',)，L0b 不放宽）",
       "cx": "C2",
       "model": "flash",
-      "status": "running",
+      "status": "done",
       "deps": [
         "E4",
         "E5",
@@ -1744,12 +1746,12 @@
       "prod_max": 300,
       "tf_max": 20,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 30,
+        "prod": 0,
+        "tf": 2,
+        "pass": 27,
+        "fail": 0,
+        "commit": "c8f3fb6",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
@@ -1759,7 +1761,9 @@
       "token_budget_k": 40,
       "adhoc": true,
       "plan_scope": false,
-      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md",
+      "gaps_reported": 2,
+      "note": "E4b：test_p13b 改用真实 CalibrationInputs + 注入钩子，断言强度 1 assert → 22 asserts + 5 raises（含 8 键×缺失/PLACEHOLDER 16 次拒绝、RK-12 中途篡改→GovernanceBudgetTamperError、config 逐字节不变）。E5b：ALLOWED['L0a'] 收紧为 ('L1',)，L0b 维持 L1-L5 未放宽，新增 whatif 零 L0/L6 边守卫；实测 whatif→audit 边已消失（A4 9078201 生效）。全量 failed 12→8"
     },
     "C2b": {
       "lane": "adhoc",
@@ -1971,12 +1975,12 @@
     "bookkeeping_note": "主控两次漏记在跑包状态（C2、F3）；根因是派发与状态落盘分处两个工具调用。已改为：每次 spawn 后的下一次状态写入必须核对 active_agents 与 work_packages.status 双向一致",
     "work_packages_total": 48,
     "plan_scope_total": 31,
-    "done": 30,
-    "running": 6,
-    "pending": 5,
+    "done": 37,
+    "running": 3,
+    "pending": 4,
     "done_plan_scope": 24,
-    "updated_at_epoch": 1795556956.0,
-    "blocked": 7,
+    "updated_at_epoch": 1795558736.6,
+    "blocked": 4,
     "plan_scope_done": 26,
     "plan_scope_complete": true
   },
@@ -2238,6 +2242,16 @@
       },
       "event": "C2b 交付 + ORCH-30 自我纠错",
       "detail": "撤回 ORCH-29 第3条的 BLOCK 分支；主流程真阻塞重定位为 D-A1-04；A1c 升最高优先；R-15 第2批排队等 EFIX-1；A2b/A3b/C2b 已提交（41f0e13/dcf12e4/10df9f8）"
+    },
+    {
+      "at": {
+        "epoch": 1795558736.6,
+        "elapsed_h": 5.022,
+        "hard_stop_h": 10.0,
+        "remaining_h": 4.978
+      },
+      "event": "EFIX-1/B1b 收口",
+      "detail": "全量 failed 8（spine6+golden_a2）；D-B1-01/D-A2-01/D-A3-01 关闭；R-15 第2批新增 B1b 的 missing_rule 处置码需求与 4 项 models 容器问题"
     }
   ],
   "model_routing": {
@@ -2629,14 +2643,6 @@
     "D-6_min_honesty": "上报行 MIN 必须是从收到任务到 commit 的墙钟分钟，并明示主控会用 git 时间戳独立核实。依据：F1 探针实测 agent 自报 15min vs 独立核实 21min，自报偏乐观 29%"
   },
   "active_agents": {
-    "B1b": {
-      "agent_id": "01a20f7c-f576-7cb1-877f-38e1da917e1a",
-      "nickname": "Euler",
-      "model_id": "qwen3.8-max",
-      "effort": "high",
-      "adhoc": true,
-      "spawned_at_epoch": 1795556435.3
-    },
     "SEAM-1": {
       "agent_id": "01a20f7f-56e0-77c1-bbd8-4756d16be547",
       "nickname": "Avicenna",
@@ -2658,14 +2664,6 @@
       "nickname": "Epicurus",
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "adhoc": true,
-      "spawned_at_epoch": 1795556956.0
-    },
-    "EFIX-1": {
-      "agent_id": "01a20f85-bf11-7101-80ca-dec65cff37d7",
-      "nickname": "Pascal",
-      "model_id": "qwen3.8-flash",
-      "effort": "medium",
       "adhoc": true,
       "spawned_at_epoch": 1795556956.0
     }
@@ -2849,6 +2847,17 @@
       "decision": "出 ORCH-30：①撤回「C-08 表级缺失→整轮 BLOCK」（原文无据，表级故障走 io 层退出码 4 / M21 L892）；②定口径 severity 属签认属性不得改写、是否阻断只看 blocks_run；③主流程真阻塞重定位为 D-A1-04，A1c 升为最高优先且以该项为第一优先；④R-15 第 2 批排程等 EFIX-1；⑤预先声明 A1c 后复现哈希必然改变，避免后续误判为造假",
       "adr": "docs/adr/RUN-ORCH-30-c08-retraction-and-r15-batch2.md",
       "self_correction": "主控在 ORCH-29 第 3 条犯了与 E5 同类的错误：凭『合理推断』补齐原文未写的 BLOCK 分支。已记 L-05"
+    },
+    "RT-16": {
+      "at": {
+        "epoch": 1795558736.6,
+        "elapsed_h": 5.022,
+        "hard_stop_h": 10.0,
+        "remaining_h": 4.978
+      },
+      "trigger": "EFIX-1/B1b 收口，全量 failed 降至 8（spine×6 + golden_a g04/g08），二者根因均为 fixtures 缺陷与池键顺序",
+      "decision": "剩余关键路径收敛为三件：A1c（fixtures 受控解冻，等 E3 落地以免污染其手算）→ E2b/E3b（golden expects 按新数据重算）→ MODELS-1（池键顺序，等 SEAM-1）→ P2（全量 0 failed）→ P3a/P3b/P3c。R-15 第 2 批等 ARCH-1/SEAM-1 上报后一次做完",
+      "slots": "3 在飞（ARCH-1 收尾 / SEAM-1 / E3）+ 3 空；空槽用于 P3a-prep 与 P3c-prep 两个纯文档证据包（工作前移，不追加范围），保留 1 槽给 E3 落地后立即派 A1c"
     }
   },
   "contract_gaps_pending": [
@@ -3285,10 +3294,13 @@
       "file": "dsm/weights_combine.py",
       "symptom": "H-9 INV-1 violation: [('weights_combine.py','dsm.weights_ahp')]",
       "root_cause": "L0a 直接 import L0b 以取 AHP 结果，违反『任何 dsm 模块不得 import L0 模块』",
-      "status": "OPEN",
+      "status": "CLOSED",
       "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md（驳回 E5 的合法性判定，维持数据注入方向）",
       "fix_package": "A2b",
-      "constraint": "公开签名冻结；等 A3/A4 落地后派；禁 TYPE_CHECKING/try-import/importlib 隐藏"
+      "constraint": "公开签名冻结；等 A3/A4 落地后派；禁 TYPE_CHECKING/try-import/importlib 隐藏",
+      "fix_commit": "41f0e13",
+      "fixed_at": "T+5.1h",
+      "fix": "Step1 改消费 AhpHierarchySnapshot 快照数据；run_six_steps/build_draft 新增 keyword-only 必填 elicit_hierarchy"
     },
     {
       "id": "D-A1-01",
@@ -3308,9 +3320,12 @@
       "found_by": "E5 tests/test_architecture.py（commit 4140ad0）",
       "file": "dsm/weights_calibrate.py",
       "symptom": "L84/L85 import weights_ahp/weights_combine，违反 M00 L294（L0b→L1-L5）",
-      "status": "OPEN",
+      "status": "CLOSED",
       "fix_package": "由调用方注入组合后权重快照",
-      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md",
+      "fix_commit": "dcf12e4",
+      "fixed_at": "T+5.1h",
+      "fix": "四个 L0a 能力改为 CalibrationInputs 上 keyword-only 必填注入（combine_fn/options_fn/entropy_window_fn/insufficient_sample_error）；calibrate(grid,window,inputs,config) 冻结 marshal 不变"
     },
     {
       "id": "D-A4-01",
@@ -3344,9 +3359,11 @@
       "found_by": "E2 tests/test_golden_a.py（commit d3b3d5f，手算期望值独立重算）",
       "file": "dsm/attainment.py",
       "symptom": "_apply_missing_rule 只在『事实行存在且 value<0』时分派；A1 构造的是整行缺失 → ZERO/IMPUTE_MEDIAN/BLOCK/SKIP 四分支塌缩，违反 G-09。E2 手算：ZERO 应出 1 行 attainment=0、COST 0.399159663866、composite 0.826551606617；实测 0 行、0.798319327731、0.882433959559。IMPUTE_MEDIAN 应 1.015000000000/0.957463649660/0.966445891652；实测 0 行/0.919106082767/0.958390802604。BLOCK 应不出分；实测出分 1.161723266903",
-      "status": "OPEN",
+      "status": "CLOSED",
       "fix_package": "B1b",
-      "ruling": "E2 上报（golden G-09）"
+      "ruling": "E2 上报（golden G-09）",
+      "fix_commit": "996e1c3",
+      "fixed_at": "T+5.2h"
     },
     {
       "id": "D-SEAM-01",
@@ -3581,13 +3598,26 @@
         "m03": "ARCH-1",
         "p13b": "EFIX-1"
       }
+    },
+    "after_EFIX1_B1b": {
+      "failed": 8,
+      "commit": "c8f3fb6",
+      "split": {
+        "test_integration_spine": 6,
+        "test_golden_a_g04_g08": 2
+      },
+      "ownership": {
+        "spine6": "A1c(fixtures) + MODELS-1(池键顺序)",
+        "golden_a_g04_g08": "A1c（D-A1-02 证据分布 A3B3C4D2）"
+      },
+      "note": "m03 已由 A2b 转绿；p13b 已由 EFIX-1 转绿；calibrate 24 条已由 A3b 转绿；preflight/pooling/normalize/io_loaders 全绿"
     }
   },
   "clock_now": {
-    "epoch": 1795558641.1,
-    "elapsed_h": 4.995,
+    "epoch": 1795558736.6,
+    "elapsed_h": 5.022,
     "hard_stop_h": 10.0,
-    "remaining_h": 5.005
+    "remaining_h": 4.978
   },
   "gap_adjudications_SP2": {
     "new_gaps_reported_wave1_2": {
@@ -3685,9 +3715,20 @@
       {
         "from": "A4",
         "code": "APPROXIMATE_ATTRIBUTION"
+      },
+      {
+        "from": "B1b",
+        "code": "『事实行缺失已按 missing_rule 处置』码",
+        "why": "ZERO/IMPUTE 合成行的 reason_code 现只能为 null；不得挪用 MISSING_RATE_WARN"
       }
     ],
     "discipline": "主控统一改 dsm/reason_codes.py + tests/test_reason_codes.py；先盘点已注册 79 码，只补缺失者；不得重复注册、不得改名既有码（ADJ-3 一律用注册名）",
-    "ruling": "docs/adr/RUN-ORCH-30-c08-retraction-and-r15-batch2.md 第 4 条"
+    "ruling": "docs/adr/RUN-ORCH-30-c08-retraction-and-r15-batch2.md 第 4 条",
+    "models_questions": [
+      "B1b 的 AttainmentResult(AttainmentFrame) 带 downgrades 是否收进 models.py",
+      "A4 的 WhatifReport 等 8 个输出模型是否从 whatif.py 上移 models.py",
+      "C5 请求 PoolStats 加 flags 列（照 SensitivityReport.flags）",
+      "F3 请求 EntropyDiagnostic/CollinearityReport 容器"
+    ]
   }
 }
