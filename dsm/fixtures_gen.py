@@ -16,7 +16,7 @@ import random
 from datetime import date, datetime
 from decimal import Decimal
 
-from dsm import models
+from dsm import models, reason_codes
 
 _D = Decimal
 GENERATOR_VERSION = 'fixtures_gen-1.0'
@@ -313,13 +313,13 @@ def design_card_rows(downgrade_to_c=()):
 def redline_rows():
     return ({'metric_id': 'M_CONTACT_FREQ_PER_30D', 'level': 'HARD', 'comparator': 'GT',
              'threshold_value': 4, 'forced_grade': 'L4',
-             'reason_code': 'REDLINE_HARD_M_CONTACT_FREQ_PER_30D', 'waiver_allowed': True},
+             'reason_code': reason_codes.redline_hard('M_CONTACT_FREQ_PER_30D'), 'waiver_allowed': True},
             {'metric_id': 'M_COMPLAINT_RATE', 'level': 'HARD', 'comparator': 'GT',
              'threshold_value': _D('0.005000'), 'forced_grade': 'L4',
-             'reason_code': 'REDLINE_HARD_M_COMPLAINT_RATE', 'waiver_allowed': True},
+             'reason_code': reason_codes.redline_hard('M_COMPLAINT_RATE'), 'waiver_allowed': True},
             {'metric_id': 'M_OPTOUT_RATE', 'level': 'SOFT', 'comparator': 'GT',
              'threshold_value': _D('0.080000'), 'forced_grade': 'L4',
-             'reason_code': 'REDLINE_SOFT_M_OPTOUT_RATE', 'waiver_allowed': False})
+             'reason_code': reason_codes.redline_soft('M_OPTOUT_RATE'), 'waiver_allowed': False})
 
 
 def weight_version(wid, l1, eff_to, status='FROZEN'):
@@ -479,7 +479,7 @@ def build_negative():
     return {'G11_money_non_integer': {
         'golden_refs': ('G-11',), 'table': 'metric_fact',
         'expect_rejected_by': 'models.MetricFactRow',
-        'expect_reason_code': 'MONEY_NON_INTEGER',
+        'expect_reason_code': reason_codes.RC.MONEY_NON_INTEGER.value,
         'purpose': 'MONEY_MINOR 字段传入非整数 -> preflight BLOCK，不产出 score_card',
         'row': row}}
 
