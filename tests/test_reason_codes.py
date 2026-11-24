@@ -14,6 +14,7 @@ from dsm.reason_codes import (
     _DEFS,
     _META,
     batch2_codes,
+    batch3_codes,
     blocks_run,
     blocks_run_codes,
     all_codes,
@@ -241,6 +242,13 @@ BATCH2_NEW = (
     'MISSING_FACT_RULE_APPLIED',
 )
 BATCH2_TOTAL = BATCH2_PRE_EXISTING + len(BATCH2_NEW)
+# --- CODES-2 第 3 批（ORCH-40）：范围过滤披露码。总数钉子随之上移一层，
+# 任何漂移（多注册 / 少注册 / 改名）依然会在这里炸出来。
+BATCH3_NEW = (
+    'EV_OUT_OF_EVAL_PERIOD',
+)
+BATCH3_TOTAL = BATCH2_TOTAL + len(BATCH3_NEW)
+BATCH3_EXPECTED_SEVERITY = {'EV_OUT_OF_EVAL_PERIOD': 'INFO'}
 # R-12：severity 原文无严重度列、只按 V-14『不得静默』暂登记的码。这个清单只许缩短
 # （主控裁决后换成 verbatim 依据），不许悄悄变长。
 BATCH2_PLACEHOLDER_SEVERITY = ('SPEARMAN_ZERO_VARIANCE', 'APPROXIMATE_ATTRIBUTION')
@@ -263,8 +271,8 @@ BATCH2_EXPECTED_SEVERITY = {
 
 
 def test_batch2_total_code_count_is_pinned_against_drift():
-    assert len(list(RC)) == len(all_codes()) == len(_META) == BATCH2_TOTAL
-    assert len(_DEFS) == BATCH2_TOTAL, '每行 _DEFS 恰是一个码'
+    assert len(list(RC)) == len(all_codes()) == len(_META) == BATCH3_TOTAL
+    assert len(_DEFS) == BATCH3_TOTAL, '每行 _DEFS 恰是一个码'
     assert len(batch2_codes()) == len(BATCH2_NEW) == 11
 
 
@@ -282,7 +290,8 @@ def test_batch2_does_not_rename_or_shadow_any_pre_existing_code():
     assert not (set(BATCH2_NEW) & set(CONTRACT_BLOCK_CODES))
     assert not (set(BATCH2_NEW) & set(CONTRACT_DISCLOSURE_CODES))
     assert BATCH2_TOTAL - len(BATCH2_NEW) == BATCH2_PRE_EXISTING
-    still_there = [c for c in all_codes() if c not in BATCH2_NEW]
+    still_there = [c for c in all_codes()
+                   if c not in BATCH2_NEW and c not in BATCH3_NEW]
     assert len(still_there) == BATCH2_PRE_EXISTING
 
 
@@ -319,7 +328,7 @@ def test_batch2_every_code_carries_reason_owner_and_verbatim_basis():
         head = sev_basis.split(':', 1)[0]
         assert head in ('verbatim', 'derived', 'PLACEHOLDER'), (name, head)
         assert head != 'PLACEHOLDER' or 'L' in sev_basis, name
-    assert tuple(sorted(_BASIS)) == tuple(sorted(BATCH2_NEW))
+    assert tuple(sorted(_BASIS)) == tuple(sorted(BATCH2_NEW + BATCH3_NEW))
 
 
 def test_batch2_placeholder_severities_are_disclosed_not_hidden():
@@ -342,3 +351,40 @@ def test_batch2_seam1_preabsorption_keeps_the_orch28_semantics():
     assert severity('INACTIVE_METRIC') is Severity.WARN
     assert severity('POOL_TOO_SMALL') is Severity.WARN
     assert 'SMALL_POOL' not in BATCH2_NEW and 'INACTIVE_METRIC' not in BATCH2_NEW
+
+
+# --- CODES-2 第 3 批（ORCH-40）：EV_OUT_OF_EVAL_PERIOD ---------------------------
+def test_batch3_total_code_count_is_pinned_against_drift():
+    assert len(batch3_codes()) == len(BATCH3_NEW) == 1
+    assert BATCH3_TOTAL == BATCH2_TOTAL + 1
+    assert len(_DEFS) == len(all_codes()) == BATCH3_TOTAL
+
+
+def test_batch3_out_of_eval_period_is_info_and_does_not_block_the_run():
+    # ORCH-30 第 2 条：severity 与 blocks_run 分离登记。本码是「正常换版/退役」的披露，
+    # 不是缺陷也不是阻断；若被改成 BLOCK 就会把范围外主体又算回 NOT_ASSESSED 单列明细，
+    # 污染 ORCH-36/ORCH-37 第 6 条裁定的「占比双报分母 11」口径。
+    name = 'EV_OUT_OF_EVAL_PERIOD'
+    assert is_registered(name) and getattr(RC, name).value == name
+    assert BATCH3_EXPECTED_SEVERITY[name] == 'INFO'
+    assert severity(name) is Severity.INFO
+    assert severity(RC[name]) is Severity.INFO
+    assert blocks_run(name) is False and blocks_run(RC[name]) is False
+    assert name not in _BLOCKS_RUN
+    assert message(name).strip() and owner_hint(name).strip()
+
+
+def test_batch3_carries_a_citable_basis_and_is_not_a_clone_of_an_existing_code():
+    # R-12：依据必须点名原文位置（Mxx Lnnn）或显式写 PLACEHOLDER。
+    name = 'EV_OUT_OF_EVAL_PERIOD'
+    sev_basis, block_basis, consumer = basis(name)
+    assert _BASIS[name] == basis(RC[name])
+    for text in (sev_basis, block_basis, consumer):
+        assert text.strip()
+    assert sev_basis.split(':', 1)[0] in ('verbatim', 'derived', 'PLACEHOLDER')
+    assert block_basis.split(':', 1)[0] in ('verbatim', 'derived', 'PLACEHOLDER')
+    assert 'L' in sev_basis and 'L' in block_basis
+    # 不得挪用既有码的 message（挪用即虚报，同 MISSING_FACT_RULE_APPLIED 的先例）。
+    for other in ('NOT_ASSESSED', 'EV_D_NOT_ASSESSED', 'GR_VERSION_BREAK',
+                  'EVIDENCE_CARD_MISSING'):
+        assert message(name) != message(other), other

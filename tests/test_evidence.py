@@ -28,7 +28,7 @@ from dsm.models import (AttainmentFrame, AttainmentRow, DesignCardRow,
                         EvidenceRow, MetricFactRow, NormalizedFrame,
                         NormalizedRow, PoolKey, WeightVersionDoc)
 from dsm.numeric import D
-from dsm.reason_codes import RC
+from dsm.reason_codes import RC, Severity, blocks_run, is_registered, severity
 
 P = '2026Q1'
 VER = 'v1'
@@ -420,8 +420,8 @@ def test_retired_version_card_stays_visible_for_the_g08_version_break():
 
 def test_out_of_period_cards_are_disclosed_not_silently_dropped():
     '''V-14：被评价期过滤掉的卡必须有披露位，不得静默丢弃；披露码槽是显式的
-    PLACEHOLDER（dsm/reason_codes.py 由主控单点管理，本包不自行注册新码，也不裸写
-    字面量冒充当注册码，见 dsm_stage/EVID-1/NEED-CODES.md）。
+    注册码（dsm/reason_codes.py 由主控单点管理；ORCH-40 / CODES-2 已把原 PLACEHOLDER
+    换成 RC.EV_OUT_OF_EVAL_PERIOD，需求原文见 dsm_stage/EVID-1/NEED-CODES.md）。
 
     另断言：事实行为空时「本期」无法界定 -> period_established = False 且一张卡都
     不过滤（既不静默收窄口径，也不把全部卡静默丢掉）。'''
@@ -433,7 +433,12 @@ def test_out_of_period_cards_are_disclosed_not_silently_dropped():
     assert (dropped.strategy_id, dropped.version_id) == ('S5', 'v1')
     assert dropped.basis == evidence.SCOPE_BASIS_NO_FACT_ROW
     assert isinstance(dropped.reason_code, str) and dropped.reason_code
-    assert dropped.reason_code == evidence.PLACEHOLDER_OUT_OF_PERIOD_CODE
+    assert dropped.reason_code == evidence.OUT_OF_PERIOD_CODE
+    # ORCH-40 / CODES-2：披露码必须是真注册码，且是 INFO 级、不阻断本轮（精确化，非弱化）。
+    assert dropped.reason_code == RC.EV_OUT_OF_EVAL_PERIOD.value
+    assert is_registered(dropped.reason_code)
+    assert severity(dropped.reason_code) is Severity.INFO
+    assert blocks_run(dropped.reason_code) is False
 
     empty = evidence.evaluation_scope(cards, ())
     assert empty.period_established is False

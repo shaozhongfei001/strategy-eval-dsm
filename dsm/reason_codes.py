@@ -73,6 +73,13 @@ _DEFS = (
     ('EV_C_OBSERVATIONAL', 'INFO', '仅观测数据，证据等级 C', '策略设计者'),
     ('EV_D_NOT_ASSESSED', 'BLOCK', '不可评价，证据等级 D', '策略设计者'),
 
+    # ---- CODES-2 第 3 批（ORCH-40；EVID-1 的 dsm_stage/EVID-1/NEED-CODES.md 上报，主控单点注册）----
+    # 语义：评价设计卡存在，但该 (strategy_id, version_id) 在本期评价范围（L1063 ②）内
+    # 没有任何事实行 -> 本期不出证据行、不计入证据结构 A/B/C/D 计数（L1003 / L1063 ⑦ /
+    # L1459）；卡本身保留，供 Step6 版本断裂判定（L1117 / G-08）使用。
+    # severity 与 blocks_run 的逐字依据登记在 _BASIS['EV_OUT_OF_EVAL_PERIOD']（R-12）。
+    ('EV_OUT_OF_EVAL_PERIOD', 'INFO', '该策略版本本期无事实行，不在本期评价范围内，未计入证据结构计数（设计卡保留）', '策略管理部门'),
+
     # ---- redline ----------------------------------------------------------
     ('REDLINE_HARD_HIT', 'BLOCK', '命中硬红线，综合分照算并披露但不生效', '风险合规部门'),
     ('REDLINE_SOFT_HIT', 'WARN', '命中软红线，已独立扣减并单列，未进入加权', '风险合规部门'),
@@ -246,6 +253,14 @@ _BATCH2 = (
     'MISSING_FACT_RULE_APPLIED',
 )
 
+# --- CODES-2 第 3 批（ORCH-40）：范围过滤披露码 --------------------------------
+# EVID-1 修 D-EVID-01 时发现现有注册码无一等于「本期无事实行 -> 不在评价期范围」：
+# NOT_ASSESSED / EV_D_NOT_ASSESSED 是 BLOCK 级「范围内不可评价」，GR_VERSION_BREAK 是 Step6
+# 挂 GradeRow 的 INFO 标注，EVIDENCE_CARD_MISSING 语义相反。故新注册一码，不挪用、不叠加。
+_BATCH3 = (
+    'EV_OUT_OF_EVAL_PERIOD',
+)
+
 # blocks_run=True 的码：本轮不产出 score_card（M22 L917）。
 _BLOCKS_RUN = frozenset((
     'DESIGN_CARD_TABLE_ABSENT',
@@ -336,6 +351,18 @@ _BASIS = {
         "MISSING_RATE_BLOCK / NOT_ASSESSED 承担",
         'dsm/attainment.py:524（ZERO 合成行 reason_code=None）、:528（SKIP 行 None）、:532（IMPUTE 分支）'
         '→ 归属 B1b / A1c'),
+    'EV_OUT_OF_EVAL_PERIOD': (
+        "derived: M26 L1063 ②「本期评价范围与覆盖率」与 ⑦「证据结构（A/B/C/D 计数与 "
+        "NOT_ASSESSED 明细）」+ L1003 / L1459 同口径；L1117「跨版本不做趋势比较」与 L1121/L1123 的"
+        "版本退役字段说明「换版/退役」是正常业务事实而非缺陷。原文未给本码独立严重度列，"
+        "故与同语义族的 GR_VERSION_BREAK（INFO）对齐取 INFO；属推定链，须业务签认（ORCH-30 第 2 条："
+        "severity 是签认属性，是否阻断只看 blocks_run）",
+        "derived: 范围过滤只改变证据结构计数的分母，不属 M22 L917「BLOCK 行 | 只写 audit_bundle…"
+        "不产出 score_card」的任一情形；且被滤版本期本就没有事实行、也就没有分数行（EVID-1 实测："
+        "改前改后 reproducibility_hash 同值），无阻断必要 -> blocks_run=False",
+        'dsm/evidence.py:226（ScopeExclusion.reason_code，evidence.evaluation_scope() 填充）→ 报告侧接线'
+        '（report.md ②/⑦ 段）在 dsm/reports.py 与 dsm/cli.py，归 P2-wire-A；接线前披露只到 API 层，'
+        'V-14 端到端未闭环（已登记，不得当作已闭环）'),
 }
 
 
@@ -351,6 +378,11 @@ def basis(code) -> tuple:
 
 def batch2_codes() -> tuple:
     return _BATCH2
+
+
+def batch3_codes() -> tuple:
+    # CODES-2 / ORCH-40：第 3 批（目前仅范围过滤披露码）。
+    return _BATCH3
 
 
 def blocks_run_codes() -> tuple:

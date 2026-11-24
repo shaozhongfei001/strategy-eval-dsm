@@ -154,18 +154,17 @@ def _card_index(design_cards) -> dict:
 #   A1CPREP §6-B.2 / §6-B.3。原文给了「本期评价范围」这个量，但没有逐字规定它
 #   等于「本期有事实行的 (strategy_id, version_id) 对」，故判据等级 = derived，
 #   待主控签认。
-# PLACEHOLDER: dsm/reason_codes.py 现有注册码里没有「本期无事实行 -> 不在评价期
-#   范围」这一类（NOT_ASSESSED 是 BLOCK 级「本期不可评价」，GR_VERSION_BREAK 是
-#   Step6 的版本断点标注，语义都不等于范围过滤），本包不得自行注册（主控单点
-#   管理）。需求见 dsm_stage/EVID-1/NEED-CODES.md；签认后把这个常量换成注册码。
+# ORCH-40 / CODES-2：EVID-1 上报的「本期无事实行 -> 不在评价期范围」披露码已由主控
+#   单点注册为 RC.EV_OUT_OF_EVAL_PERIOD（severity INFO / blocks_run False，依据逐字登记在
+#   reason_codes._BASIS），PLACEHOLDER 已消除。需求原文见 dsm_stage/EVID-1/NEED-CODES.md。
 SCOPE_BASIS_NO_FACT_ROW = 'NO_FACT_ROW_IN_EVAL_PERIOD'
-PLACEHOLDER_OUT_OF_PERIOD_CODE = 'PLACEHOLDER'
+OUT_OF_PERIOD_CODE = RC.EV_OUT_OF_EVAL_PERIOD.value
 
 
 class ScopeExclusion(BaseModel):
     '''一条「设计卡存在但不在本期评价范围」的披露（V-14：过滤不得静默丢弃）。
 
-    reason_code 目前是 PLACEHOLDER，但它**必须是显式字段**：调用侧（spine / cli /
+    reason_code 已由主控注册为 RC.EV_OUT_OF_EVAL_PERIOD（ORCH-40），且**必须是显式字段**：调用侧（spine / cli /
     report.md ②⑥ 段）拿这个元组去披露，而不是自己猜哪些卡被过滤掉了。basis 记
     判据本身，便于第二人复算（V-3）。'''
 
@@ -223,7 +222,7 @@ def evaluation_scope(design_cards, facts) -> EvidenceScope:
     excluded = tuple(
         ScopeExclusion(strategy_id=sid, version_id=ver,
                        basis=SCOPE_BASIS_NO_FACT_ROW,
-                       reason_code=PLACEHOLDER_OUT_OF_PERIOD_CODE)
+                       reason_code=OUT_OF_PERIOD_CODE)
         for sid, ver in card_keys if (sid, ver) not in in_period)
     return EvidenceScope(in_period=tuple(sorted(in_period)), excluded=excluded,
                          period_established=True)
