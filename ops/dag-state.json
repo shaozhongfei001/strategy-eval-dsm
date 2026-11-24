@@ -1043,7 +1043,7 @@
       "module": "tests/test_architecture.py",
       "cx": "C3",
       "model": "max",
-      "status": "running",
+      "status": "done",
       "deps": [
         "E4"
       ],
@@ -1051,12 +1051,12 @@
       "prod_max": 0,
       "tf_max": 12,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 28,
+        "prod": 0,
+        "tf": 11,
+        "pass": 8,
+        "fail": 3,
+        "commit": "4140ad0",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
@@ -1064,7 +1064,8 @@
       "model_id": "qwen3.8-max",
       "effort": "high",
       "token_budget_k": 90,
-      "note": "ORCH-09 后排程：填补 A3 之后的空档（4.25→4.92）。已知时序限制：执行时 cli.py 等可能未落地，覆盖不完整，Phase 2 全量回归时必须重跑一次"
+      "note": "3 条 RED 全为真实生产缺陷（D-A3-01 / D-A4-01 / D-A4-02）+ D-A1-01；断言未弱化。GAPS 全文见 dsm_stage/E5/GAPS-E5.md",
+      "gaps_reported": 9
     },
     "F1": {
       "lane": "F",
@@ -1405,7 +1406,7 @@
     },
     "A2b": {
       "lane": "adhoc",
-      "module": "消除 weights_combine→weights_ahp 的 H-9/INV-1 import 边（公开签名冻结）",
+      "module": "消除 weights_combine→weights_ahp（L0a→L0a）：改为消费 AHP 快照注入",
       "cx": "C3",
       "model": "max",
       "status": "blocked_on_A3_A4",
@@ -1415,8 +1416,8 @@
         "A4"
       ],
       "budget_min": 30,
-      "prod_max": 100,
-      "tf_max": 6,
+      "prod_max": 120,
+      "tf_max": 8,
       "ev": {
         "min": null,
         "prod": null,
@@ -1431,6 +1432,128 @@
       "model_id": "qwen3.8-max",
       "effort": "high",
       "token_budget_k": 40,
+      "adhoc": true,
+      "plan_scope": false,
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+    },
+    "A1b": {
+      "lane": "adhoc",
+      "module": "修复 D-A1-01：fixtures_gen.py 四处 reason_code 裸字面量（P-8），重生成 fixtures 须逐字节相同",
+      "cx": "C1",
+      "model": "flash",
+      "status": "running",
+      "deps": [
+        "A1",
+        "E5"
+      ],
+      "budget_min": 30,
+      "prod_max": 60,
+      "tf_max": 4,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 30,
+      "adhoc": true,
+      "plan_scope": false
+    },
+    "A3b": {
+      "lane": "adhoc",
+      "module": "消除 weights_calibrate L84/L85 → weights_ahp/weights_combine（L0b→L0a）：改注入组合后权重快照",
+      "cx": "C3",
+      "model": "max",
+      "status": "blocked",
+      "deps": [
+        "A3",
+        "A2b"
+      ],
+      "budget_min": 30,
+      "prod_max": 120,
+      "tf_max": 8,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 40,
+      "adhoc": true,
+      "plan_scope": false,
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+    },
+    "A4b": {
+      "lane": "adhoc",
+      "module": "消除 whatif L262/L275 → audit（L0b→L6）：哈希改 callable 注入；并修 L571/L76 裸字面量",
+      "cx": "C3",
+      "model": "max",
+      "status": "blocked",
+      "deps": [
+        "A4"
+      ],
+      "budget_min": 30,
+      "prod_max": 120,
+      "tf_max": 8,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 40,
+      "adhoc": true,
+      "plan_scope": false,
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+    },
+    "E5b": {
+      "lane": "adhoc",
+      "module": "收紧 tests/test_architecture.py 的 ALLOWED['L0a'] 为 ('L1',)（ORCH-27 第 6 条）",
+      "cx": "C1",
+      "model": "flash",
+      "status": "pending",
+      "deps": [
+        "E5",
+        "A2b"
+      ],
+      "budget_min": 15,
+      "prod_max": 0,
+      "tf_max": 2,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 20,
       "adhoc": true,
       "plan_scope": false
     }
@@ -1547,13 +1670,14 @@
     "pkgs_total": 31,
     "stale_number_sweep": "2026-11-24 已清除 doc 内 ORCH-09 前过期口径 8 处（头部答案/§1目标2/P2·P3a·P3b·P3c 时间窗/内嵌状态模板 plan·lanes·sync_points·counters）",
     "bookkeeping_note": "主控两次漏记在跑包状态（C2、F3）；根因是派发与状态落盘分处两个工具调用。已改为：每次 spawn 后的下一次状态写入必须核对 active_agents 与 work_packages.status 双向一致",
-    "work_packages_total": 35,
+    "work_packages_total": 39,
     "plan_scope_total": 31,
-    "done": 24,
+    "done": 25,
     "running": 5,
-    "pending": 5,
-    "done_plan_scope": 22,
-    "updated_at_epoch": 1795554977.7
+    "pending": 6,
+    "done_plan_scope": 23,
+    "updated_at_epoch": 1795555924.0,
+    "blocked": 3
   },
   "next_dispatch": {
     "immediate": "A2b（等 A3+A4 落地，签名冻结，消除 H-9 import 边）",
@@ -1773,6 +1897,16 @@
       },
       "event": "SP-2 同步点（延后执行）",
       "detail": "C1b/ORCH-25 收口 → 全量 1 failed；巡检：编码 0 违规、CampaignLab 未动、24 commits 未 push；裁 ORCH-26(H-9) + ADJ-10；派 P2a 前移集成贯通"
+    },
+    {
+      "at": {
+        "epoch": 1795555924.0,
+        "elapsed_h": 4.241,
+        "hard_stop_h": 10.0,
+        "remaining_h": 5.759
+      },
+      "event": "E5 交付 + ORCH-27 终审",
+      "detail": "E5(4140ad0) 8P/3F，3 条 RED 全为真实生产缺陷；驳回 GAP-E5-01；立 5 个修复包；派 A1b"
     }
   ],
   "model_routing": {
@@ -2188,14 +2322,6 @@
       "adhoc": false,
       "spawned_at_epoch": 1795553631.4
     },
-    "E5": {
-      "agent_id": "01a20f52-969e-7590-bff9-9800aa8d2654",
-      "nickname": "Herschel",
-      "model_id": "qwen3.8-max",
-      "effort": "high",
-      "adhoc": false,
-      "spawned_at_epoch": 1795553631.4
-    },
     "P2a": {
       "agent_id": "01a20f5c-9c9a-7912-a82b-b8f354ccf118",
       "nickname": "Gauss",
@@ -2203,6 +2329,14 @@
       "effort": "high",
       "adhoc": true,
       "spawned_at_epoch": 1795554223.8
+    },
+    "A1b": {
+      "agent_id": "PENDING_ID",
+      "nickname": "A1b-lane",
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "adhoc": true,
+      "spawned_at_epoch": 1795555924.0
     }
   },
   "self_check_T0": {
@@ -2337,6 +2471,18 @@
       "trigger": "全量唯一残留 RED = H-9/INV-1（weights_combine→weights_ahp）",
       "decision": "裁 ORCH-26：H-9 断言不得弱化；消除 import 边（数据注入首选 / L1 上提次选 / 禁隐藏导入）；修复包 A2b **等 A3+A4 落地后**再派且**公开签名冻结**；P2 的 0 failed 门禁在 A2b 后才判定。同批核可 ADJ-10（ORCH-25 对 _clean_weights 的越界自判），要求 P3a 如实披露",
       "adr": "docs/adr/RUN-ORCH-26-inv1-h9-weights-combine.md"
+    },
+    "RT-12": {
+      "at": {
+        "epoch": 1795555924.0,
+        "elapsed_h": 4.241,
+        "hard_stop_h": 10.0,
+        "remaining_h": 5.759
+      },
+      "trigger": "E5 上报 GAP-E5-01（BLOCKING）主张 weights_combine→weights_ahp 合法并建议放宽 ALLOWED['L0b']",
+      "decision": "主控亲读 M00 原文 L247/L276/L277-279/L282/L286/L294/L300/L301 后**驳回**该主张，出 ORCH-27：L278『消费 L0a』读作消费产物快照；L0a→L0a 禁止；L0b 只可 import L1-L5；ALLOWED['L0b'] 不得放宽；ALLOWED['L0a'] 收紧为 ('L1',)；m03 不做 triage（修生产侧即自然转绿）。确认 5 条生产缺陷 D-A1-01/D-A2-01/D-A3-01/D-A4-01/D-A4-02，立 A1b（已派）/A2b/A3b/A4b/E5b 五个修复包，A2b~A4b 等 A3/A4 落地后派",
+      "adr": "docs/adr/RUN-ORCH-27-layer-dependency-final.md",
+      "principle": "凡『建议放宽守护』的上报，一律回到原文四行齐读再裁；收紧断言允许，弱化断言禁止"
     }
   },
   "contract_gaps_pending": [
@@ -2774,9 +2920,49 @@
       "symptom": "H-9 INV-1 violation: [('weights_combine.py','dsm.weights_ahp')]",
       "root_cause": "L0a 直接 import L0b 以取 AHP 结果，违反『任何 dsm 模块不得 import L0 模块』",
       "status": "OPEN",
-      "ruling": "docs/adr/RUN-ORCH-26-inv1-h9-weights-combine.md",
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md（驳回 E5 的合法性判定，维持数据注入方向）",
       "fix_package": "A2b",
       "constraint": "公开签名冻结；等 A3/A4 落地后派；禁 TYPE_CHECKING/try-import/importlib 隐藏"
+    },
+    {
+      "id": "D-A1-01",
+      "found_at": "T+4.2h",
+      "found_by": "E5 tests/test_architecture.py（commit 4140ad0）",
+      "file": "dsm/fixtures_gen.py",
+      "symptom": "L316/L319/L322/L482 reason_code 裸字面量，违反 P-8",
+      "status": "OPEN",
+      "fix_package": "改 RC.*.value / 既有构造器；重生成 fixtures 须逐字节相同",
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+    },
+    {
+      "id": "D-A3-01",
+      "found_at": "T+4.2h",
+      "found_by": "E5 tests/test_architecture.py（commit 4140ad0）",
+      "file": "dsm/weights_calibrate.py",
+      "symptom": "L84/L85 import weights_ahp/weights_combine，违反 M00 L294（L0b→L1-L5）",
+      "status": "OPEN",
+      "fix_package": "由调用方注入组合后权重快照",
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+    },
+    {
+      "id": "D-A4-01",
+      "found_at": "T+4.2h",
+      "found_by": "E5 tests/test_architecture.py（commit 4140ad0）",
+      "file": "dsm/whatif.py",
+      "symptom": "L262/L275 import audit(L6)，违反 M00 L294",
+      "status": "OPEN",
+      "fix_package": "目录哈希改 callable 注入（R-7 禁重复实现）",
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+    },
+    {
+      "id": "D-A4-02",
+      "found_at": "T+4.2h",
+      "found_by": "E5 tests/test_architecture.py（commit 4140ad0）",
+      "file": "dsm/whatif.py",
+      "symptom": "L571 'GR_REDLINE_FORCED' 裸字面量 + L76 NOT_ASSESSED 域常量，P-8 ratchet",
+      "status": "OPEN",
+      "fix_package": "改 RC.*（同段 L573 已用 RC.*）",
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
     }
   ],
   "environment_changes": [
@@ -2802,6 +2988,18 @@
       "observation": "并行期跑全量 pytest 被 tests/test_methods_ahp.py（D1 未跟踪半成品）的 collection error 中断，整个 suite 拿不到统计行",
       "rule_added": "同步点跑全量必须带 --continue-on-collection-errors，并在统计行之外单独记录「收集错误文件清单」；收集错误若来自未跟踪半成品，属预期，不计入 failed 基线",
       "baseline_restated": "pytest 基线 211 failed（test_config_semantic 108 / test_config_weight_version 96 / test_config_properties 7）+ 当前 1 个已登记缺陷 D-C1-01 = 212；A1/B1/C1/D1/E1/F2/B2 新增的 passed 不计入 failed"
+    },
+    {
+      "id": "L-02",
+      "at": "T+4.2h",
+      "observation": "给 E5 的派工简报写『基线 10 failed』，但 E5 实测时 C1b/ORCH-25 已落地为 1 failed，lane 误判基线不符（GAP-E5-08）",
+      "rule_added": "派工简报中的 pytest 基线数字必须标注截至哪个 commit；主控在每次提交后同步刷新基线口径"
+    },
+    {
+      "id": "L-03",
+      "at": "T+4.2h",
+      "observation": "E5 引 M00 L278/L300 支持『L0a→L0a 合法』，但未同时引 L276/L286/L294，结论被原文推翻",
+      "rule_added": "架构争议上报必须附原文逐字引文；主控裁决前须四行齐读（定义行 + 方向表 + INV 表 + 拆层动机）"
     }
   ],
   "gap_adjudications_SP1": {
@@ -2885,10 +3083,10 @@
     }
   },
   "clock_now": {
-    "epoch": 1795554977.7,
-    "elapsed_h": 3.978,
+    "epoch": 1795555924.0,
+    "elapsed_h": 4.241,
     "hard_stop_h": 10.0,
-    "remaining_h": 6.022
+    "remaining_h": 5.759
   },
   "gap_adjudications_SP2": {
     "new_gaps_reported_wave1_2": {
