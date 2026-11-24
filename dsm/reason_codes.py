@@ -125,6 +125,23 @@ _DEFS = (
     # ---- CEL (causal evidence layer, contract reserved in v1) -------------
     ('CEL_NOT_CONNECTED', 'INFO', '本期未接入增量估计，增量相关字段为空', '评价管理部门'),
     ('CEL_DISABLED_DATA_PRESENT', 'BLOCK', 'cel.enabled 为 false 但增量字段非空，拒绝参与判定', '开发'),
+
+    # ---- R15B2 第 2 批（ops/dag-state.json r15_batch_2.codes_requested / ORCH-30 第 4 条）----
+    # 每行的 severity 与 blocks_run 都另有逐字原文依据，登记在下面 _BASIS / _BLOCKS_RUN
+    # 两张表里（ORCH-30 第 2 条：severity 是签认属性、不得改写；是否阻断只看 blocks_run）。
+    # R-12：无原文依据的一律写 PLACEHOLDER 并在上报里点名，绝不猜测。
+    # 消费点接线全部落在本包写集之外，逐条登记在 dsm_stage/R15B2/CONSUMPTION-TODO.md。
+    ('DESIGN_CARD_TABLE_ABSENT', 'BLOCK', '评价设计卡表（T4）整体缺失，本轮无法判定 C-08，不产出 score_card', '数据部门'),
+    ('DESIGN_CARD_DUPLICATE_KEY', 'BLOCK', '评价设计卡出现重复的 strategy_id × version 行，违反 T4 粒度声明，拒绝静默取后一行', '策略设计者'),
+    ('SPEARMAN_ZERO_VARIANCE', 'WARN', '一对排序零方差，Spearman 相关系数无定义，三角验证本期不给一致性结论', '评价管理部门'),
+    ('H2_DIM_WEIGHT_BELOW_FLOOR', 'BLOCK', '维度权重低于 min_dim_weight（H-2），该 alpha 判为不可行', '评价管理委员会'),
+    ('H3_METRIC_WEIGHT_BELOW_FLOOR', 'BLOCK', '指标权重低于 min_metric_weight（H-3），该 alpha 判为不可行', '评价管理委员会'),
+    ('H5_SHIFT_FROM_AHP_EXCEEDED', 'BLOCK', '组合权重与纯 AHP 的 L1 距离超过 max_shift_from_ahp（H-5），该 alpha 判为不可行', '评价管理委员会'),
+    ('REDLINE_EXCLUDED_FROM_ENTROPY', 'INFO', '红线指标不参与熵权组合，其权重按 AHP 原值保留', '评价管理委员会'),
+    ('PRIMARY_POOL_REJECTED_GRADE', 'WARN', '等级不是 L1，不满足一级库准入门禁', '评价管理部门'),
+    ('WEIGHT_DICT_MISALIGNED', 'BLOCK', '权重配置与指标字典未对齐：签认指标缺权重项、存在孤儿权重项或两级权重未各自归一', '评价管理委员会'),
+    ('APPROXIMATE_ATTRIBUTION', 'WARN', '非 LINEAR 算子无精确线性分解，归因改用对数差分近似并已标注', '评价管理委员会'),
+    ('MISSING_FACT_RULE_APPLIED', 'WARN', '事实行缺失，已按该指标的 missing_rule 处置（ZERO / SKIP / IMPUTE_MEDIAN）', '数据部门'),
 )
 
 
@@ -205,3 +222,136 @@ def all_codes() -> tuple:
 
 def codes_by_severity(sev: Severity) -> tuple:
     return tuple(sorted(c for c in _META if _META[c][0] is sev))
+
+
+# --- R15B2 · ORCH-30 第 2 条：severity 与 blocks_run 分离登记 -----------------
+# severity 属签认属性（V-14：任何 lane 与主控都不得为通过测试而改写）；「本轮是否
+# 被阻断」只由 blocks_run 决定，与 severity 字面无关（EVIDENCE_CARD_MISSING 就是
+# severity=BLOCK / blocks_run=False 的既有先例）。
+# _BASIS 是 R-12 的落地：每个第 2 批新码都登记 (severity 依据, blocks_run 依据,
+# 消费点)。依据分三档，逐字引文写 'verbatim:'，由逐字条文推出来的写 'derived:'，
+# 原文没有的写 'PLACEHOLDER'（= 未决，须主控裁决，严禁填猜测值）。
+# 消费点文件都在本包写集之外，故此处只登记不接线（见 CONSUMPTION-TODO.md）。
+_BATCH2 = (
+    'DESIGN_CARD_TABLE_ABSENT',
+    'DESIGN_CARD_DUPLICATE_KEY',
+    'SPEARMAN_ZERO_VARIANCE',
+    'H2_DIM_WEIGHT_BELOW_FLOOR',
+    'H3_METRIC_WEIGHT_BELOW_FLOOR',
+    'H5_SHIFT_FROM_AHP_EXCEEDED',
+    'REDLINE_EXCLUDED_FROM_ENTROPY',
+    'PRIMARY_POOL_REJECTED_GRADE',
+    'WEIGHT_DICT_MISALIGNED',
+    'APPROXIMATE_ATTRIBUTION',
+    'MISSING_FACT_RULE_APPLIED',
+)
+
+# blocks_run=True 的码：本轮不产出 score_card（M22 L917）。
+_BLOCKS_RUN = frozenset((
+    'DESIGN_CARD_TABLE_ABSENT',
+    'DESIGN_CARD_DUPLICATE_KEY',
+    'WEIGHT_DICT_MISALIGNED',
+))
+
+_BASIS = {
+    'DESIGN_CARD_TABLE_ABSENT': (
+        "derived: M21 L892 逐字『异常 | DataLoadError（退出码 4）』是 io 层唯一出口，无 WARN 分支；"
+        "M22 L918 逐字『宁可不评，不可错评』；ORCH-30 第 1 条裁定表级故障走 io 层退出码 4（非 C-08 的轮级 BLOCK）",
+        "derived: M22 L917 逐字『BLOCK 行为 | 只写 audit_bundle（记录为什么没跑出结果）…不产出 score_card』；"
+        "退出码按 M21 L892 为 4（与 ORCH-30 第 4 条表格写的『退出码 2』不一致，已上报）",
+        'dsm/io_loaders.py:285-287（design_cards 走 TABLE_ABSENT，非阻断 kind）→ 归属 P2'),
+    'DESIGN_CARD_DUPLICATE_KEY': (
+        "derived: M18 L1102 逐字『T4 | design_cards | 评价设计卡… | 策略 × 版本』声明了唯一粒度；"
+        "M21 L892 io 层唯一出口是 DataLoadError（退出码 4），无 WARN 分支；M22 L918『宁可不评，不可错评』。"
+        "原文未逐字写 BLOCK，属推定链，已按 R-12 上报待主控确认",
+        "derived: M22 L917『不产出 score_card』；静默取后一行是 V-14 禁止的静默降级，只能显式拒绝",
+        'dsm/preflight.py:320（by_key = {(c.strategy_id, c.version_id): c for c in self.cards} 静默覆盖）'
+        '与 dsm/io_loaders.py:_collect → 归属 A1c（唯一性更可能在 io/models 层落地）'),
+    'SPEARMAN_ZERO_VARIANCE': (
+        "PLACEHOLDER: 原文（M26 L1022-L1031、§2.6.4 L730-L740）只规定 mean_ρ 与阈值的两个结论"
+        "（METHOD_AGREEMENT / METHOD_DIVERGENCE）与『可关 → TRIANGULATION_DISABLED（不得静默）』，"
+        "未给零方差情形的严重度列。按 V-14『不得静默』+ M22 L918『任何 WARN 都进最终报告附录，"
+        "不会被静默吞掉』暂登记为 WARN，severity 依据仍为 PLACEHOLDER，须主控裁决",
+        "verbatim: M26 L1022 标题逐字『triangulation.py —— TOPSIS / GRA 三角验证（M-F、M-G，不入分）』"
+        "+ L761『只作独立视角参与三角验证，不入分』→ 不入分即不阻断本轮",
+        'dsm/triangulation.py:380-388（_pair 捕获 DivisionUndefinedError 回 None）、'
+        ':420-426（verdict 在 mean_rho 为 None 时不给结论）→ 归属 D4 / P2'),
+    'H2_DIM_WEIGHT_BELOW_FLOOR': (
+        "verbatim: §2.4.3 L593『Step 5 硬约束校验（任一不满足 → 该 α 判为不可行，交给 §2.4.4 处理）』"
+        "+ L595『H-2 每个维度 W_d ≥ min_dim_weight（防某维度被熵权整体压没）』；"
+        "同层 H-4 的专用码 AHP_CR_FAILED 在注册表里已是 BLOCK（同类同判）",
+        "verbatim: L631『可行集为空 | 所有 α 都违反至少一条约束 | 抛 AlphaInfeasibleError』→ 单条 H-2 "
+        "只判该 α 不可行，整轮阻断由已注册的 ALPHA_INFEASIBLE 承担，故本码 blocks_run=False",
+        'dsm/weights_combine.py:683-690（results/violations 已算出 H-2，reasons 只 append 泛码 '
+        'ALPHA_INFEASIBLE）→ 归属 A2b / P2'),
+    'H3_METRIC_WEIGHT_BELOW_FLOOR': (
+        "verbatim: L593『硬约束校验（任一不满足 → 该 α 判为不可行…）』+ L596『H-3 任一指标 w_j ≥ "
+        "min_metric_weight（若配置了）』；同层 H-4 → AHP_CR_FAILED 已是 BLOCK",
+        "verbatim: L631（只有可行集为空才抛 AlphaInfeasibleError）→ blocks_run=False",
+        'dsm/weights_combine.py:677 / 683-690 → 归属 A2b / P2'),
+    'H5_SHIFT_FROM_AHP_EXCEEDED': (
+        "verbatim: L593『硬约束校验（任一不满足 → 该 α 判为不可行…）』+ L598-L599『H-5 组合后权重与纯 AHP "
+        "权重的 L1 距离 ≤ max_shift_from_ahp（默认 0.30）→ 防止熵权把专家判断整体推翻，保证「业务判断主导」』",
+        "verbatim: L631（可行集为空才 AlphaInfeasibleError）→ blocks_run=False；"
+        "L625『若可行集非区间（存在空洞），报告须显式列出全部可行 α 并要求人工选择』也说明单点违反不终止本轮",
+        'dsm/weights_combine.py:679-684 / 690 → 归属 A2b / P2'),
+    'REDLINE_EXCLUDED_FROM_ENTROPY': (
+        "derived: L62（D2 约束①）逐字『组合仅作用于非红线指标，风险度 / 体验度 / 合规类指标一律走红线硬阈值，"
+        "不参与熵权组合』+ L1140『is_redline | 是否红线指标（true 则不参与熵权组合，D2 约束①）』。"
+        "这是设计内的既定行为而非故障，故按注册表既有先例（ALPHA_PURE_AHP / CEL_NOT_CONNECTED / "
+        "TRIANGULATION_DISABLED 均为 INFO）登记为 INFO；原文无严重度列，已上报",
+        "derived: 排除是常态动作，结果照常产出（L62 只说不参与组合）→ blocks_run=False",
+        'dsm/weights_combine.py:475-481（refs 取 is_redline 并过滤，仅在无非红线指标时抛 CombineError，'
+        '排除本身无码）→ 归属 A2b / P2'),
+    'PRIMARY_POOL_REJECTED_GRADE': (
+        "derived: M24 L1002 逐字『一级库门禁 | 准入条件：evidence_class ∈ {A, B} 且 grade = L1 且 无 HARD "
+        "红线命中 且 无 FLIP_RATE_UNUSABLE；C 类不得进一级库』+ L1005 逐字列出同族码 "
+        "『POOL_TOO_SMALL、PRIMARY_POOL_REJECTED_EVIDENCE、PRIMARY_POOL_REJECTED_ROBUST』，"
+        "注册表里这两个同族码均为 WARN → 同类同判",
+        "verbatim: M24 L1006『输出 | PoolFrame（逐策略 pool_key、pool_rank、primary_pool_eligible、"
+        "reject_reason）…』→ 拒绝理由是一列输出，不中断 Step 7（M29 L1346）",
+        'dsm/pooling.py:396-397（else: reason = None —— 只差 grade != L1 时单槽留 None）→ 归属 C5 / P2'),
+    'WEIGHT_DICT_MISALIGNED': (
+        "verbatim: M22 L902 逐字『C-03 | 权重与指标字典对齐 | 每个签认指标在权重配置中有对应项；无孤儿权重项；"
+        "两级权重各自归一（1e-12）| **BLOCK**』",
+        "verbatim: M22 L917『BLOCK 行为 | 只写 audit_bundle…+ 退出码 2，不产出 score_card』→ blocks_run=True；"
+        "接线时须同时进 dsm/preflight.py 的 RUN_BLOCKING_CODES 与 DISCLOSURE（本包禁写）",
+        'dsm/preflight.py:215-237（C-03 现沿用泛码 CONFIG_SEMANTIC_ERROR，注释自述『注册表无 C-03 专用码』）'
+        '→ 归属 C2 / P2'),
+    'APPROXIMATE_ATTRIBUTION': (
+        "PLACEHOLDER: M10 L674 逐字『GEOMETRIC 算子下无精确线性分解 → 改用对数差分近似并标注 "
+        "APPROXIMATE_ATTRIBUTION』与 L473 同口径只要求『标注』，原文未给严重度列。按 R5（无 reason_code "
+        "不得降级）+ M22 L918（任何 WARN 都进报告附录）暂登记为 WARN，须主控裁决",
+        "derived: L674 的处置是『改用近似并标注』＝照常出数 + 披露，不是拒算；且 whatif 是 L0b 离线工具"
+        "（M00 L294 / ORCH-27），不在评分主流程上 → blocks_run=False",
+        'dsm/whatif.py:452-463（operator != LINEAR 一律抛 WhatifOperatorError，注释自述该码未注册）'
+        '→ 归属 A4 / P2'),
+    'MISSING_FACT_RULE_APPLIED': (
+        "derived: M22 L903 逐字『C-04 | 缺失率 | 超 warn 阈 → WARN 并按 missing_rule 处理；超 block 阈 → "
+        "该策略 NOT_ASSESSED（台账单独计数）| WARN / 策略级降级』+ M18 L1134 逐字『missing_rule | 缺数据处置："
+        "ZERO / SKIP / IMPUTE_MEDIAN / BLOCK』+ M02 L930『actual < 0 → 记 NEGATIVE_ACTUAL 并按 missing_rule "
+        "处理』。处置动作与 WARN 同级披露，故登记 WARN（原文无独立严重度列，已上报）。"
+        "不得挪用 MISSING_RATE_WARN：其 message 绑定『缺失率超过预警阈值』，挪用即虚报",
+        "verbatim: M22 L903『WARN / 策略级降级』→ 策略级，不阻断本轮；超 block 阈的轮内后果由已注册的 "
+        "MISSING_RATE_BLOCK / NOT_ASSESSED 承担",
+        'dsm/attainment.py:524（ZERO 合成行 reason_code=None）、:528（SKIP 行 None）、:532（IMPUTE 分支）'
+        '→ 归属 B1b / A1c'),
+}
+
+
+def blocks_run(code) -> bool:
+    # 本轮是否被阻断（ORCH-30 第 2 条：只看这里，不看 severity 字面）。
+    return _key(code) in _BLOCKS_RUN
+
+
+def basis(code) -> tuple:
+    # (severity 依据, blocks_run 依据, 消费点)，第 2 批新码逐字可查（R-12）。
+    return _BASIS[_key(code)]
+
+
+def batch2_codes() -> tuple:
+    return _BATCH2
+
+
+def blocks_run_codes() -> tuple:
+    return tuple(sorted(_BLOCKS_RUN))
