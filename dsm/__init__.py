@@ -4,7 +4,7 @@ Layering (design doc 1.6), dependencies are strictly one-directional:
 
     L0a  weights_ahp / weights_combine / fixtures_gen   (no internal deps)
     L0b  weights_calibrate / whatif                     (may import L1-L5)
-    L1   numeric / reason_codes / models / config / io_loaders
+    L1   numeric / reason_codes / models / config / io_loaders / entropy
     L2   preflight
     L3   attainment / normalize / aggregate / grading
     L4   evidence / redline / pooling

@@ -16,3 +16,5 @@ Thumbs.db
 # raw evidence dumps stay local (ORCH v2.0 s6): only <=200-line summaries are committed
 ops/evidence/
 ops/handoff-*.md
+# lane 专属临时工作目录（禁写仓库根目录，B-011）：不入库
+dsm_stage/

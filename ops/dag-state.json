@@ -32,11 +32,11 @@
     "scope": "S1→S9 全量，含 S7 方法层 + S8 权重构造链（档 2 不得砍）",
     "serial_equivalent_h": 21.8,
     "agent_workload_min": 1825,
-    "phase1_h": 5.0,
-    "phase2_h": 1.25,
+    "phase1_h": 3.68,
+    "phase2_h": 0.75,
     "phase3_h": 1.0,
-    "planned_finish_h": 7.25,
-    "buffer_h": 2.75,
+    "planned_finish_h": 5.43,
+    "buffer_h": 4.57,
     "hard_stop_h": 10.0,
     "phase1_bound": "依赖约束非资源约束。理论下限 1630min/6lane = 4.53h，本方案 5.00h（+10%）。Amdahl：6lane×5.00h = 30.0 lane·h 产能 vs 需求 27.2，空转 2.8 lane·h = 9.3% 且无法用于加速依赖链 → 排程优化到此为止，继续 Tetris 的边际收益 <0.1h",
     "non_negotiable": [
@@ -46,7 +46,32 @@
       "G-02+P-6 证据门禁+分池禁混排"
     ],
     "phase1_floor_h": 4.53,
-    "nesting_possible": false
+    "nesting_possible": false,
+    "phase1_h_original": 5.0,
+    "rebaseline": {
+      "at": "SP-1, T+60 min",
+      "k_measured": 0.2917,
+      "k_formula": "§7.1 原文：k = 实际墙钟中位数 ÷ 预算墙钟中位数 = 17.5 / 60.0 = 0.2917",
+      "band": "k<=0.8",
+      "method": "分档取值而非全局套用 k：关键路径/xhigh/高推导包（A2 A3 A4 E5）取 k=0.65（依据样本中最慢的两个真实算法包 D1=0.65、A1=0.80，且这三包是全 run 推导量最大的）；其余常规包取 k=0.30（依据 B1 0.217 / B2 0.267 / B3 0.267 / C1 0.311 / F2 0.356 的中位区间）",
+      "remaining_pkgs": 22,
+      "remaining_budget_min": {
+        "critical": 295,
+        "normal": 1055
+      },
+      "expected_actual_min": {
+        "critical": 191.8,
+        "normal": 316.5
+      },
+      "critical_path_chain": "A2(90) -> A3(90) -> E5(40) = 220 budget-min x 0.65 = 143 min",
+      "a2_start_min": 49.0,
+      "phase1_from_critical_path_h": 3.2,
+      "phase1_from_lane_load_h": 1.41,
+      "phase1_binding": "critical_path",
+      "friction_margin": 1.15,
+      "vs_original": "Phase1 5.00h -> 3.68h；计划完成 7.25h -> 5.43h；缓冲 2.75h -> 4.57h",
+      "note": "样本离散 8.0x -> 全局中位数会同时高估简单包、低估复杂包，故分档。富余按 §7.1 的 k<=0.8 处置转为缓冲，**未追加任何范围**。"
+    }
   },
   "concurrency_probed": 6,
   "concurrency_actual": 6,
@@ -120,8 +145,6 @@
       "role": "权重链下游（关键路径，ORCH-09 后由 4 包缩为 3 包 + 借入 E5）",
       "priority": 1,
       "queue": [
-        "A1",
-        "A2",
         "A3",
         "E5"
       ],
@@ -129,46 +152,47 @@
         0.0,
         4.92
       ],
-      "done": []
+      "done": [
+        "A1"
+      ]
     },
     "B": {
       "role": "入分主干 + 契约收尾",
       "priority": 4,
       "queue": [
-        "B1",
-        "B2",
-        "B3",
         "B4"
       ],
       "window_h": [
         0.0,
         4.25
       ],
-      "done": []
+      "done": [
+        "B1",
+        "B2",
+        "B3"
+      ],
+      "note": "B2 由 E1 腾出的槽提前执行（RT-01）；B3 于 T+0.30h 派入 B1 腾出的槽 -> Lane B 同时有 B2/B3 两包在跑，写集互斥无冲突"
     },
     "C": {
       "role": "加载 + 门禁旁路",
       "priority": 6,
       "queue": [
-        "C1",
-        "C2",
-        "C3",
-        "C4",
         "C5"
       ],
       "window_h": [
         0.0,
         4.5
       ],
-      "done": []
+      "done": [
+        "C1",
+        "C3"
+      ],
+      "note": "C2(Tesla)/C4(Copernicus) 在跑；C5 pooling 前置 = C3(done)+C4(running)，C4 落地即派；C1b 缺陷修复待派"
     },
     "D": {
       "role": "权重链上游 + 方法旁路 + CLI",
       "priority": 2,
       "queue": [
-        "D1",
-        "D2",
-        "D3",
         "D4",
         "D5"
       ],
@@ -176,13 +200,17 @@
         0.0,
         5.0
       ],
-      "done": []
+      "done": [
+        "D1",
+        "D2",
+        "D3"
+      ],
+      "note": "D3 在跑（Hooke）；D1/D2 已交付。SP-2 放行条件已全绿，A3 只等 A2"
     },
     "E": {
       "role": "验证与交付（独立性 = 反作弊控制）",
       "priority": 5,
       "queue": [
-        "E1",
         "E2",
         "E3",
         "E4"
@@ -191,13 +219,15 @@
         0.0,
         4.58
       ],
-      "done": []
+      "done": [
+        "E1"
+      ],
+      "blocked_on": "E2 依赖 A1（fixtures）+ E1；A1 未完成 -> Lane E 暂空闲，槽位已借给 B2（RT-01）"
     },
     "F": {
       "role": "机动 lane：熵权 + 横切模块 + whatif(ORCH-09) + R4 复核 + 超时吸收",
       "priority": 3,
       "queue": [
-        "F2",
         "F3",
         "F4",
         "A4"
@@ -207,7 +237,8 @@
         4.17
       ],
       "done": [
-        "F1"
+        "F1",
+        "F2"
       ],
       "float_after_F4": "F5 机动槽（非工作包）：承接同步点 R4 复核 agent、吸收任一 lane 超时包、Phase 2 缺陷第一顺位；复核 agent 用完必须立即 close 释放槽位",
       "float_after": "F5 机动槽（非工作包，T+4.17 后）：R4 复核 agent（子 agent 无 spawn_agent，复核只能主控派）、吸收超时包、Phase 2 缺陷第一顺位；agent 完成即 close",
@@ -217,14 +248,24 @@
   "sync_points": {
     "SP-1": {
       "at_h": 1.0,
-      "done": false,
+      "done": true,
       "must": [
         "fixtures 冻结",
         "D1 ahp 交付确认（F1 entropy 已于 T0 前先行交付 a4bd363 → ORCH-07 同批条件已满足，A2 只等 D1）",
         "执行 ORCH-03",
         "E1 skip 清单入账",
         "★ 吞吐重基线（ORCH-11，§7.1）：k = 6 个首包实际墙钟中位数 ÷ 预算墙钟中位数，按 k 重排 T+1.00 后全部时间窗"
-      ]
+      ],
+      "executed_at_min": 60.2,
+      "executed": {
+        "1_fixtures_frozen": "ca31dd1，17 文件/896 事实行/5 期/6 variants/1 negative/15 golden，见 frozen_fixtures",
+        "2_D1_confirmed": "9b81b2f，17 passed/0 failed；F1 已于 T0 前交付 a4bd363 -> ORCH-07 同批条件达成；A2 已于 T+49min 派出（xhigh）",
+        "3_ORCH-03_executed": "dsm/__init__.py 第 7 行 L1 加 entropy，diff = 1 insertion/1 deletion；ADR docs/adr/RUN-ORCH-03-entropy-l1.md（46 行 <= 60）",
+        "4_E1_skip_registry": "10 项 skip 入账；实测 S1 io_loaders 落地后自动由 skip 转 PASS，自解锁机制有效",
+        "5_throughput_rebaseline": "k = 0.2917（§7.1 原文口径 = 实际中位数 17.5 ÷ 预算中位数 60.0），band k<=0.8 -> 按实测重排 + 富余转缓冲，不追加范围、未砍包",
+        "6_full_regression": "212 failed = 211 已知 RED（config 108/96/7）+ 1 已登记缺陷 D-C1-01；**0 collection error**；ORCH-03 变更零新增失败",
+        "7_gap_batch_adjudication": "26 条缺口 -> ADJ-1~ADJ-8 八条批量裁决"
+      }
     },
     "SP-2": {
       "at_h": 2.75,
@@ -285,20 +326,20 @@
       "module": "fixtures_gen.py",
       "cx": "C3",
       "model": "max",
-      "status": "running",
+      "status": "done",
       "deps": [],
       "budget_min": 60,
       "prod_max": 600,
       "tf_max": 16,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 48,
+        "prod": 527,
+        "tf": 14,
+        "pass": 28,
+        "fail": 0,
+        "commit": "ca31dd1",
         "token_k": null,
-        "first_pass": null,
+        "first_pass": true,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
@@ -306,14 +347,19 @@
       "token_budget_k": 90,
       "dispatched_at_epoch": 1795540658.15,
       "agent_id": "01a20e92-7669-79b1-9dab-895a94427e18",
-      "nickname": "James"
+      "nickname": "James",
+      "dispatched_at_min": 0.0,
+      "k_single": 0.8,
+      "gaps_reported": 5,
+      "writeset_verified": "20 paths / 3906 insertions，主控核实全部在声明写集内",
+      "prod_accounting": "fixtures_gen.py 527 <= 600 合规；tools/gen_golden.py 295 行按 ADJ-5 不计入生产代码上限"
     },
     "A2": {
       "lane": "A",
       "module": "weights_combine.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "done",
       "deps": [
         "A1",
         "D1",
@@ -323,26 +369,31 @@
       "prod_max": 700,
       "tf_max": 25,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 86,
+        "prod": 746,
+        "tf": 22,
+        "pass": 22,
+        "fail": 0,
+        "commit": "1bf00d0",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "xhigh",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "agent_id": "01a20ec1-4ebe-7e81-90fc-62b3964c14a4",
+      "nickname": "Averroes",
+      "dispatched_at_min": 49.0,
+      "executed_in_slot": "A1_freed",
+      "gaps_reported": 9
     },
     "A3": {
       "lane": "A",
       "module": "weights_calibrate.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "running",
       "deps": [
         "A2",
         "E1",
@@ -372,7 +423,7 @@
       "module": "whatif.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "running",
       "deps": [
         "A2",
         "D2",
@@ -402,20 +453,20 @@
       "module": "attainment.py",
       "cx": "C3",
       "model": "max",
-      "status": "running",
+      "status": "done",
       "deps": [],
       "budget_min": 60,
       "prod_max": 450,
       "tf_max": 20,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 13,
+        "prod": 388,
+        "tf": 20,
+        "pass": 22,
+        "fail": 0,
+        "commit": "4f227bb",
         "token_k": null,
-        "first_pass": null,
+        "first_pass": true,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
@@ -423,14 +474,22 @@
       "token_budget_k": 90,
       "dispatched_at_epoch": 1795540658.15,
       "agent_id": "01a20e92-e252-7750-ad55-25e40a09b323",
-      "nickname": "Nash"
+      "nickname": "Nash",
+      "k_single": 0.217,
+      "gaps_reported": 5,
+      "writeset_verified": [
+        "dsm/attainment.py",
+        "tests/test_attainment.py"
+      ],
+      "verified_by_orch": "git show --stat 仅 2 文件 680 行；本包 pytest 由主控独立重跑 = 22 passed / 0 failed",
+      "dispatched_at_min": 0.0
     },
     "B2": {
       "lane": "B",
       "module": "aggregate.py",
       "cx": "C2",
       "model": "flash",
-      "status": "pending",
+      "status": "done",
       "deps": [
         "B1"
       ],
@@ -438,26 +497,32 @@
       "prod_max": 300,
       "tf_max": 18,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 12,
+        "prod": 179,
+        "tf": 18,
+        "pass": 18,
+        "fail": 0,
+        "commit": "70e2b33",
         "token_k": null,
-        "first_pass": null,
+        "first_pass": true,
         "escalated_from": null
       },
       "model_id": "qwen3.8-flash",
       "effort": "medium",
-      "token_budget_k": 40
+      "token_budget_k": 40,
+      "executed_in_slot": "E1_freed",
+      "agent_id": "01a20e9f-12e9-7df1-a64d-6a324ab38b86",
+      "k_single": 0.267,
+      "gaps_reported": 4,
+      "note": "RT-01 提前派发（原排程 T+1.00）；INV-3 已用 AST + import 双测证明零引用 diagnostics/weights_combine；golden 均手算（R-14）",
+      "dispatched_at_min": 13.0
     },
     "B3": {
       "lane": "B",
       "module": "grading.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "done",
       "deps": [
         "B2"
       ],
@@ -465,64 +530,76 @@
       "prod_max": 400,
       "tf_max": 20,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 16,
+        "prod": 386,
+        "tf": 15,
+        "pass": 15,
+        "fail": 0,
+        "commit": "874d6b7",
         "token_k": null,
-        "first_pass": null,
+        "first_pass": true,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "executed_in_slot": "B1_freed",
+      "agent_id": "01a20ea1-a3a5-7e10-a4a9-f480c5135bcb",
+      "nickname": "Lorentz",
+      "k_single": 0.267,
+      "gaps_reported": 6,
+      "writeset_verified": [
+        "dsm/grading.py",
+        "tests/test_grading.py"
+      ],
+      "note": "RED 先行（首跑 ImportError）后转绿。三条硬点专项覆盖：绝对轨 2 测试、滞回升降不对称 3 测试（同一 0.80 分：升级保持 L3 / 降级即时 L2）、版本断点 2 测试（strategy version + weight version，计数重置为 1）。K-06 无签认值 -> 做成 GradeRuleSet 必填无默认，未猜数（R-12 合规）",
+      "dispatched_at_min": 28.0
     },
     "B4": {
       "lane": "B",
       "module": "config.py 语义+权重版本校验（211 RED→绿，R-8 triage）",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "done",
       "deps": [],
       "budget_min": 90,
       "prod_max": 400,
       "tf_max": 0,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 64,
+        "prod": 1426,
+        "tf": 169,
+        "pass": 2048,
+        "fail": 10,
+        "commit": "3fef4da",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "gaps_reported": 6
     },
     "C1": {
       "lane": "C",
       "module": "io_loaders.py",
       "cx": "C2",
       "model": "flash",
-      "status": "running",
+      "status": "done",
       "deps": [],
       "budget_min": 45,
       "prod_max": 300,
       "tf_max": 15,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 14,
+        "prod": 325,
+        "tf": 15,
+        "pass": 15,
+        "fail": 0,
+        "commit": "f8eff6e",
         "token_k": null,
-        "first_pass": null,
+        "first_pass": true,
         "escalated_from": null
       },
       "model_id": "qwen3.8-flash",
@@ -530,14 +607,23 @@
       "token_budget_k": 40,
       "dispatched_at_epoch": 1795540658.15,
       "agent_id": "01a20e93-6477-79d2-8a4a-09f8889e9928",
-      "nickname": "Mencius"
+      "nickname": "Mencius",
+      "k_single": 0.311,
+      "gaps_reported": 4,
+      "writeset_verified": [
+        "dsm/io_loaders.py",
+        "tests/test_io_loaders.py"
+      ],
+      "verified_by_orch": "git show --stat 仅 2 文件 631 行；主控独立重跑本包测试 15 绿（pyarrow 缺失时）",
+      "budget_violation": "PROD 325 > 上限 300，超 25 行（8.3%）；已计入 counters.budget_violations",
+      "dispatched_at_min": 0.0
     },
     "C2": {
       "lane": "C",
       "module": "preflight.py",
       "cx": "C3",
       "model": "flash",
-      "status": "pending",
+      "status": "done",
       "deps": [
         "C1"
       ],
@@ -545,76 +631,97 @@
       "prod_max": 400,
       "tf_max": 20,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 66,
+        "prod": 423,
+        "tf": 20,
+        "pass": 20,
+        "fail": 0,
+        "commit": "377fd18",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "agent_id": "01a20ea5-290d-7ce2-848d-067db6fb4711",
+      "nickname": "Tesla",
+      "executed_in_slot": "C1_freed",
+      "dispatched_at_min": 20.0,
+      "gaps_reported": 10
     },
     "C3": {
       "lane": "C",
       "module": "evidence.py",
       "cx": "C3",
       "model": "flash",
-      "status": "pending",
+      "status": "done",
       "deps": [],
       "budget_min": 45,
       "prod_max": 300,
       "tf_max": 18,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 24,
+        "prod": 298,
+        "tf": 18,
+        "pass": 18,
+        "fail": 0,
+        "commit": "be9fb30",
         "token_k": null,
-        "first_pass": null,
+        "first_pass": true,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "dispatched_at_min": 47.8,
+      "agent_id": "01a20eba-e192-7082-ae8f-965037ca46ab",
+      "executed_in_slot": "D1_freed",
+      "nickname": "Leibniz",
+      "k_single": 0.533,
+      "gaps_reported": 8,
+      "writeset_verified": [
+        "dsm/evidence.py",
+        "tests/test_evidence.py"
+      ],
+      "coverage_verified": "五步短路：test_short_circuit_stops_at_the_first_deciding_step 用探针（读到后续步骤字段即抛 AssertionError）证明 ① 命中只读 card_status、② 命中只读到 success_criteria 即 return、③④⑤ 根本未执行；行为面另有 test_a_verdict_is_not_rewritten_by_step5（A 即使 interpretation_limit=None 也不被 ⑤ 降 D）。GATE_ONLY：test_gate_only_evidence_class_never_enters_the_score 走**真实已落地的** L3 aggregate.compose，同一策略判 A 与判 B 得到的 ScoreFrame 全等（手算 composite_absolute=0.8 / composite_relative=0.7），并断言 EvidenceRow 只有 [L980] 的 7 列、结构上无可乘数值列；DISCOUNT 未立 ADR 时 classify 抛 EvidenceDiscountError 而非返回乘数（V-14 合规）"
     },
     "C4": {
       "lane": "C",
       "module": "redline.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "done",
       "deps": [],
       "budget_min": 60,
       "prod_max": 400,
       "tf_max": 20,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 21,
+        "prod": 347,
+        "tf": 20,
+        "pass": 21,
+        "fail": 0,
+        "commit": "d8133fb",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "agent_id": "01a20ecb-1c76-7b40-ac2f-eb3b9dd3016e",
+      "nickname": "Copernicus",
+      "dispatched_at_min": 64.8,
+      "executed_in_slot": "D2_freed",
+      "gaps_reported": 6
     },
     "C5": {
       "lane": "C",
       "module": "pooling.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "done",
       "deps": [
         "C3",
         "C4"
@@ -623,39 +730,40 @@
       "prod_max": 400,
       "tf_max": 20,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 17,
+        "prod": 369,
+        "tf": 19,
+        "pass": 19,
+        "fail": 0,
+        "commit": "20631e1",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "gaps_reported": 6
     },
     "D1": {
       "lane": "D",
       "module": "weights_ahp.py",
       "cx": "C3",
       "model": "max",
-      "status": "running",
+      "status": "done",
       "deps": [],
       "budget_min": 60,
       "prod_max": 450,
       "tf_max": 20,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 39,
+        "prod": 449,
+        "tf": 17,
+        "pass": 17,
+        "fail": 0,
+        "commit": "9b81b2f",
         "token_k": null,
-        "first_pass": null,
+        "first_pass": true,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
@@ -663,129 +771,110 @@
       "token_budget_k": 90,
       "dispatched_at_epoch": 1795540658.15,
       "agent_id": "01a20e93-ef06-7152-85cb-e0e11370f425",
-      "nickname": "Jason"
+      "nickname": "Jason",
+      "k_single": 0.65,
+      "gaps_reported": 3,
+      "writeset_verified": [
+        "dsm/weights_ahp.py",
+        "tests/test_methods_ahp.py"
+      ],
+      "handoff_to_A2": "segment_payload() 恰返回 models.AhpSegment 的 10 个键 -> A2 可直接 AhpSegment(**payload) 构造；INV-1 合规（只 import dsm.numeric）；AhpResult/ConsistencyReport/InconsistentPair 在模块内本地声明",
+      "measured_facts": "n=3 时几何平均法与特征向量法权重恒等（gap=0E-12）-> METHOD_MISMATCH 需 n>=4 才触发，负向由 4 项矩阵 MILD_4 承担；2x2 时 RI=0 -> 走 safe_div on_zero=0",
+      "hand_goldens": "权重 4/7,2/7,1/7；3x3 拒绝 lambda_max=5.25 CI=1.125 CR=1.939655172414；4x4 拒绝 lambda_max=10.125 CI=2.041666666667 CR=2.268518518519，前5对 A-B,A-D,B-C,C-D,A-C",
+      "dispatched_at_min": 0.0
     },
     "D2": {
       "lane": "D",
       "module": "sensitivity.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "done",
       "deps": [],
       "budget_min": 75,
       "prod_max": 500,
       "tf_max": 22,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 32,
+        "prod": 500,
+        "tf": 22,
+        "pass": 22,
+        "fail": 0,
+        "commit": "5ae3ebe",
         "token_k": null,
-        "first_pass": null,
+        "first_pass": true,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "agent_id": "01a20ea9-3d43-7c22-a9d2-e4fd1e432bb2",
+      "executed_in_slot": "B2_freed",
+      "nickname": "Kuhn",
+      "dispatched_at_min": 33.0,
+      "k_single": 0.427,
+      "gaps_reported": 7,
+      "writeset_verified": [
+        "dsm/sensitivity.py",
+        "tests/test_sensitivity.py"
+      ],
+      "coverage_verified": "OAT_10/OAT_20 手算 golden（1/4=0.25 -> FLIP_RATE_UNUSABLE；1/7=0.142857142857 -> FLIP_RATE_REVIEW 不否决）；MC 三条（无 seed -> SeedRequiredError；同 seed 两次 model_dump_json 逐字节相等；rate 可由 flipped/assessed 还原且为 Decimal）；LOO 两条（dominant -> DOMINANT_METRIC；62 指标 > 阈值 60 只跑 2 次重算并置 LOO_SAMPLED）；NORM_SWAP 三条（缺 normalizer -> HookRequiredError；换 z_score 后 rho=0.866 手算值触发 NORMALIZATION_SENSITIVE；同方法恒等对照 rho=1 证明是换方法而非重算同数据）",
+      "hardpoints": "MC 用 numpy.random.default_rng(base.seed)，全模块无 time/datetime/random 导入（H-8）；flip_rate 分母=非 NOT_ASSESSED 受评策略数、分子=至少一次扰动变级策略数，走 safe_div(on_zero=None)，分母 0 抛 FlipRateUndefinedError；否决 = SensitivityVeto（仅 bool + reason code，无数值字段），单个 BLOCK 级 flag 即否决且不被 STABLE 方案补偿；逐策略 stability_label 沿用 L746 的 stable_max 0.05 / review_max 0.15，未自造数值",
+      "sp2_gate": "SP-2 放行 A3 的三条件 B3(874d6b7) + D2(5ae3ebe) + E1(1ce1d8e) **全部已绿**；A3 现只差 A2"
     },
     "D3": {
       "lane": "D",
       "module": "normalize.py",
       "cx": "C3",
       "model": "flash",
-      "status": "pending",
+      "status": "done",
       "deps": [],
       "budget_min": 45,
       "prod_max": 350,
       "tf_max": 18,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 13,
+        "prod": 347,
+        "tf": 16,
+        "pass": 16,
+        "fail": 0,
+        "commit": "de7a2ca",
         "token_k": null,
-        "first_pass": null,
+        "first_pass": true,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "agent_id": "01a20eb3-5d45-7000-82f7-c72c8bf99d74",
+      "nickname": "Hooke",
+      "executed_in_slot": "B3_freed",
+      "dispatched_at_min": 40.0,
+      "k_single": 0.289,
+      "gaps_reported": 5,
+      "writeset_verified": [
+        "dsm/normalize.py",
+        "tests/test_normalize.py"
+      ],
+      "coverage_verified": "三方法各有独立 golden：min_max 0/0.5/1.0/0.25；z_score sd_dof=1 得 -1/0/1/-0.5 且带 sd_dof=0 对照；rank_percentile 0.125/0.375/0.625/0.25/0.875 含并列均值。方法切换由 NormalizeParams.method 显式给定，缺省/第四种/两者都给均报错（硬点 4 达成）。池内 vs 跨池混算对照存在（test_pool_local_normalisation_is_not_the_merged_pool，两池各自 0/0.5/1.0、合并后 S2=0.0625，且逐行断言 pool_key 不外泄）（硬点 2 达成）。G-05 两条：新增 attainment=99.0 的非锚定策略后存量整行不变（锚定集硬点 3 达成）。P-4 两条：hypothesis max_examples=25 三方法锚定不变性 + 门槛独立性（grading.plan/assign 签名无 Normalized、NormalizedRow 无 grade/attainment 字段、grading.plan(NormalizedFrame,...) 抛 GradingInputError）（硬点 1 达成）。退化锚定集不静默：空 -> ANCHOR_SET_STALE + 回退池内尺（norm != 原值）；单元素 -> RANK_REVERSAL_RISK；零变异 -> INACTIVE_METRIC；池样本 < min_pool_size -> SMALL_POOL",
+      "note": "四条硬点全部有专项测试；与 D2 的 anchor_used 缺口（D2 GAP7）同源，SP-3 联调"
     },
     "D4": {
       "lane": "D",
       "module": "triangulation.py",
       "cx": "C3",
       "model": "flash",
-      "status": "pending",
+      "status": "done",
       "deps": [],
       "budget_min": 60,
       "prod_max": 450,
       "tf_max": 22,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
-        "token_k": null,
-        "first_pass": null,
-        "escalated_from": null
-      },
-      "model_id": "qwen3.8-max",
-      "effort": "high",
-      "token_budget_k": 90
-    },
-    "D5": {
-      "lane": "D",
-      "module": "cli.py",
-      "cx": "C2",
-      "model": "flash",
-      "status": "pending",
-      "deps": [
-        "D4"
-      ],
-      "budget_min": 60,
-      "prod_max": 450,
-      "tf_max": 16,
-      "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
-        "token_k": null,
-        "first_pass": null,
-        "escalated_from": null
-      },
-      "model_id": "qwen3.8-flash",
-      "effort": "medium",
-      "token_budget_k": 40
-    },
-    "E1": {
-      "lane": "E",
-      "module": "tests/test_integration_spine.py",
-      "cx": "C3",
-      "model": "max",
-      "status": "running",
-      "deps": [
-        "A1"
-      ],
-      "budget_min": 60,
-      "prod_max": 0,
-      "tf_max": 12,
-      "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 71,
+        "prod": 524,
+        "tf": 18,
+        "pass": 18,
+        "fail": 0,
+        "commit": "bc8337a",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
@@ -793,16 +882,84 @@
       "model_id": "qwen3.8-max",
       "effort": "high",
       "token_budget_k": 90,
+      "agent_id": "01a20eca-5edf-7990-8c3d-96fa784de4d3",
+      "nickname": "Sartre",
+      "dispatched_at_min": 64.8,
+      "executed_in_slot": "D3_freed",
+      "gaps_reported": 7
+    },
+    "D5": {
+      "lane": "D",
+      "module": "cli.py",
+      "cx": "C2",
+      "model": "flash",
+      "status": "done",
+      "deps": [
+        "D4"
+      ],
+      "budget_min": 60,
+      "prod_max": 450,
+      "tf_max": 16,
+      "ev": {
+        "min": 17,
+        "prod": 449,
+        "tf": 16,
+        "pass": 16,
+        "fail": 0,
+        "commit": "60e1032",
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 40,
+      "gaps_reported": 6
+    },
+    "E1": {
+      "lane": "E",
+      "module": "tests/test_integration_spine.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "done",
+      "deps": [
+        "A1"
+      ],
+      "budget_min": 60,
+      "prod_max": 0,
+      "tf_max": 12,
+      "ev": {
+        "min": 6,
+        "prod": 0,
+        "tf": 12,
+        "pass": 2,
+        "fail": 0,
+        "commit": "1ce1d8e",
+        "token_k": null,
+        "first_pass": true,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90,
       "dispatched_at_epoch": 1795540658.15,
       "agent_id": "01a20e94-8098-7521-b252-ccf0d1be93a5",
-      "nickname": "Noether"
+      "nickname": "Noether",
+      "k_single": 0.1,
+      "skipped": 10,
+      "gaps_reported": 12,
+      "writeset_verified": [
+        "tests/test_integration_spine.py"
+      ],
+      "note": "T+0.13h 完成（预算 60min -> 实际 6min）。12 测试函数 = 2 真跑 + 10 skip（SKIP_REGISTRY 集中登记）。实测到 C1 的 dsm/io_loaders.py 在跑测期间落地 -> step1 由 skip 自动转 PASS，证明骨架可随模块落地自解锁。写集核实：仅 tests/test_integration_spine.py 323 行；工作树内 B1/C1 的未跟踪半成品未被暂存 -> D-1 生效。",
+      "dispatched_at_min": 0.0
     },
     "E2": {
       "lane": "E",
       "module": "golden G-01~G-08",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "running",
       "deps": [
         "E1"
       ],
@@ -883,7 +1040,7 @@
       "module": "tests/test_architecture.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "running",
       "deps": [
         "E4"
       ],
@@ -939,20 +1096,20 @@
       "module": "audit.py",
       "cx": "C3",
       "model": "flash",
-      "status": "running",
+      "status": "done",
       "deps": [],
       "budget_min": 45,
       "prod_max": 300,
       "tf_max": 15,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 16,
+        "prod": 296,
+        "tf": 13,
+        "pass": 13,
+        "fail": 0,
+        "commit": "26533e9",
         "token_k": null,
-        "first_pass": null,
+        "first_pass": true,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
@@ -960,14 +1117,22 @@
       "token_budget_k": 90,
       "dispatched_at_epoch": 1795540658.15,
       "agent_id": "01a20e95-17e9-7953-80fd-af72056bf710",
-      "nickname": "Hypatia"
+      "nickname": "Hypatia",
+      "k_single": 0.356,
+      "gaps_reported": 7,
+      "writeset_verified": [
+        "dsm/audit.py",
+        "tests/test_audit.py"
+      ],
+      "note": "reproducibility_hash 负向覆盖：run_id/run_at/绝对路径/主机名/输出文件名均不入哈希，语义改一位即变。golden = 手工推导字面量 + FIPS 已发表 sha256('')/sha256('abc') 锚定，未用实现输出反填（R-14 合规）。测试全用 tmp_path，产物零落盘（R-3）",
+      "dispatched_at_min": 0.0
     },
     "F3": {
       "lane": "F",
       "module": "diagnostics.py",
       "cx": "C3",
       "model": "flash",
-      "status": "pending",
+      "status": "done",
       "deps": [
         "F1"
       ],
@@ -975,44 +1140,50 @@
       "prod_max": 350,
       "tf_max": 18,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 32,
+        "prod": 322,
+        "tf": 17,
+        "pass": 17,
+        "fail": 0,
+        "commit": "1db3862",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "dispatched_at_min": 44.0,
+      "agent_id": "01a20eb5-685a-7f80-b598-a045a2006220",
+      "nickname": "Russell",
+      "executed_in_slot": "F2_freed",
+      "gaps_reported": 12
     },
     "F4": {
       "lane": "F",
       "module": "reports.py",
       "cx": "C2",
       "model": "flash",
-      "status": "pending",
+      "status": "done",
       "deps": [],
       "budget_min": 45,
       "prod_max": 400,
       "tf_max": 18,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 17,
+        "prod": 632,
+        "tf": 17,
+        "pass": 17,
+        "fail": 0,
+        "commit": "e4fe12f",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
       },
       "model_id": "qwen3.8-flash",
       "effort": "medium",
-      "token_budget_k": 40
+      "token_budget_k": 40,
+      "gaps_reported": 8
     },
     "P2": {
       "lane": "ALL",
@@ -1126,6 +1297,64 @@
       "model_id": "qwen3.8-flash",
       "effort": "low",
       "token_budget_k": 15
+    },
+    "C1b": {
+      "lane": "adhoc",
+      "module": "缺陷 D-C1-01 修复（io_loaders parquet dtype）+ pyarrow optional extra（ADJ-8）",
+      "cx": "C2",
+      "model": "flash",
+      "status": "running",
+      "deps": [
+        "C1"
+      ],
+      "budget_min": 25,
+      "prod_max": 300,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 30,
+      "adhoc": true,
+      "plan_scope": false
+    },
+    "ORCH-25": {
+      "lane": "adhoc",
+      "module": "tests/test_config_placeholder.py triage（ORCH-25 裁决 G1 四级 grade_rules + G2 load_all 三参签名）",
+      "cx": "C2",
+      "model": "flash",
+      "status": "running",
+      "deps": [
+        "B4"
+      ],
+      "budget_min": 25,
+      "prod_max": 300,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 30,
+      "adhoc": true,
+      "plan_scope": false
     }
   },
   "legacy_tasks": [
@@ -1213,8 +1442,8 @@
     "rework_rounds": 0,
     "quality_incidents": 0,
     "contract_gaps": 0,
-    "budget_violations": 0,
-    "net_new_test_funcs": 14,
+    "budget_violations": 1,
+    "net_new_test_funcs": 194,
     "net_new_test_funcs_cap": 120,
     "slots_in_use": 6,
     "slots_limit": 6,
@@ -1234,19 +1463,30 @@
       "flash": 0
     },
     "downgrades": 0,
-    "flash_first_pass_ok": 0,
-    "flash_first_pass_total": 0,
-    "pkgs_done": 1,
+    "flash_first_pass_ok": 2,
+    "flash_first_pass_total": 2,
+    "pkgs_done": 12,
     "pkgs_total": 31,
-    "stale_number_sweep": "2026-11-24 已清除 doc 内 ORCH-09 前过期口径 8 处（头部答案/§1目标2/P2·P3a·P3b·P3c 时间窗/内嵌状态模板 plan·lanes·sync_points·counters）"
+    "stale_number_sweep": "2026-11-24 已清除 doc 内 ORCH-09 前过期口径 8 处（头部答案/§1目标2/P2·P3a·P3b·P3c 时间窗/内嵌状态模板 plan·lanes·sync_points·counters）",
+    "bookkeeping_note": "主控两次漏记在跑包状态（C2、F3）；根因是派发与状态落盘分处两个工具调用。已改为：每次 spawn 后的下一次状态写入必须核对 active_agents 与 work_packages.status 双向一致",
+    "work_packages_total": 33,
+    "plan_scope_total": 31,
+    "done": 21,
+    "running": 6,
+    "pending": 6,
+    "done_plan_scope": 21,
+    "updated_at_epoch": 1795553631.4
   },
   "next_dispatch": {
-    "A": "A1",
-    "B": "B1",
-    "C": "C1",
-    "D": "D1",
-    "E": "E1",
-    "F": "F2"
+    "queue_after_wave2": [
+      "E3（前置 E2）",
+      "E4（前置 各模块，含 A3/A4 落地后）",
+      "P2（集成对齐+全量回归，前置 全部实现包）",
+      "P3a/P3b/P3c（并行，前置 P2）"
+    ],
+    "slot_policy": "6 槽硬上限；收到交付先 close_agent 再补派；C1b/ORCH-25 为小包，预计 15~20min 先回，回收槽位后优先派 E4（properties P-1~P-15）",
+    "critical_path_now": "A3(90 budget-min)→E5 覆盖补齐→P2；A4 与 A3 并行不构成串联",
+    "note": "关键路径已不再是 A2→A3→E5 串联（A2 已交付、E5 已提前并行），SP-1 绑定的 143min 临界值预计富余"
   },
   "session_log": [
     {
@@ -1317,6 +1557,135 @@
         "新增派工级澄清 D-1~D-6：并发 git index 纪律、contract-gaps 归属改由主控落盘、包专属临时目录、禁跑全量、RED 基线告知、MIN 自报须可核实"
       ],
       "next": "等六包 PKG= 上报；SP-1 @ T+1.00（epoch 1795544258）做 fixtures 冻结 + ORCH-03 + 吞吐重基线"
+    },
+    {
+      "seq": 9,
+      "date": "2026-11-25",
+      "session": "unattended v3.0 RUN",
+      "n_items": 3,
+      "items": [
+        "E1 done：MIN=6（预算 60，k=0.10）TF=12 PASS=2 SKIP=10 FAIL=0 commit=1ce1d8e，写集核实通过",
+        "RT-01：E1 腾出的槽改派 B2 aggregate（写集互斥、无真实依赖、缩短 SP-2 关键路径）",
+        "吞吐样本累计 2/6：F1 k=0.53、E1 k=0.10；中位数留待 SP-1"
+      ],
+      "next": "等 A1/B1/C1/D1/F2/B2 上报；六首包齐即提前执行 SP-1（含吞吐重基线 + ORCH-03 + fixtures 冻结）"
+    },
+    {
+      "seq": 10,
+      "date": "2026-11-25",
+      "session": "unattended v3.0 RUN",
+      "n_items": 4,
+      "items": [
+        "B1 done：MIN=13（预算 60，k=0.217）PROD=388/450 TF=20/20 PASS=22 FAIL=0 commit=4f227bb；主控独立重跑本包测试 22 绿",
+        "B1 报 5 条契约缺口，其中 3 条 BLOCKING（SHORTFALL_CLAMPED 为推断实现 / yaml 键名未规定 / 零分母无 reason_code）→ 已入 contract_gaps_pending，SP-1 裁决",
+        "吞吐样本 3/6：F1 0.53、B1 0.217、E1 0.10，中位数 0.217",
+        "派 B3 grading 入 B1 腾出的槽（B3 是 SP-2 放行 A3 的三个条件之一 = 关键路径）"
+      ],
+      "next": "等 A1/C1/D1/F2/B2/B3；六首包齐 -> 提前执行 SP-1"
+    },
+    {
+      "seq": 11,
+      "date": "2026-11-25",
+      "session": "unattended v3.0 RUN",
+      "n_items": 5,
+      "items": [
+        "C1 done：MIN=14（预算 45，k=0.311）PROD=325/300 超 8.3% TF=15 PASS=15 FAIL=0 commit=f8eff6e；闭合 B-008/B-010",
+        "B2 done：MIN=12（预算 45，k=0.267）PROD=179/300 TF=18 PASS=18 FAIL=0 commit=70e2b33；INV-3 AST+import 双测通过",
+        "装 pyarrow 26.0.1 -> 暴露 C1 真实缺陷 D-C1-01（io_loaders.py:192 parquet dtype 透传 TypeError），原被引擎缺失静默掩盖；不回退，登记待修",
+        "L-01：并行期全量 pytest 必须带 --continue-on-collection-errors（D1 半成品 test_methods_ahp.py 会中断收集）",
+        "吞吐首包样本 4/6，中位数 0.264；flash 档双样本 0.311/0.267 互相印证"
+      ],
+      "next": "派 D2 sensitivity（关键路径：A3 需要 B3+D2）；等 A1/D1/F2/B3/C2"
+    },
+    {
+      "seq": 12,
+      "date": "2026-11-25",
+      "session": "unattended v3.0 RUN",
+      "n_items": 4,
+      "items": [
+        "B3 done：MIN=16（预算 60，k=0.267）PROD=386/400 TF=15 PASS=15 FAIL=0 commit=874d6b7；绝对轨/滞回不对称/版本断点三硬点各有专项测试",
+        "B3 报 6 条缺口，1 条 BLOCKING（K-06 无签认值，agent 未猜数）；累计 contract_gaps_pending = 11 条待 SP-1 裁决",
+        "吞吐样本 6 个（首包口径 4/6）：中位数 0.267 / 首包口径 0.264，两口径一致",
+        "RT-03：B4 暂缓至 C2 落地（避免 config.py 读写竞争污染归因），本槽改派 D3 normalize"
+      ],
+      "next": "派 D3；等 A1/C2/D1/D2/F2；C2 落地即派 B4"
+    },
+    {
+      "seq": 13,
+      "date": "2026-11-25",
+      "session": "unattended v3.0 RUN",
+      "n_items": 4,
+      "items": [
+        "F2 done：MIN=16（预算 45，k=0.356）PROD=296/300 TF=13 PASS=13 FAIL=0 commit=26533e9",
+        "F2 的 reproducibility_hash 环境无关性已实测（run_id/run_at/路径/主机名/文件名全部排除），golden 用 FIPS 发表值锚定，R-14 合规",
+        "F2 报 7 条缺口，2 条 BLOCKING（L1052 核心列未枚举 / evidence_reason 缺 A 类正常码）；累计 contract_gaps_pending = 18 条",
+        "吞吐样本 7 个，中位数 0.267；首包口径 5/6 中位数 0.311；派 D3 normalize（RT-03）"
+      ],
+      "next": "派 F3 diagnostics（前置 F1 已满足）；等 A1/C2/D1/D2/D3；C2 落地即派 B4"
+    },
+    {
+      "seq": 14,
+      "date": "2026-11-25",
+      "session": "unattended v3.0 RUN",
+      "n_items": 5,
+      "items": [
+        "D1 done：MIN=39（预算 60，k=0.65，目前最慢）PROD=449/450 TF=17 PASS=17 FAIL=0 commit=9b81b2f",
+        "D1 交出 A2 的直接接口：segment_payload() 恰为 AhpSegment 的 10 个键；并实测 n=3 时双算法恒等，METHOD_MISMATCH 需 n>=4",
+        "D1 报 3 条缺口，1 条 BLOCKING（RI(n) 表 SDD 无值，用 Saaty 标准表，须确认并写进 provenance）；累计 21 条",
+        "RT-04：空槽派 C3 evidence 而非空等 A1（C3 预计 ~13min，会在 A1 前腾槽）；A1 一落地立即派 A2",
+        "RT-05：修正计时口径，逐包记 dispatched_at_min，超时判定不再用距 T0 时长"
+      ],
+      "next": "A1 落地 -> 立即派 A2（xhigh）+ 执行 SP-1（fixtures 冻结 / ORCH-03 / 吞吐重基线 / 18+ 条缺口批量裁决）；C2 落地 -> 派 B4"
+    },
+    {
+      "seq": 15,
+      "date": "2026-11-25",
+      "session": "unattended v3.0 RUN",
+      "n_items": 6,
+      "items": [
+        "A1 done：MIN=48（预算 60，k_ratio 0.80）fixtures 17 文件/896 事实行/5 期 PASS=28 FAIL=0 commit=ca31dd1 -> 六首包齐",
+        "SP-1 于 T+60 min 执行（早于 T+60 墙钟，依 §7.1 早测早重排）：fixtures 冻结 + ORCH-03 落地 + ADR 46 行 + E1 skip 入账 + 吞吐重基线 + 26 条缺口 8 项批量裁决",
+        "吞吐重基线：k = 0.2917（§7.1 原文口径），band k<=0.8 -> 按实测重排、富余转缓冲、不追加范围、S7/S8 全保",
+        "新计划：Phase1 3.68h（绑定于关键路径 A2->A3->E5 = 143 min）/ Phase2 0.75h / Phase3 1.00h / 计划完成 5.43h / 缓冲 4.57h（原 7.25h/2.75h）",
+        "全量回归 212 failed = 211 RED + 1 缺陷 D-C1-01，0 collection error，ORCH-03 零新增失败",
+        "A2（xhigh，关键路径）已于 T+49min 派出，前置 A1/D1/F1 全部就绪"
+      ],
+      "next": "SP-2：放行 A3（需 B3+D2+E1 全绿；B3/E1 已绿，只等 D2）+ reason_codes 批量 R-15 变更（ADJ-1）+ pyarrow optional extra（ADJ-8）"
+    },
+    {
+      "seq": 16,
+      "date": "2026-11-25",
+      "session": "unattended v3.0 RUN",
+      "n_items": 4,
+      "items": [
+        "D2 done：MIN=32（预算 75，k=0.427）PROD=500/500 TF=22/22 PASS=22 FAIL=0 commit=5ae3ebe；PROD 与 TF 双打满上限，预算给得刚好",
+        "SP-2 放行 A3 的三条件 B3+D2+E1 **全部已绿** -> A3 只差 A2（Averroes 在跑）",
+        "D2 报 7 条缺口，1 条 BLOCKING（6 个敏感性参数无 digest 数值 -> 无默认、缺失抛 MissingConfigError，未猜数）；累计 28 条",
+        "RT-06：E2/E3 golden 推迟到其覆盖模块落地后再派（避免大量 skip + 手算期望值与最终实现对不上导致返工）；富余产能改投自包含包"
+      ],
+      "next": "派 D4 triangulation（自包含）；A2 落地 -> 立即派 A3（xhigh，关键路径）；C2 落地 -> 派 B4"
+    },
+    {
+      "seq": 17,
+      "date": "2026-11-25",
+      "session": "unattended v3.0 RUN",
+      "n_items": 3,
+      "items": [
+        "D3 done：MIN=13（预算 45，k=0.289，与重排假设 K_NORM=0.30 几乎精确吻合）PROD=347/350 TF=16 PASS=16 FAIL=0 commit=de7a2ca；四条硬点全部有专项测试",
+        "D3 报 5 条缺口（全 WORKAROUND）：pools 入参 / sd_dof 未给 / INACTIVE 无落码 / reason_code 单槽 vs 四条码（定优先级 INACTIVE>STALE>REVERSAL>SMALL_POOL）/ 锚定集失效判定与 C2 的 C-10 需对齐；累计 33 条",
+        "并派 D4 triangulation（Sartre，max/high）+ C4 redline（Copernicus，max/high）；C4 承载不可砍底线 V-6+G-03+P-2，prompt 内明列 5 条硬点含对抗性测试要求"
+      ],
+      "next": "A2 落地 -> 立即派 A3（xhigh，关键路径，SP-2 三条件已全绿）；C2 落地 -> 派 B4 + C1b"
+    },
+    {
+      "at": {
+        "epoch": 1795553631.4,
+        "elapsed_h": 3.604,
+        "hard_stop_h": 10.0,
+        "remaining_h": 6.396
+      },
+      "event": "wave-1 收口 + wave-2 齐发",
+      "detail": "close_agent ×11（F3/C4/F4/C2/A2/D5/D4/C5/B4 等）释放槽位；交付累计 21/31（plan scope）；全量 pytest 213 failed → 10 failed（B4）；派 A3/A4/E2/E5/C1b/ORCH-25 六路"
     }
   ],
   "model_routing": {
@@ -1391,7 +1760,7 @@
   "sync_points_detail_ref": "每个同步点的完整裁决清单与固定 5 件事见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §7",
   "iron_rules": "R-1 ~ R-18，全文见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §5；R-16 spawn 必须显式带 model+effort，R-17 禁 request_user_input，R-18 禁自行 spawn",
   "throughput_calibration": {
-    "status": "measured_single_sample",
+    "status": "SP-1_COMPLETE",
     "formula": "k = median(实际墙钟) / median(预算墙钟)，样本 = SP-1 时已交付的 6 个首包",
     "samples": [
       {
@@ -1420,10 +1789,220 @@
         ],
         "dispatched": "pre_T0_probe(ORCH-11)",
         "verified_by": "主控独立核实：git show --stat + pytest 增量 + L1 禁 import 自查 + 全量回归 failed 数不变；不采信 agent 自报 15min"
+      },
+      {
+        "pkg": "E1",
+        "module": "tests/test_integration_spine.py",
+        "cx": "C3",
+        "model": "qwen3.8-max",
+        "effort": "high",
+        "budget_min": 60,
+        "agent_self_reported_min": 6,
+        "independently_verified_min": null,
+        "k_single": 0.1,
+        "prod_lines": 0,
+        "test_funcs": 12,
+        "pass": 2,
+        "skipped": 10,
+        "fail": 0,
+        "first_pass": true,
+        "escalations": 0,
+        "commit": "1ce1d8e",
+        "writeset_ok": true,
+        "note": "纯测试骨架包，无生产代码；k=0.10 不可代表有算法推导的包"
+      },
+      {
+        "pkg": "B1",
+        "module": "dsm/attainment.py",
+        "cx": "C3",
+        "model": "qwen3.8-max",
+        "effort": "high",
+        "budget_min": 60,
+        "agent_self_reported_min": 13,
+        "independently_verified_min": null,
+        "k_single": 0.217,
+        "prod_lines": 388,
+        "prod_cap": 450,
+        "test_funcs": 20,
+        "tf_cap": 20,
+        "pass": 22,
+        "fail": 0,
+        "first_pass": true,
+        "escalations": 0,
+        "commit": "4f227bb",
+        "writeset_ok": true,
+        "gaps": 5,
+        "note": "RED-first 白名单算法包，达成率四公式 + 边界；PROD 用到上限的 86%"
+      },
+      {
+        "pkg": "C1",
+        "module": "dsm/io_loaders.py",
+        "cx": "C2",
+        "model": "qwen3.8-flash",
+        "effort": "medium",
+        "budget_min": 45,
+        "agent_self_reported_min": 14,
+        "k_single": 0.311,
+        "prod_lines": 325,
+        "prod_cap": 300,
+        "test_funcs": 15,
+        "pass": 15,
+        "fail": 0,
+        "first_pass": true,
+        "commit": "f8eff6e",
+        "writeset_ok": true,
+        "gaps": 4,
+        "note": "唯一的 flash 首包样本；PROD 超上限 8.3%；parquet 分支留缺陷 D-C1-01"
+      },
+      {
+        "pkg": "B2",
+        "module": "dsm/aggregate.py",
+        "cx": "C2",
+        "model": "qwen3.8-flash",
+        "effort": "medium",
+        "budget_min": 45,
+        "agent_self_reported_min": 12,
+        "k_single": 0.267,
+        "prod_lines": 179,
+        "prod_cap": 300,
+        "test_funcs": 18,
+        "pass": 18,
+        "fail": 0,
+        "first_pass": true,
+        "commit": "70e2b33",
+        "writeset_ok": true,
+        "gaps": 4,
+        "note": "非首包（RT-01 提前派发），单独记为第 2 个 flash 样本"
+      },
+      {
+        "pkg": "B3",
+        "module": "dsm/grading.py",
+        "cx": "C3",
+        "model": "qwen3.8-max",
+        "effort": "high",
+        "budget_min": 60,
+        "agent_self_reported_min": 16,
+        "k_single": 0.267,
+        "prod_lines": 386,
+        "prod_cap": 400,
+        "test_funcs": 15,
+        "tf_cap": 20,
+        "pass": 15,
+        "fail": 0,
+        "first_pass": true,
+        "commit": "874d6b7",
+        "writeset_ok": true,
+        "gaps": 6,
+        "note": "非首包（B1 腾出的槽，RT-01 链上）；滞回 + 版本断点属高推导量，k 仍 0.267"
+      },
+      {
+        "pkg": "F2",
+        "module": "dsm/audit.py",
+        "cx": "C3",
+        "model": "qwen3.8-max",
+        "effort": "high",
+        "budget_min": 45,
+        "agent_self_reported_min": 16,
+        "k_single": 0.356,
+        "prod_lines": 296,
+        "prod_cap": 300,
+        "test_funcs": 13,
+        "tf_cap": 15,
+        "pass": 13,
+        "fail": 0,
+        "first_pass": true,
+        "commit": "26533e9",
+        "writeset_ok": true,
+        "gaps": 7,
+        "note": "首包（Lane F 的 T+0 首派，因 F1 已先行完成）"
+      },
+      {
+        "pkg": "D1",
+        "module": "dsm/weights_ahp.py",
+        "cx": "C3",
+        "model": "qwen3.8-max",
+        "effort": "high",
+        "budget_min": 60,
+        "agent_self_reported_min": 39,
+        "k_single": 0.65,
+        "prod_lines": 449,
+        "prod_cap": 450,
+        "test_funcs": 17,
+        "tf_cap": 20,
+        "pass": 17,
+        "fail": 0,
+        "first_pass": true,
+        "commit": "9b81b2f",
+        "writeset_ok": true,
+        "gaps": 3,
+        "note": "首包；目前最慢的一个（k=0.65）。双算法交叉验证 + 手算 golden + Saaty RI 表，推导量最大"
+      },
+      {
+        "pkg": "D2",
+        "module": "dsm/sensitivity.py",
+        "cx": "C3",
+        "model": "qwen3.8-max",
+        "effort": "high",
+        "budget_min": 75,
+        "agent_self_reported_min": 32,
+        "k_single": 0.427,
+        "prod_lines": 500,
+        "prod_cap": 500,
+        "test_funcs": 22,
+        "tf_cap": 22,
+        "pass": 22,
+        "fail": 0,
+        "first_pass": true,
+        "commit": "5ae3ebe",
+        "writeset_ok": true,
+        "gaps": 7,
+        "note": "PROD 与 TF 双双打到上限（500/500、22/22）-> 该包预算给得刚好，非宽松。四种扰动方法全覆盖"
+      },
+      {
+        "pkg": "D3",
+        "module": "dsm/normalize.py",
+        "cx": "C3",
+        "model": "qwen3.8-max",
+        "effort": "high",
+        "budget_min": 45,
+        "agent_self_reported_min": 13,
+        "k_single": 0.289,
+        "prod_lines": 347,
+        "prod_cap": 350,
+        "test_funcs": 16,
+        "tf_cap": 18,
+        "pass": 16,
+        "fail": 0,
+        "first_pass": true,
+        "commit": "de7a2ca",
+        "writeset_ok": true,
+        "gaps": 5,
+        "note": "与 K_NORM=0.30 的重排假设几乎精确吻合（0.289），验证分档取值有效"
+      },
+      {
+        "pkg": "C3",
+        "module": "dsm/evidence.py",
+        "cx": "C3",
+        "model": "qwen3.8-max",
+        "effort": "high",
+        "budget_min": 45,
+        "agent_self_reported_min": 24,
+        "k_single": 0.533,
+        "prod_lines": 298,
+        "prod_cap": 300,
+        "test_funcs": 18,
+        "tf_cap": 18,
+        "pass": 18,
+        "fail": 0,
+        "first_pass": true,
+        "commit": "be9fb30",
+        "writeset_ok": true,
+        "gaps": 8,
+        "note": "PROD 298/300、TF 18/18 双打满上限；五步短路 + GATE_ONLY 语义均需高推导量，k=0.533 与 F1(0.525) 同档，交叉印证「语义密集型包 k≈0.53」"
       }
     ],
-    "k": 0.53,
-    "action_taken": "F1 作为吞吐探针已于 T0 前先行交付并入库（commit a4bd363）。SP-1 只需补 A1/B1/C1/D1/E1 五个样本即凑满 6，仍按 §7.1 用中位数重算 k。未按 k=0.53 重排时间窗：单样本不可外推（F1 是 C3/max 纯新增包，不代表 A1 契约冻结包 / E1 骨架包 / C1 flash 包的吞吐），且 run 尚未启动、5.00h 计划仍有余量。",
+    "k": 0.2917,
+    "action_taken": "k=0.2917 落在 §7.1 的 k<=0.8 区间（比预算快）-> 按实测重排全部时间窗，富余转缓冲，**不追加范围**（R-6）。未启用 §5.2 降级候选，未砍任何包，S7/S8 全保。",
     "thresholds": {
       "k<=0.8": "转缓冲，不追加范围",
       "0.8<k<=1.2": "计划不变，只更新时间窗",
@@ -1431,7 +2010,60 @@
       "k>1.6": "停机上报，不得自行砍范围"
     },
     "k_basis": "单样本（F1）k = 21/40 = 0.53。中位数样本量 = 1，不具外推效力",
-    "extrapolation_guard": "禁止用单样本 k 重排计划。触发重排的唯一条件 = SP-1 拿到 6 样本中位数（§7.1）。若用户明确要求提前按 k=0.53 外推，必须先在对账单里写明「基于 1 个样本」并由用户确认。"
+    "extrapolation_guard": "解除：6 首包样本齐备，k 由规程原文口径的中位数比得出，非单样本外推。但样本离散度 8.0x（E1 0.10 纯测试骨架无生产代码 vs A1 0.80 含 3906 行 fixtures 数据），故重排采用**分档 k**而非全局套用：见 goal.rebaseline.method",
+    "k_note_running": "样本 8 个：D1 0.65、F1 0.53、F2 0.356、C1 0.311、B3 0.267、B2 0.267、B1 0.217、E1 0.10 -> 中位数 (0.267+0.311)/2 = 0.289。§7.1 定义的 6 首包 = A1/B1/C1/D1/E1/F1，已到 5 个（B1 0.217、C1 0.311、D1 0.65、E1 0.10、F1 0.53）-> 中位数 0.311；只等 A1。注意 F2 顶替 F1 成为 Lane F 的实际首包，两种口径都记，SP-1 用 §7.1 原口径（A1/B1/C1/D1/E1/F1）计算",
+    "first_pkg_samples": [
+      "A1",
+      "B1",
+      "C1",
+      "D1",
+      "E1",
+      "F1"
+    ],
+    "first_pkg_table": [
+      {
+        "pkg": "A1",
+        "budget_min": 60,
+        "actual_min": 48,
+        "k_ratio": 0.8
+      },
+      {
+        "pkg": "B1",
+        "budget_min": 60,
+        "actual_min": 13,
+        "k_ratio": 0.217
+      },
+      {
+        "pkg": "C1",
+        "budget_min": 45,
+        "actual_min": 14,
+        "k_ratio": 0.311
+      },
+      {
+        "pkg": "D1",
+        "budget_min": 60,
+        "actual_min": 39,
+        "k_ratio": 0.65
+      },
+      {
+        "pkg": "E1",
+        "budget_min": 60,
+        "actual_min": 6,
+        "k_ratio": 0.1
+      },
+      {
+        "pkg": "F1",
+        "budget_min": 40,
+        "actual_min": 21,
+        "k_ratio": 0.525
+      }
+    ],
+    "k_formula": "§7.1 原文：k = 实际墙钟中位数 ÷ 预算墙钟中位数 = 17.5 / 60.0 = 0.2917",
+    "k_median_of_ratios": 0.418,
+    "k_min": 0.1,
+    "k_max": 0.8,
+    "k_spread_x": 8.0,
+    "band": "k <= 0.8"
   },
   "decisions_ref": "全部裁决的完整论证与 SDD 逐字证据见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §5.1~§5.5 与附 B；本文件只存结论",
   "session_log_ref": "全文见 ops/session-log-archive.md（v2.0 §6 瘦身规则）",
@@ -1445,29 +2077,53 @@
     "D-6_min_honesty": "上报行 MIN 必须是从收到任务到 commit 的墙钟分钟，并明示主控会用 git 时间戳独立核实。依据：F1 探针实测 agent 自报 15min vs 独立核实 21min，自报偏乐观 29%"
   },
   "active_agents": {
-    "A1": {
-      "agent_id": "01a20e92-7669-79b1-9dab-895a94427e18",
-      "nickname": "James"
+    "A3": {
+      "agent_id": "01a20f51-b569-7333-ab5b-1cc14218fa84",
+      "nickname": "Aristotle",
+      "model_id": "qwen3.8-max",
+      "effort": "xhigh",
+      "adhoc": false,
+      "spawned_at_epoch": 1795553631.4
     },
-    "B1": {
-      "agent_id": "01a20e92-e252-7750-ad55-25e40a09b323",
-      "nickname": "Nash"
+    "A4": {
+      "agent_id": "01a20f51-f9c5-7773-a512-9a0fa058f876",
+      "nickname": "Zeno",
+      "model_id": "qwen3.8-max",
+      "effort": "xhigh",
+      "adhoc": false,
+      "spawned_at_epoch": 1795553631.4
     },
-    "C1": {
-      "agent_id": "01a20e93-6477-79d2-8a4a-09f8889e9928",
-      "nickname": "Mencius"
+    "E2": {
+      "agent_id": "01a20f52-3f3b-72a2-bb7a-f15d96694831",
+      "nickname": "Faraday",
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "adhoc": false,
+      "spawned_at_epoch": 1795553631.4
     },
-    "D1": {
-      "agent_id": "01a20e93-ef06-7152-85cb-e0e11370f425",
-      "nickname": "Jason"
+    "E5": {
+      "agent_id": "01a20f52-969e-7590-bff9-9800aa8d2654",
+      "nickname": "Herschel",
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "adhoc": false,
+      "spawned_at_epoch": 1795553631.4
     },
-    "E1": {
-      "agent_id": "01a20e94-8098-7521-b252-ccf0d1be93a5",
-      "nickname": "Noether"
+    "C1b": {
+      "agent_id": "01a20f52-e00e-7ec1-a178-476e2b8faee5",
+      "nickname": "Carson",
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "adhoc": true,
+      "spawned_at_epoch": 1795553631.4
     },
-    "F2": {
-      "agent_id": "01a20e95-17e9-7953-80fd-af72056bf710",
-      "nickname": "Hypatia"
+    "ORCH-25": {
+      "agent_id": "01a20f53-3f14-7f72-874d-bb30fe1799ae",
+      "nickname": "Dewey",
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "adhoc": true,
+      "spawned_at_epoch": 1795553631.4
     }
   },
   "self_check_T0": {
@@ -1496,5 +2152,666 @@
     },
     "digest_count": 45,
     "venv_ok": true
+  },
+  "runtime_decisions": {
+    "RT-01": {
+      "at": "T+0.15h",
+      "trigger": "E1 于 6min 完成（预算 60min），Lane E 后继 E2 依赖 A1（未落地）-> 1 个槽位空闲",
+      "decision": "空闲槽改派 B2 aggregate（原排程 T+1.00 起），由 Dirac 承接（qwen3.8-flash + medium，照 §5.4）",
+      "why_safe": "① 写集互斥：B2 = dsm/aggregate.py + tests/test_aggregate.py，与在跑的 B1(attainment)/C1(io_loaders)/A1(fixtures)/D1(weights_ahp)/F2(audit) 无任何交集；② B2 前置 = 构造输入，无真实上游依赖；③ 不违反 §2.3「不得抢占 Lane A 算力」——本动作与 Lane A 无关；④ 派工 prompt 已明令不得读/import 正在被同时写的 attainment.py / io_loaders.py",
+      "why_beneficial": "B 链 B1->B2->B3->B4 是 SP-2 放行 A3 calibrate 的关键路径（B3 grading 必须全绿）。B2 提前 0.85h 起跑 = B3 提前 = SP-2 关键路径缩短",
+      "lane_bookkeeping": "B2 的 work_packages.lane 字段保持 B（包号首字母=原属 lane）；实际由 E1 腾出的槽执行，记 executed_in_slot=E1_freed",
+      "supersedes": null
+    },
+    "RT-02": {
+      "at": "T+0.55h",
+      "trigger": "B2 于 12min 完成（预算 45min），Lane B 后继 B4 不在任何关键路径上",
+      "decision": "空闲槽派 D2 sensitivity（原排程 T+1.00 起），而非 Lane B 的下一包 B4",
+      "why": "SP-2（T+2.75）放行 A3 calibrate 的三条件是 B3 + D2 + E1。E1 已完成、B3 在跑，D2 是唯一未启动的放行条件 -> D2 直接决定关键路径。B4（211 RED 抢救）风险最高但不在关键路径上，按 §2.3「Lane A 卡住时优先补 Lane A」的同一原则，优先补关键路径",
+      "why_safe": "写集 dsm/sensitivity.py + tests/test_sensitivity.py，与在跑的 A1/B3/C2/D1/F2 无交集；D2 前置=构造输入，不依赖同 lane 在跑的 D1",
+      "lane_bookkeeping": "D2 的 lane 字段保持 D；Lane D 同时有 D1/D2 两包在跑"
+    },
+    "RT-03": {
+      "at": "T+0.75h",
+      "trigger": "B3 于 16min 完成，空出 1 槽；Lane B 只剩 B4",
+      "decision": "B4 暂缓，本槽派 D3 normalize",
+      "why_defer_B4": "B4 的写集含 dsm/config.py，而在跑的 C2 preflight 很可能 import config.py。并行期让 B4 改写 config.py 会让 C2 的测试出现非自身原因的失败，污染归因。B4 改为「C2 落地后立即派」，届时 config.py 的唯一写者只有 B4",
+      "why_D3": "D3 normalize 前置=构造输入、写集 dsm/normalize.py + tests/test_normalize.py 与在跑的 A1/C2/D1/D2/F2 全不交集；且 normalize 是主流程 Step 4，E2/E3 golden 与集成骨架都要用",
+      "b4_trigger": "C2 上报 done 后立即派 B4（R-8 triage 授权，90min 预算，本 run 最大单包风险 RK-P5）"
+    },
+    "RT-04": {
+      "at": "T+47.8 min",
+      "trigger": "D1 完成，空出 1 槽；A2 的三个前置（A1/D1/F1）只剩 A1 未落地",
+      "decision": "本槽派 C3 evidence，而非为 A2 空等",
+      "why": "A1 已跑 45min/预算 60min，工作树已出 fixtures_gen.py 27.6KB + gen_golden.py 18.5KB + fixtures/ 17 文件，tests/test_fixtures.py 未出 -> 预计还需 10~20min。C3 预算 45min、按当前 k≈0.29 预计 ~13min 完成，会在 A1 之前腾出槽位，不挤占 A2。若 A1 提前落地且无空槽，则 A2 最多等待 C3 的剩余时间（<13min），相对 Phase 1 的 5.00h 计划与当前 k≈0.29 的富余量可接受",
+      "alternative_rejected": "空等 A1（浪费 ~15min 槽位产能）；派 D4（预算 60min，风险窗口更长）",
+      "guard": "A1 一落地立即派 A2（C3/max + xhigh，全 run 仅 3 个 xhigh 包之一），优先级高于任何其他派发"
+    },
+    "RT-05": {
+      "at": "T+47.8 min",
+      "trigger": "主控自查发现计时口径错误",
+      "decision": "每包记录 dispatched_at_min，超时判定一律用 (now - dispatched_at) 而非 (now - T0)",
+      "why": "上一版核对脚本把「距 T0 时长」当成各包运行时长，误报 D3/F3 超预算（实际各只跑了 5min/0min）。并行派发下各包起点不同，必须逐包记派发时刻"
+    },
+    "RT-06": {
+      "at": "T+62 min",
+      "trigger": "SP-1 重排后 Phase1 绑定于关键路径（3.20h）而非 lane 负载（1.41h）-> 非关键 lane 会出现产能富余",
+      "decision": "E2/E3（golden G-01~G-15）推迟到其所覆盖的模块落地后再派，不按原卡片时刻 T+1.00 起",
+      "why": "E2 覆盖 G-01 G-04 G-08 G-09 G-02 G-03 G-13 G-15，其中 G-02=evidence(C3 在跑)、G-03=redline(C4 未派)。现在派会让大量 golden 只能写成 skip，等模块落地后还要再改一轮 = 双倍工时。E1 已证明「skip 自解锁」机制有效，但 golden 的期望值必须手算（R-14），在实现不存在时手算容易与最终实现对不上，反而增加返工",
+      "new_trigger_for_E2": "C3(evidence) + C4(redline) 两个包落地后立即派 E2；E3 紧随 E2",
+      "critical_path_unaffected": "A2 -> A3 -> E5 不受此调整影响；富余产能改投 D4/D5/C4/C5/B4 等自包含包",
+      "self_contained_priority": "槽位优先给「前置=构造输入、不依赖任何未落地模块」的自包含包（D4 triangulation / C4 redline / C5 pooling / B4 config），这类包不会产生 skip，一次交付即终态"
+    },
+    "RT-07": {
+      "at": {
+        "epoch": 1795553631.4,
+        "elapsed_h": 3.604,
+        "hard_stop_h": 10.0,
+        "remaining_h": 6.396
+      },
+      "trigger": "第一波 6 路（C2/A2/D5/D4/C5/B4）在 T+3.5h 前全部交付，6 槽同时空出",
+      "decision": "第二波 6 路齐发：A3 calibrate(max/xhigh，关键路径) + A4 whatif(max/xhigh，ORCH-09 与 A3 并行、不依赖 A3) + E2 golden-a(max/high，前置 E1+A1 已满足，覆盖模块 aggregate/grading/evidence/redline/pooling 均已落地，符合 RT-06 推迟条件解除) + E5 architecture(max/high，按 §3.2 第174行前置『未落地模块自动不覆盖』故可与 A3 并行，P2 全量回归补齐 calibrate/whatif 覆盖) + C1b(flash/medium，缺陷修复) + ORCH-25(flash/medium，测试 triage)",
+      "why_safe": "六者写集两两互斥：weights_calibrate.py / whatif.py / test_golden_a.py / test_architecture.py / (io_loaders.py+test_io_loaders.py+pyproject.toml) / test_config_placeholder.py，无任何交集；E5 与 A3/A4 的时序耦合由『模块存在即纳入扫描』的写法解除"
+    },
+    "RT-08": {
+      "at": {
+        "epoch": 1795553631.4,
+        "elapsed_h": 3.604,
+        "hard_stop_h": 10.0,
+        "remaining_h": 6.396
+      },
+      "trigger": "B4 上报 G1/G2/G3：tests/test_config_placeholder.py 8 条 RED 根因是该文件私有 fixture 与过时签名断言，非 config.py 实现问题；ORCH-24 line 43+320 与 line 36/342/406 内部互斥",
+      "decision": "裁 ORCH-25：生产语义优先。G1 = _clean_grade_rules() 改为四级 L1~L4 + floor 单调 + 每级非空 actions（照抄 test_config_properties.py::_t06_grade_rules 既有合成树，不得自创数值）；G2 = i05 断言改 ['config_dir','period','run_at']。断言一条不减；test_t05_m03 保持 RED 不在本包处理。ORCH-24 的互斥点记为文档勘误项，P3a 验收证据表须如实披露",
+      "authorized_writeset": [
+        "tests/test_config_placeholder.py"
+      ]
+    },
+    "RT-09": {
+      "at": {
+        "epoch": 1795553631.4,
+        "elapsed_h": 3.604,
+        "hard_stop_h": 10.0,
+        "remaining_h": 6.396
+      },
+      "trigger": "F4 reports PROD=632 超 §3.2 预算 450 行 232 行（自称按 R-6 收尾）；D4 PROD=524 超 450 行 74 行（纯代码 308 行，超出全为 docstring/注释）；C2 PROD=423 超 400 行 6%；A2 PROD=746 超 700 行 46 行",
+      "decision": "裁 ADJ-9：四包超限一律**核可入账、不返工**。理由：①ADJ-5 已定行数上限只算 dsm/**，四包均在 SDD §7 单模块 200~500 区间的上沿或略超，超出部分为手算依据与缺口书面披露（R-12 要求），压缩会牺牲可辩护性；②返工需重占槽位，与 10h 硬停线冲突。**但 SP-3 必须复核 reports.py 是否拆为 render/ledger 两文件**（唯一超 500 行者），若拆分则派 flash 小包，不动断言",
+      "followup": "SP-3 复核 reports.py 拆分"
+    }
+  },
+  "contract_gaps_pending": [
+    {
+      "pkg": "B1",
+      "where": "models.py",
+      "missing": "无 MetricFactFrame / MetricDict 类型",
+      "type": "Sequence[MetricFactRow] / Mapping",
+      "usage": "attainment 入参",
+      "level": "WORKAROUND",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "B1",
+      "where": "models.py",
+      "missing": "INTERVAL 公式的上下界无契约字段",
+      "type": "lo/hi",
+      "usage": "达成率 INTERVAL 分支",
+      "level": "WORKAROUND",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "B1",
+      "where": "M02 digest",
+      "missing": "只给 3 个公式，SHORTFALL_CLAMPED 无定义",
+      "type": "-",
+      "usage": "第四公式按 min(1, 按 direction 定向比率) 推断实现",
+      "level": "BLOCKING",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "B1",
+      "where": "config schema",
+      "missing": "attainment_cap / on_zero / signed_off_statuses 的 yaml 键名未规定",
+      "type": "-",
+      "usage": "自定 eval_config.attainment.{cap,on_zero,signed_off_statuses}，缺键抛 AttainmentConfigError",
+      "level": "BLOCKING",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "B1",
+      "where": "reason_codes.py",
+      "missing": "零分母情形无已注册 reason_code",
+      "type": "enum member",
+      "usage": "该行 reason_code=None（未编造字面量，符合 R-12）",
+      "level": "BLOCKING",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "B3",
+      "where": "models.py",
+      "missing": "无 GradeRuleSet 类型（digest L962 签名要求，models.py 只有 GradeRuleRow）",
+      "type": "pydantic 模型",
+      "usage": "grading 规则集入参",
+      "level": "WORKAROUND",
+      "disposition": "已在 grading.py 内声明；SP-1 裁决是否上提到 models.py（R-15）",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "B3",
+      "where": "K-06",
+      "missing": "min_coverage_for_absolute_track 无签认值",
+      "type": "Ratio",
+      "usage": "G-04 绝对轨封顶判据",
+      "level": "BLOCKING",
+      "disposition": "做成必填无默认，未猜数；须行方签认，进 K-01~K-20 PLACEHOLDER 清单",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "B3",
+      "where": "models.py",
+      "missing": "GradeRow/GradeFrame 无列承载「连续达标期数」",
+      "type": "int / StreakState",
+      "usage": "Step5 滞回跨期状态",
+      "level": "WORKAROUND",
+      "disposition": "plan() 返回 GradePlan.streaks 交调用方串期，assign() 保持 digest 签名",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "B3",
+      "where": "digest L1019",
+      "missing": "usable_for_elimination 需由 flip_rate/方法分歧否决置 false，但不在 assign 六参内",
+      "type": "bool",
+      "usage": "淘汰可用性标记",
+      "level": "WORKAROUND",
+      "disposition": "本包只按 grade!=NOT_ASSESSED 置值；真实否决需 D2 sensitivity 结果，SP-3 联调",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "B3",
+      "where": "M05 digest",
+      "missing": "低于全部 attainment_floor 的归属语义未定义",
+      "type": "-",
+      "usage": "Step1 兜底",
+      "level": "WORKAROUND",
+      "disposition": "取最差等级 L4（非 NOT_ASSESSED），需设计方确认",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "B3",
+      "where": "reason_codes.py",
+      "missing": "digest L967 五个 reason_code 名与注册名不一致；evidence D→NOT_ASSESLED 无专属分级码",
+      "type": "enum member",
+      "usage": "grade_reason_path",
+      "level": "WORKAROUND",
+      "disposition": "一律用注册名（GR_CAPPED_NO_TARGET / GR_EVIDENCE_GATE_L1 / GR_VERSION_BREAK / GR_STREAK_NOT_MET / GR_REDLINE_FORCED），D 类复用 RC.NOT_ASSESSED；SP-1 裁决 digest 是否需更正",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "F2",
+      "where": "models.py",
+      "missing": "RunContext 未在契约层建模（ruling 31）",
+      "type": "pydantic 模型",
+      "usage": "audit manifest 的运行上下文",
+      "level": "WORKAROUND",
+      "disposition": "已在 audit.py L6 声明；SP-1 裁决是否上提 models.py",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "F2",
+      "where": "SDD L1052",
+      "missing": "「核心列/等级列」未枚举",
+      "type": "-",
+      "usage": "决定哪些列入 reproducibility_hash",
+      "level": "BLOCKING",
+      "disposition": "agent 取保守超集：score_card 34/35 列（仅除 run_id）、grade_ledger 5 列（9 列人签/S6 标记列排除）；须设计方确认列清单",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "F2",
+      "where": "契约",
+      "missing": "audit.json 落盘格式未定",
+      "type": "-",
+      "usage": "审计包写盘",
+      "level": "WORKAROUND",
+      "disposition": "本包只产 canonical text，写盘留给 CLI(D5)/S6",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "F2",
+      "where": "契约",
+      "missing": "row_count 的表头口径未定",
+      "type": "bool",
+      "usage": "输入指纹的行数",
+      "level": "WORKAROUND",
+      "disposition": "取 has_header=True",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "F2",
+      "where": "契约",
+      "missing": "config 快照入参形态未定",
+      "type": "-",
+      "usage": "manifest 的 config 段",
+      "level": "WORKAROUND",
+      "disposition": "支持 BaseModel/Mapping/str/bytes/__dict__ 五种入参",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "F2",
+      "where": "io_loaders",
+      "missing": "八表表名注册属 io_loaders(S3)",
+      "type": "-",
+      "usage": "manifest 的输入清单",
+      "level": "WORKAROUND",
+      "disposition": "C1 已落地但未提供表名注册表；SP-1 联调",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "F2",
+      "where": "reason_codes.py",
+      "missing": "ScoreCardRow.evidence_reason 必填，但三个已注册码均为异常码、A 类证据无对应码",
+      "type": "enum member",
+      "usage": "证据强度 A 类的 reason",
+      "level": "RESOLVED",
+      "disposition": "C3 实测 reason_codes.py 已注册 EV_A_RANDOMIZED / EV_B_QUASI / EV_C_OBSERVATIONAL / EV_D_NOT_ASSESSED 四码，A 类正常码存在 -> F2 的该条 BLOCKING 不成立，予以关闭。F2 无需返工（其 evidence_reason 取值路径由调用方传入，码已可用）",
+      "status": "closed_by_C3_evidence"
+    },
+    {
+      "pkg": "D1",
+      "where": "SDD",
+      "missing": "RI(n) 随机一致性指标表无值",
+      "type": "float table",
+      "usage": "CR = CI/RI(n) 的分母",
+      "level": "BLOCKING",
+      "disposition": "agent 用 Saaty 标准表 n=1..10，n>10 抛 AhpError 不外推。属公开文献标准值，非编造业务数值；但须设计方确认采用 Saaty 表并写进 provenance",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D1",
+      "where": "M06 digest",
+      "missing": "「并列最不一致前 5 对」的度量未定义",
+      "type": "-",
+      "usage": "CR>=0.1 拒绝时的诊断输出",
+      "level": "WORKAROUND",
+      "disposition": "取 |ln(a_ij*w_j/w_i)|，并列按 item 索引升序；需设计方确认度量口径",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D1",
+      "where": "models.py",
+      "missing": "AhpSegment 仅单层，无法承载维度层+指标层两级",
+      "type": "pydantic 模型",
+      "usage": "elicit_hierarchy 输出",
+      "level": "WORKAROUND",
+      "disposition": "维度层/指标层各出一份 payload；SP-1 裁决是否需要两级容器类型",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D2",
+      "where": "契约",
+      "missing": "MC 的等级分布/众数/CI 无报告列",
+      "type": "-",
+      "usage": "敏感性报告完整度",
+      "level": "WORKAROUND",
+      "disposition": "众数已用于 flip 判定；报告列待 reports(F4) 承接",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D2",
+      "where": "契约",
+      "missing": "报告无 veto / usable_for_elimination 列",
+      "type": "-",
+      "usage": "否决结论的落盘位置",
+      "level": "WORKAROUND",
+      "disposition": "ledger 写入归渲染层（F4 reports）；B3 的 GAP4 同源，SP-3 联调",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D2",
+      "where": "models.py",
+      "missing": "ScoringContext 只有 weight_version_id，无 WeightVersionDoc",
+      "type": "pydantic 模型",
+      "usage": "MC 重算需要完整权重文档",
+      "level": "WORKAROUND",
+      "disposition": "weights 由调用方注入；与 B-004 同源",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D2",
+      "where": "分层",
+      "missing": "grade_fn(Step6) 需注入，grading.py 禁 import",
+      "type": "callable",
+      "usage": "扰动后重判等级",
+      "level": "WORKAROUND",
+      "disposition": "依赖注入，符合 INV-1；集成期由 spine 装配",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D2",
+      "where": "分层",
+      "missing": "normalizer(Step2) 需注入，normalize.py 公式禁重复实现（R-7）",
+      "type": "callable",
+      "usage": "NORM_SWAP 换归一化方法",
+      "level": "WORKAROUND",
+      "disposition": "依赖注入；D3 落地后由 spine 装配",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D2",
+      "where": "config",
+      "missing": "必填键 mc_samples / dirichlet_concentration / loo_dominant_flip_rate / loo_sample_size_per_dim / norm_swap_method / norm_swap_min_rank_correlation 无 digest 数值",
+      "type": "-",
+      "usage": "敏感性参数",
+      "level": "BLOCKING",
+      "disposition": "**无默认值、缺失即抛 MissingConfigError**（未猜数，R-12 合规）。须行方签认后进 K 清单；fixtures 的 G06_weight_oat20 已提供一组可用值供集成期使用",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D2",
+      "where": "SDD L941",
+      "missing": "NORM_SWAP 换法后 anchor_used 的归属未明",
+      "type": "bool",
+      "usage": "锚定集是否仍生效",
+      "level": "WORKAROUND",
+      "disposition": "强制 False；锚定归 normalize.py（D3），SP-3 与 D3 联调确认",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D3",
+      "where": "契约",
+      "missing": "pools 入参：池归属来自 T1 + S5 evidence，无契约字段",
+      "type": "-",
+      "usage": "池内归一的分组依据",
+      "level": "WORKAROUND",
+      "disposition": "由调用方注入；与 C5 pooling 的分池口径须在 SP-3 对齐",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D3",
+      "where": "digest",
+      "missing": "z_score 的 sd_dof（自由度）未给",
+      "type": "int",
+      "usage": "标准差分母 n 或 n-1",
+      "level": "WORKAROUND",
+      "disposition": "做成显式参数并两种都测；默认值须行方确认，进 K 清单",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D3",
+      "where": "reason_codes.py",
+      "missing": "INACTIVE 在 on_zero=None 时无 reason_code 落点（NormalizedFrame 只有 rows，norm_value 非空）",
+      "type": "enum member",
+      "usage": "零变异指标的落码",
+      "level": "WORKAROUND",
+      "disposition": "并入 ADJ-1 的 reason_codes 批量变更（SP-2）",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D3",
+      "where": "契约",
+      "missing": "reason_code 单槽 vs 四条码（INACTIVE/STALE/REVERSAL/SMALL_POOL）",
+      "type": "-",
+      "usage": "一行同时命中多条时的表达",
+      "level": "WORKAROUND",
+      "disposition": "固定优先级 INACTIVE > STALE > REVERSAL > SMALL_POOL；须设计方确认是否改为多值列",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "D3",
+      "where": "preflight",
+      "missing": "锚定集失效判定属 C-10（preflight，当时并行中未读未 import）",
+      "type": "-",
+      "usage": "锚定集有效性前置检查",
+      "level": "WORKAROUND",
+      "disposition": "就地按「本池本期有无可用锚定尺」判定；SP-3 与 C2 preflight 的 C-10 对齐，避免双重判定不一致",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "C3",
+      "where": "config schema",
+      "missing": "eval_config.evidence.mode / .significance_keywords 与 cel.enabled 的 yaml 键名 SDD 未给，且 config/ 目录为空",
+      "type": "-",
+      "usage": "证据模式与 CEL 开关的配置入口",
+      "level": "BLOCKING",
+      "disposition": "键名待行方/设计方确认；进 K 清单。B1 已自定 eval_config.attainment.* 同族键名，SP-3 统一对齐命名规范",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "C3",
+      "where": "SDD L979",
+      "missing": "A 类判定的关键词清单内容无任何事实来源",
+      "type": "list[str]",
+      "usage": "significance_keywords",
+      "level": "BLOCKING",
+      "disposition": "**写成必填入参，清单为空即永不认 A**（保守方向正确，未猜内容，R-12 合规）；须行方提供清单",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "C3",
+      "where": "reason_codes.py",
+      "missing": "digest L982 的 EVIDENCE_DOWNGRADED_PARTIAL 未注册",
+      "type": "enum member",
+      "usage": "部分降级的落码",
+      "level": "WORKAROUND",
+      "disposition": "改用注册码 EVIDENCE_CARD_PARTIAL（G-13 上限 C），符合 ADJ-3",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "C3",
+      "where": "SDD L976",
+      "missing": "签名里的 facts 参数五步均不消费",
+      "type": "-",
+      "usage": "定位 locator 全集",
+      "level": "WORKAROUND",
+      "disposition": "仅用于确定 locator 全集（有事实无卡即判 ①D）；签名保持 digest 原样",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "C3",
+      "where": "契约",
+      "missing": "control_group_id 在 v1 无输入列",
+      "type": "-",
+      "usage": "对照组标识",
+      "level": "WORKAROUND",
+      "disposition": "恒 None；进 K 清单",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "C3",
+      "where": "契约",
+      "missing": "③「须写假设」无对应字段",
+      "type": "-",
+      "usage": "B 类判定条件",
+      "level": "WORKAROUND",
+      "disposition": "用 alt_method_note 承载，未写则不认 B（保守）",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "C3",
+      "where": "契约",
+      "missing": "「时间断点」无 EvalMethod 字面量，GEO/SWITCHBACK 归属未给",
+      "type": "enum",
+      "usage": "B 类判定",
+      "level": "WORKAROUND",
+      "disposition": "不进 B，保守降 C；须设计方明确",
+      "status": "adjudicated_SP-1"
+    },
+    {
+      "pkg": "C3",
+      "where": "契约",
+      "missing": "② randomized=true 无独立布尔列",
+      "type": "bool",
+      "usage": "A 类判定",
+      "level": "WORKAROUND",
+      "disposition": "用 control_arrangement == 'RANDOMIZED' 判定",
+      "status": "adjudicated_SP-1"
+    }
+  ],
+  "defects": [
+    {
+      "id": "D-C1-01",
+      "found_at": "T+0.45h",
+      "found_by": "主控（装 pyarrow 26.0.1 后重跑 tests/test_io_loaders.py）",
+      "file": "dsm/io_loaders.py",
+      "line": 192,
+      "symptom": "pandas.read_parquet(path, dtype=str) -> pandas 3.1.1 把 dtype 透传给 pyarrow.parquet.read_table()，后者不接受该关键字 -> TypeError: read_table() got an unexpected keyword argument 'dtype'",
+      "root_cause": "parquet 分支照抄了 CSV 分支的 dtype=str 语义；parquet 引擎不支持 dtype 参数。模块内已有 cell_to_text(value) 用于把 parquet 单元格压平成 CSV 单元格文本，说明原设计意图是「不带 dtype 读入 + 逐单元格 cell_to_text」",
+      "masked_by": "venv 原本无 pyarrow -> tests/test_io_loaders.py:272 的 import pyarrow 分支跳过真实 roundtrip，缺陷被静默掩盖（正是 V-14 要防的情形）",
+      "impact": "任何装了 pyarrow 的环境读 parquet 输入即崩；CSV 路径不受影响",
+      "severity": "HIGH",
+      "fix_owner": "Lane C（写集 dsm/io_loaders.py + tests/test_io_loaders.py）",
+      "fix_package": "C1b（缺陷修复微包，待槽位空闲即派）",
+      "status": "OPEN",
+      "baseline_effect": "全量 failed 由 211 -> 212（新增 tests/test_io_loaders.py::test_parquet_dispatch_and_float_guard）；修复后应回到 211"
+    }
+  ],
+  "environment_changes": [
+    {
+      "at": "T+0.42h",
+      "what": "venv 安装 pyarrow 26.0.1",
+      "why": "C1 报 parquet 正向 roundtrip 未实测（❌）；SDD 要求 CSV/Parquet 双读取，不装则该能力永久无证据",
+      "result": "❌ 转为实测 -> 暴露真实缺陷 D-C1-01（净收益为正）",
+      "pending_action": "SP-1 由主控把 pyarrow 声明为 pyproject.toml 的 optional extra（parquet = ['pyarrow>=14']），核心依赖集不变，避免破坏 P3b 的断网复跑；同时写进 requirements 说明",
+      "decision": "不回退安装。回退等于用「引擎缺失」掩盖缺陷，违反 V-14 无静默降级"
+    }
+  ],
+  "orch_lessons": [
+    {
+      "id": "L-01",
+      "at": "T+0.45h",
+      "observation": "并行期跑全量 pytest 被 tests/test_methods_ahp.py（D1 未跟踪半成品）的 collection error 中断，整个 suite 拿不到统计行",
+      "rule_added": "同步点跑全量必须带 --continue-on-collection-errors，并在统计行之外单独记录「收集错误文件清单」；收集错误若来自未跟踪半成品，属预期，不计入 failed 基线",
+      "baseline_restated": "pytest 基线 211 failed（test_config_semantic 108 / test_config_weight_version 96 / test_config_properties 7）+ 当前 1 个已登记缺陷 D-C1-01 = 212；A1/B1/C1/D1/E1/F2/B2 新增的 passed 不计入 failed"
+    }
+  ],
+  "gap_adjudications_SP1": {
+    "total_gaps": 21,
+    "blocking": 7,
+    "workaround": 14,
+    "ADJ-1_reason_codes_batch": "所有 reason_code 缺口（B1 零分母 / C1 非法字面量·非ISO日期·缺文件 / F2 evidence_reason 缺 A 类正常码 —— 该条已由 C3 实测消解，见 contract_gaps_pending 内 RESOLVED 项）**合并成一次 R-15 契约变更，排在 SP-2 执行**，不在 SP-1 改。理由：现在改会触发 attainment/io_loaders/audit/evidence 四个模块同时返工；SP-2 时这些包都已落地，一次改完 + 一次全量回归成本最低。各包当前一律 code=None，**未编造字面量**（R-12 合规），可安全保持到 SP-2。",
+    "ADJ-2_no_invented_numbers": "所有「digest/SDD 未给业务数值」的缺口（B3 的 K-06 min_coverage_for_absolute_track、grade_rule 门槛、promotion_streak、evidence 四级判据界限等）一律**保持必填无默认或 PLACEHOLDER，不猜数**。全部进 K-01~K-20 待行方签认清单，P3a 的 V-1~V-20 表按 R-12 记 ❌ 无实测证据。",
+    "ADJ-3_reason_code_naming": "digest 名称与 reason_codes.py 注册名不一致时**一律用注册名**（CAPPED_NO_TARGET->GR_CAPPED_NO_TARGET、STALE->WEIGHT_VERSION_STALE、CAPPED_EVIDENCE_C->GR_EVIDENCE_GATE_L1、VERSION_BREAK->GR_VERSION_BREAK、HYSTERESIS_HOLD->GR_STREAK_NOT_MET、FORCED_BY_REDLINE->GR_REDLINE_FORCED）。B3/A1 已按此处理，予以确认；digest 需更正一事登记为文档缺口，本 run 不改 digest（已冻结）。",
+    "ADJ-4_local_container_types": "所有「models.py 缺容器类型」的缺口（B3 GradeRuleSet、F2 RunContext、D1 AhpResult/ConsistencyReport/InconsistentPair、C1 Inputs）**一律在模块内本地声明**，予以确认。是否上提到 models.py 的统一裁决**推迟到 SP-3**，避免多次 R-15 契约变更与多轮全量回归。",
+    "ADJ-5_prod_line_accounting": "A1 请示的行数口径裁决：tools/gen_golden.py（295 行）是 **L0 离线工具**，内容主体是 M31 期望值骨架**数据**而非业务逻辑，**不计入生产代码行上限**；A1 按 dsm/fixtures_gen.py 527 <= 600 判定**合规**。此口径推广到全部包：prod_max 只统计 dsm/** 下业务模块行数，tools/** 与 fixtures/** 不计入。",
+    "ADJ-6_saaty_ri_table": "D1 的 RI(n) 表 SDD 无值，采用 **Saaty 标准随机一致性指标表（n=1..10）**，n>10 抛 AhpError 不外推。裁决：**采纳**。理由：Saaty RI 是 AHP 的公开文献标准值，不是本项目自定的业务数值，不违反 R-12。附加要求：① 必须在 weight provenance 里写明 RI 来源与适用 n 范围；② 进 K 清单待行方确认（行方若采用其他 RI 表，CR 阈值判定会变，属治理口径而非代码口径）。",
+    "ADJ-7_inferred_formula": "B1 的 SHORTFALL_CLAMPED 第四公式（M02 只给 3 个公式）：agent 按 min(1, 按 direction 定向的比率) 推断实现。裁决：**保留实现但标记为未由 SDD 明文支持**，P3a 的 V 表必须如实登记为「推断，待设计方确认」，不得记为已验证（R-12/V-14）；同时保留 BLOCKING 级文档缺口，交付时列入待签认清单。",
+    "ADJ-8_parquet_defect": "D-C1-01（io_loaders.py:192 parquet dtype 透传 TypeError）：**不派独立微包**，并入 Lane C 收尾动作 C1b，与 C4/C5 同批派发，避免为 1 行修复单独占槽。pyarrow 26.0.1 保留安装（回退等于用引擎缺失掩盖缺陷，违反 V-14）；SP-2 由主控把 pyarrow 声明为 pyproject.toml 的 optional extra（parquet = ['pyarrow>=14']），核心依赖集不变，以免破坏 P3b 断网复跑。修复前全量基线记为 212 failed（211 RED + 1 缺陷）。"
+  },
+  "frozen_fixtures": {
+    "frozen_at": "SP-1, T+60 min",
+    "commit": "ca31dd1",
+    "files": 17,
+    "fact_rows": 896,
+    "periods": 5,
+    "strategies": 12,
+    "domains": 4,
+    "distribution": "A3B3C4D2",
+    "variants": [
+      "G04_target_missing",
+      "G05_append_extreme",
+      "G06_weight_oat20",
+      "G10_dim_emptied",
+      "G11_stale_weight",
+      "G14_c_share_up"
+    ],
+    "negative": [
+      "G11_money_non_integer"
+    ],
+    "golden_map_examples": 15,
+    "hand_computed_anchors": {
+      "S-001": "1.021930",
+      "S-002": "1.005000 (OAT20 -> 0.996000, 跨 L1 门槛)",
+      "S-004": "0.905000 (-> 0.896000, 跨 L2 门槛转 L3)",
+      "S-003": "1.084600",
+      "S-009_CONTRIB": "1.900000"
+    },
+    "rule": "此后 fixtures/** 只读（R-1）；任何变更走主控 R-15 单点改 + 全量回归 + ADR"
+  },
+  "pytest_baseline": {
+    "failed": 212,
+    "known_red": 211,
+    "known_red_split": {
+      "test_config_semantic": 108,
+      "test_config_weight_version": 96,
+      "test_config_properties": 7
+    },
+    "open_defects": 1,
+    "defect_ids": [
+      "D-C1-01"
+    ],
+    "after_B4": {
+      "failed": 10,
+      "passed": 2048,
+      "collection_errors": 0,
+      "commit": "3fef4da",
+      "split": {
+        "test_config_placeholder": 8,
+        "test_config_placeholder_m03_inv1": 1,
+        "test_io_loaders_D-C1-01": 1
+      }
+    },
+    "expected_after_C1b_and_ORCH25": {
+      "failed": 1,
+      "residual": "test_config_placeholder.py::test_t05_m03（INV-1 争议，待 ORCH-26 裁决）"
+    },
+    "note": "P2 门禁要求全量 0 failed / 0 error / 0 新增 skip / 0 xfail；m03 必须在 P2 前由 ORCH-26 收口"
+  },
+  "clock_now": {
+    "epoch": 1795553631.4,
+    "elapsed_h": 3.604,
+    "hard_stop_h": 10.0,
+    "remaining_h": 6.396
+  },
+  "gap_adjudications_SP2": {
+    "new_gaps_reported_wave1_2": {
+      "F3": 12,
+      "C4": 6,
+      "F4": 8,
+      "C2": 10,
+      "A2": 9,
+      "D5": 6,
+      "D4": 7,
+      "C5": 6,
+      "B4": 6,
+      "total": 70
+    },
+    "note": "各包 GAPS 全文在其上报行 NOTES 与本 run 会话记录；状态文件按 §cards_ref 原则只存计数与裁决，不重复存全文",
+    "BLOCKING_candidates": [
+      {
+        "pkg": "B4",
+        "id": "G3",
+        "what": "ORCH-24 line 43+320 与 line 36/342/406 四条不可能同时成立",
+        "ruling": "RT-08 / ORCH-25 已裁，文档勘误留 P3a 披露"
+      },
+      {
+        "pkg": "B4",
+        "id": "G4",
+        "what": "裁决15序5 与 裁决17 在 FROZEN+provenance 整键缺失上 reason_code 冲突",
+        "ruling": "维持 B4 实测口径 WEIGHT_VERSION_INVALID（与测试一致），SP-2 补注册表说明"
+      },
+      {
+        "pkg": "D5",
+        "id": "gap4",
+        "what": "combine 产物 config/weights_WV-DRAFT.yaml[L1368] 与『重跑不覆盖』[L1091] 冲突",
+        "ruling": "维持 D5 现状 out/combine/<run_id>/，不改 config/（config/ 为签认值载体，禁自动生成）；P3a 披露"
+      },
+      {
+        "pkg": "C5",
+        "id": "gap3",
+        "what": "主流程 Step8(sensitivity) 在 Step7(pooling) 之后，FLIP_RATE_UNUSABLE 首过必然无载体",
+        "ruling": "**待 SP-3 裁**：是否在 P2 集成时加『Step8 后回跑 Step7』一趟；C5 现以必填 keyword-only sensitivity 入参 + 缺失即不予准入（PRIMARY_POOL_REJECTED_ROBUST）显式处理，非静默兜底"
+      },
+      {
+        "pkg": "C5",
+        "id": "gap6",
+        "what": "占比双报两分母口径（同域已参评 / 全体已参评，均剔 NOT_ASSESSED）由 C5 自裁",
+        "ruling": "属口径裁决非数值拟定，**主控核可**，标记『待行方签认』并入 P3c 的 K 清单"
+      },
+      {
+        "pkg": "D4",
+        "id": "gap7",
+        "what": "Spearman 零方差无对应注册 reason_code（现 rho/agreement 置 None，未编字面量）",
+        "ruling": "并入 SP-2 的 R-15 reason_code 批量注册（ADJ-1 同批）"
+      }
+    ],
+    "R15_batch_SP2": "reason_code 新增需求汇总：D4 零方差码 + A2 的 H-2/H-3/H-5 与红线排除码 + C5 的 grade!=L1 码 + C2 的 C-03 专用码（现沿用 CONFIG_SEMANTIC_ERROR）。**由主控一次性改 dsm/reason_codes.py + tests/test_reason_codes.py**，lane 不得自行新增"
   }
 }
