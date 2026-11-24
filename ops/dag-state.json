@@ -393,7 +393,7 @@
       "module": "weights_calibrate.py",
       "cx": "C3",
       "model": "max",
-      "status": "running",
+      "status": "done",
       "deps": [
         "A2",
         "E1",
@@ -404,26 +404,28 @@
       "prod_max": 600,
       "tf_max": 25,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 161,
+        "prod": 659,
+        "tf": 24,
+        "pass": 24,
+        "fail": 0,
+        "commit": "2de42db",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
       },
       "model_id": "qwen3.8-max",
       "effort": "xhigh",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "gaps_reported": 4,
+      "note": "字典序非加权（全文件无 lambda、报告无聚合分数列）；PROD 659 非空行超 600 上限（docstring 57 行含强制缺口声明），ADJ-11 核可"
     },
     "A4": {
       "lane": "F",
       "module": "whatif.py",
       "cx": "C3",
       "model": "max",
-      "status": "running",
+      "status": "done",
       "deps": [
         "A2",
         "D2",
@@ -433,12 +435,12 @@
       "prod_max": 450,
       "tf_max": 20,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 110,
+        "prod": 432,
+        "tf": 20,
+        "pass": 20,
+        "fail": 0,
+        "commit": "9078201",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
@@ -446,7 +448,8 @@
       "model_id": "qwen3.8-max",
       "effort": "xhigh",
       "token_budget_k": 90,
-      "note": "ORCH-09：不依赖 A3 calibrate（SDD M29 行1350 Step8=sensitivity；M10 行647「可选再跑 Step 8」；行645 --include-sensitivity；行660 sensitivity_delta 可空）"
+      "note": "两次提交 b2119e3（包）+ 9078201（飞行中途按 ORCH-27 自修 D-A4-01/D-A4-02：哈希改 callable 注入、零 L6 依赖、run() 新增 input_dir/directory_hash、WhatifReport 新增 readonly_proof）",
+      "gaps_reported": 7
     },
     "B1": {
       "lane": "B",
@@ -988,7 +991,7 @@
       "module": "golden G-09~G-15",
       "cx": "C2",
       "model": "max",
-      "status": "pending",
+      "status": "running",
       "deps": [
         "E2"
       ],
@@ -1369,7 +1372,7 @@
       "module": "集成骨架贯通：清除 E1 skip，M29 九步端到端（P2 首项工作前移）",
       "cx": "C3",
       "model": "max",
-      "status": "running",
+      "status": "done",
       "deps": [
         "E1",
         "A1",
@@ -1390,12 +1393,12 @@
       "prod_max": 0,
       "tf_max": 20,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 145,
+        "prod": 0,
+        "tf": 21,
+        "pass": 16,
+        "fail": 5,
+        "commit": "8cd222c",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
@@ -1404,7 +1407,9 @@
       "effort": "high",
       "token_budget_k": 90,
       "adhoc": true,
-      "plan_scope": false
+      "plan_scope": false,
+      "gaps_reported": 5,
+      "note": "M29 九步真贯通、SKIP_REGISTRY 全清 SKIP=0、两次连跑 reproducibility_hash 精确相等 8083efc940c648c460516291efe61ae35b6093671ae9b68f93fbab8bbc3a26b8（评价期 2026-Q2）；5 条 RED 全部指向 fixtures/preflight/models 缺陷，未改 dsm/** 一字"
     },
     "A2b": {
       "lane": "adhoc",
@@ -1625,13 +1630,15 @@
     },
     "A1c": {
       "lane": "adhoc",
-      "module": "受控解冻 fixtures：补 design_card 的 alt_method_note/interpretation_limit 使声明分布 A3B3C4D2 成立 → 重生成 → sha256 对账 → 重新冻结 → 重算受影响 golden 手算值",
+      "module": "受控解冻 fixtures：D-A1-02（分布须为 A3B3C4D2）+ D-A1-03（补 2026-Q3 缺失事实格含 HARD 红线指标）+ D-A1-04（FROZEN 权重补合成 whatif_run_id）+ D-A1-05（design_card 格式归属二选一）→ 重生成 + sha256 对账 + 重新冻结 + 重算 golden 手算值",
       "cx": "C3",
       "model": "max",
-      "status": "blocked_on_P2a",
+      "status": "blocked_on_inflight",
       "deps": [
         "A1",
-        "P2a"
+        "B1b",
+        "SEAM-1",
+        "E3"
       ],
       "budget_min": 45,
       "prod_max": 60,
@@ -1683,6 +1690,163 @@
       "adhoc": true,
       "plan_scope": false,
       "ruling": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md 第三节"
+    },
+    "ARCH-1": {
+      "lane": "adhoc",
+      "module": "A2b+A3b：消除 weights_combine→weights_ahp 与 weights_calibrate→weights_combine（依赖注入，禁隐藏导入）",
+      "cx": "C3",
+      "model": "max",
+      "status": "running",
+      "deps": [
+        "A2",
+        "A3",
+        "E5"
+      ],
+      "budget_min": 60,
+      "prod_max": 300,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 70,
+      "adhoc": true,
+      "plan_scope": false,
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+    },
+    "EFIX-1": {
+      "lane": "adhoc",
+      "module": "E4b（test_p13b 按真实签名重写）+ E5b（ALLOWED['L0a'] 收紧为 ('L1',)，L0b 不放宽）",
+      "cx": "C2",
+      "model": "flash",
+      "status": "running",
+      "deps": [
+        "E4",
+        "E5",
+        "A3"
+      ],
+      "budget_min": 35,
+      "prod_max": 300,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 40,
+      "adhoc": true,
+      "plan_scope": false,
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+    },
+    "C2b": {
+      "lane": "adhoc",
+      "module": "D-C2-01：C-08 两分法（表级缺失→整轮 BLOCK；单主体缺卡→NOT_ASSESSED 单列不 BLOCK）",
+      "cx": "C3",
+      "model": "max",
+      "status": "running",
+      "deps": [
+        "C2",
+        "P2a"
+      ],
+      "budget_min": 45,
+      "prod_max": 300,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 70,
+      "adhoc": true,
+      "plan_scope": false,
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+    },
+    "MODELS-1": {
+      "lane": "adhoc",
+      "module": "D-MODELS-01：PoolKey.evidence_class 改可选（Step2 按 biz_domain，Step7 用完整键）——R-15 授权改冻结契约 models.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "blocked_on_SEAM-1",
+      "deps": [
+        "SEAM-1",
+        "P2a"
+      ],
+      "budget_min": 40,
+      "prod_max": 120,
+      "tf_max": 10,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 50,
+      "adhoc": true,
+      "plan_scope": false,
+      "ruling": "ORCH-29 第 4 条"
+    },
+    "E3b": {
+      "lane": "adhoc",
+      "module": "仅按 A1c 的数据变化更新 tests/test_golden_b.py expects，附重新手算过程",
+      "cx": "C2",
+      "model": "flash",
+      "status": "blocked",
+      "deps": [
+        "A1c",
+        "E3"
+      ],
+      "budget_min": 30,
+      "prod_max": 0,
+      "tf_max": 12,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 35,
+      "adhoc": true,
+      "plan_scope": false,
+      "ruling": "ORCH-29 第 5 条"
     }
   },
   "legacy_tasks": [
@@ -1797,14 +1961,16 @@
     "pkgs_total": 31,
     "stale_number_sweep": "2026-11-24 已清除 doc 内 ORCH-09 前过期口径 8 处（头部答案/§1目标2/P2·P3a·P3b·P3c 时间窗/内嵌状态模板 plan·lanes·sync_points·counters）",
     "bookkeeping_note": "主控两次漏记在跑包状态（C2、F3）；根因是派发与状态落盘分处两个工具调用。已改为：每次 spawn 后的下一次状态写入必须核对 active_agents 与 work_packages.status 双向一致",
-    "work_packages_total": 43,
+    "work_packages_total": 48,
     "plan_scope_total": 31,
-    "done": 27,
-    "running": 5,
-    "pending": 6,
+    "done": 30,
+    "running": 6,
+    "pending": 5,
     "done_plan_scope": 24,
-    "updated_at_epoch": 1795556435.3,
-    "blocked": 5
+    "updated_at_epoch": 1795556956.0,
+    "blocked": 7,
+    "plan_scope_done": 26,
+    "plan_scope_complete": true
   },
   "next_dispatch": {
     "immediate": "A2b（等 A3+A4 落地，签名冻结，消除 H-9 import 边）",
@@ -2044,6 +2210,16 @@
       },
       "event": "E2/A1b 交付 + ORCH-28",
       "detail": "E2(d3b3d5f) 3P/5R 挖出 D-B1-01/D-SEAM-01/D-A1-02；A1b(0547190) 关闭 D-A1-01 且 fixtures 逐字节全等；派 B1b(Euler)/SEAM-1；A1c/E2b 挂起等 P2a"
+    },
+    {
+      "at": {
+        "epoch": 1795556956.0,
+        "elapsed_h": 4.527,
+        "hard_stop_h": 10.0,
+        "remaining_h": 5.473
+      },
+      "event": "31 计划包全部交付 + ORCH-29",
+      "detail": "A3(2de42db)/A4(9078201)/P2a(8cd222c) 落地；D-A4-01/02 关闭；取得 reproducibility_hash 8083efc9… 与九步贯通证据；派 ARCH-1/EFIX-1/C2b；MODELS-1 与 A1c 挂起等前置"
     }
   ],
   "model_routing": {
@@ -2435,30 +2611,6 @@
     "D-6_min_honesty": "上报行 MIN 必须是从收到任务到 commit 的墙钟分钟，并明示主控会用 git 时间戳独立核实。依据：F1 探针实测 agent 自报 15min vs 独立核实 21min，自报偏乐观 29%"
   },
   "active_agents": {
-    "A3": {
-      "agent_id": "01a20f51-b569-7333-ab5b-1cc14218fa84",
-      "nickname": "Aristotle",
-      "model_id": "qwen3.8-max",
-      "effort": "xhigh",
-      "adhoc": false,
-      "spawned_at_epoch": 1795553631.4
-    },
-    "A4": {
-      "agent_id": "01a20f51-f9c5-7773-a512-9a0fa058f876",
-      "nickname": "Zeno",
-      "model_id": "qwen3.8-max",
-      "effort": "xhigh",
-      "adhoc": false,
-      "spawned_at_epoch": 1795553631.4
-    },
-    "P2a": {
-      "agent_id": "01a20f5c-9c9a-7912-a82b-b8f354ccf118",
-      "nickname": "Gauss",
-      "model_id": "qwen3.8-max",
-      "effort": "high",
-      "adhoc": true,
-      "spawned_at_epoch": 1795554223.8
-    },
     "B1b": {
       "agent_id": "01a20f7c-f576-7cb1-877f-38e1da917e1a",
       "nickname": "Euler",
@@ -2468,12 +2620,44 @@
       "spawned_at_epoch": 1795556435.3
     },
     "SEAM-1": {
-      "agent_id": "PENDING",
-      "nickname": "SEAM-1-lane",
+      "agent_id": "01a20f7f-56e0-77c1-bbd8-4756d16be547",
+      "nickname": "Avicenna",
       "model_id": "qwen3.8-max",
       "effort": "high",
       "adhoc": true,
       "spawned_at_epoch": 1795556435.3
+    },
+    "E3": {
+      "agent_id": "01a20f81-cb8c-7673-87f2-2a1610703a06",
+      "nickname": "Turing",
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "adhoc": false,
+      "spawned_at_epoch": 1795556956.0
+    },
+    "ARCH-1": {
+      "agent_id": "01a20f85-3b5f-7cc3-98c3-9b3961edc862",
+      "nickname": "Epicurus",
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "adhoc": true,
+      "spawned_at_epoch": 1795556956.0
+    },
+    "EFIX-1": {
+      "agent_id": "01a20f85-bf11-7101-80ca-dec65cff37d7",
+      "nickname": "Pascal",
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "adhoc": true,
+      "spawned_at_epoch": 1795556956.0
+    },
+    "C2b": {
+      "agent_id": "01a20f86-3f3e-7a61-ba78-19292ef3bfd4",
+      "nickname": "Pasteur",
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "adhoc": true,
+      "spawned_at_epoch": 1795556956.0
     }
   },
   "self_check_T0": {
@@ -2632,6 +2816,17 @@
       "decision": "亲读 M43 L939/L941/L942/L943/L944/L945 与 L237-L239 后出 ORCH-28：L943 两条边界独立，anchor_set 有效时统计量取自锚定集故单例池不产生 sd=0 → D3 误读为缺陷方；池内样本数<min_pool_size 是 WARN+SMALL_POOL 而非抛错 → C5 严于原文为缺陷方之二；pooling 只对『无标注的 null』抛错。立 SEAM-1 单包同改两模块（避免新接缝）。同批认定 D-A1-02 需受控解冻 fixtures，立 A1c→E2b 串行，但**必须等 P2a 落地**再动 fixtures",
       "adr": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md",
       "principle": "跨模块冲突不由任一 lane 自行让步；主控回原文四行齐读后裁定，且禁止以『弱化断言』或『改 golden 期望值』收场（R-14）"
+    },
+    "RT-14": {
+      "at": {
+        "epoch": 1795556956.0,
+        "elapsed_h": 4.527,
+        "hard_stop_h": 10.0,
+        "remaining_h": 5.473
+      },
+      "trigger": "A3/A4/P2a 同时交付，带来 6 类需裁事项（L0 层 import 边、p13b 测试构造、ALLOWED 收紧、C-08 语义、池键顺序矛盾、fixtures 系统性缺陷）+ 3 包预算超支",
+      "decision": "出 ORCH-29 七条批量裁决；派 ARCH-1（Epicurus/max·high）、EFIX-1（Pascal/flash·medium）、C2b（Pasteur/max·high）三路；MODELS-1 挂起等 SEAM-1；A1c→E2b/E3b 挂起等 B1b/SEAM-1/E3（禁在飞 lane 验证期间换 fixtures 数据）",
+      "adr": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
     }
   },
   "contract_gaps_pending": [
@@ -3101,9 +3296,12 @@
       "found_by": "E5 tests/test_architecture.py（commit 4140ad0）",
       "file": "dsm/whatif.py",
       "symptom": "L262/L275 import audit(L6)，违反 M00 L294",
-      "status": "OPEN",
+      "status": "CLOSED",
       "fix_package": "目录哈希改 callable 注入（R-7 禁重复实现）",
-      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md",
+      "fix_commit": "9078201",
+      "fixed_at": "T+4.8h",
+      "fix": "A4 飞行中途读 ORCH-27 自修：目录哈希改 callable 注入（run() 新增 input_dir/directory_hash，WhatifReport 新增 readonly_proof），whatif.py 零 L6 依赖；L571 裸字面量改 RC.*"
     },
     {
       "id": "D-A4-02",
@@ -3111,9 +3309,12 @@
       "found_by": "E5 tests/test_architecture.py（commit 4140ad0）",
       "file": "dsm/whatif.py",
       "symptom": "L571 'GR_REDLINE_FORCED' 裸字面量 + L76 NOT_ASSESSED 域常量，P-8 ratchet",
-      "status": "OPEN",
+      "status": "CLOSED",
       "fix_package": "改 RC.*（同段 L573 已用 RC.*）",
-      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md",
+      "fix_commit": "9078201",
+      "fixed_at": "T+4.8h",
+      "fix": "A4 飞行中途读 ORCH-27 自修：目录哈希改 callable 注入（run() 新增 input_dir/directory_hash，WhatifReport 新增 readonly_proof），whatif.py 零 L6 依赖；L571 裸字面量改 RC.*"
     },
     {
       "id": "D-B1-01",
@@ -3144,6 +3345,56 @@
       "status": "OPEN",
       "fix_package": "A1c → E2b（等 P2a 落地）",
       "ruling": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md 第三节"
+    },
+    {
+      "id": "D-C2-01",
+      "found_at": "T+4.9h",
+      "found_by": "P2a tests/test_integration_spine.py（commit 8cd222c）+ E2 独立印证",
+      "file": "dsm/preflight.py",
+      "symptom": "C-08 把单主体 design_card 缺失判为整轮 BLOCK，与 M29 L1346『NOT_ASSESSED 单列』冲突；致冻结 fixtures 任何一期都走 L1322 BLOCK 分支",
+      "status": "OPEN",
+      "fix_package": "C2b（ORCH-29 第 3 条）",
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+    },
+    {
+      "id": "D-MODELS-01",
+      "found_at": "T+4.9h",
+      "found_by": "P2a tests/test_integration_spine.py（commit 8cd222c）+ E2 独立印证",
+      "file": "dsm/models.py + dsm/normalize.py",
+      "symptom": "PoolKey.evidence_class required=True，但 M29 L1334 的 Step2 normalize 排在 L1338 的 Step3 evidence 之前，evidence_class 尚不存在 → Step2 无法构键",
+      "status": "OPEN",
+      "fix_package": "MODELS-1（ORCH-29 第 4 条，等 SEAM-1）",
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+    },
+    {
+      "id": "D-A1-03",
+      "found_at": "T+4.9h",
+      "found_by": "P2a tests/test_integration_spine.py（commit 8cd222c）+ E2 独立印证",
+      "file": "fixtures（事实表）",
+      "symptom": "主评价期 2026-Q3 缺 4 格，含 S-008/v1/M_COMPLAINT_RATE（HARD 红线指标）→ redline.evaluate 按 V-14 抛错，Step4-9 在主评价期整链断；违 M34 L1460『刻意构造 1 个高贡献+红线违反（G-03）』",
+      "status": "OPEN",
+      "fix_package": "A1c",
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+    },
+    {
+      "id": "D-A1-04",
+      "found_at": "T+4.9h",
+      "found_by": "P2a tests/test_integration_spine.py（commit 8cd222c）+ E2 独立印证",
+      "file": "fixtures（权重文档）",
+      "symptom": "FROZEN 权重 provenance=null 缺 whatif_run_id → C-01 恒 BLOCK，主流程永久无法走 M29 L1322 的 PASS/WARN 分支",
+      "status": "OPEN",
+      "fix_package": "A1c",
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+    },
+    {
+      "id": "D-A1-05",
+      "found_at": "T+4.9h",
+      "found_by": "P2a tests/test_integration_spine.py（commit 8cd222c）+ E2 独立印证",
+      "file": "fixtures 或 dsm/io_loaders.py",
+      "symptom": "design_card 为 JSONL 而 io_loaders 只认 CSV/Parquet 且 ''→None，T4 永远加载不出（DataLoadError MODEL_ROW_REJECTED）；违 M29 L1330『io_loaders → 8 表』",
+      "status": "OPEN",
+      "fix_package": "A1c 或 C1c（格式归属按 M21/M18 原文二选一）",
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
     }
   ],
   "environment_changes": [
@@ -3181,6 +3432,12 @@
       "at": "T+4.2h",
       "observation": "E5 引 M00 L278/L300 支持『L0a→L0a 合法』，但未同时引 L276/L286/L294，结论被原文推翻",
       "rule_added": "架构争议上报必须附原文逐字引文；主控裁决前须四行齐读（定义行 + 方向表 + INV 表 + 拆层动机）"
+    },
+    {
+      "id": "L-04",
+      "at": "T+4.9h",
+      "observation": "A3 实测 161min（预算 90）、A4 110（75）、P2a 145（75）。共同原因：ORCH 裁决在飞行中途下达改变写集语义 + 并行期每包都跑全量回归（成本随包数上升）+ 集成包需等上游落地反复重跑",
+      "rule_added": "① 飞行中途下达的 ORCH 裁决必须同时重设该包墙钟预算，不得按原预算判超时；② lane 侧只跑『本包 + 受影响邻包』测试，全量回归只在同步点由主控跑一次；③ 集成类包预算按上游落地重跑次数上浮"
     }
   ],
   "gap_adjudications_SP1": {
@@ -3273,13 +3530,31 @@
         "test_properties_all_p13b": 1
       },
       "note": "spine×14 属 P2a 在飞（含未提交改动 + A3/A4 落地解锁 skip）；golden_a 5 条中 3 条归 SEAM-1、1 条归 B1b、1 条归 A1c；direction 2 条归 A3b/A4b；m03 归 A2b；p13b 归 A3 的 marshal 口径"
+    },
+    "after_P2a": {
+      "failed": 13,
+      "commit": "8cd222c",
+      "split": {
+        "test_integration_spine": 5,
+        "test_golden_a": 5,
+        "test_architecture": 1,
+        "test_config_placeholder_m03": 1,
+        "test_properties_all_p13b": 1
+      },
+      "ownership": {
+        "spine5": "A1c / C2b / MODELS-1",
+        "golden_a5": "SEAM-1(3) / B1b(1) / A1c(1)",
+        "architecture1": "ARCH-1",
+        "m03": "ARCH-1",
+        "p13b": "EFIX-1"
+      }
     }
   },
   "clock_now": {
-    "epoch": 1795556435.3,
-    "elapsed_h": 4.383,
+    "epoch": 1795556956.0,
+    "elapsed_h": 4.527,
     "hard_stop_h": 10.0,
-    "remaining_h": 5.617
+    "remaining_h": 5.473
   },
   "gap_adjudications_SP2": {
     "new_gaps_reported_wave1_2": {
@@ -3334,5 +3609,12 @@
       }
     ],
     "R15_batch_SP2": "reason_code 新增需求汇总：D4 零方差码 + A2 的 H-2/H-3/H-5 与红线排除码 + C5 的 grade!=L1 码 + C2 的 C-03 专用码（现沿用 CONFIG_SEMANTIC_ERROR）。**由主控一次性改 dsm/reason_codes.py + tests/test_reason_codes.py**，lane 不得自行新增"
+  },
+  "reproducibility_evidence": {
+    "hash": "8083efc940c648c460516291efe61ae35b6093671ae9b68f93fbab8bbc3a26b8",
+    "period": "2026-Q2",
+    "assertion": "tests/test_integration_spine.py::test_reproducibility_hash_is_identical_across_two_runs",
+    "commit": "8cd222c",
+    "note": "V-3 / G-12 / V-10 的实测证据，P3b 第二人复跑须得到同一 hash"
   }
 }
