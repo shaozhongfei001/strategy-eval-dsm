@@ -40,9 +40,11 @@ M36 [L1511]（V-18）、M29 [L1342]-[L1350]（Step 5-8）。
     人的动作）。
   5 [L954] 维度级重归一把 W_d 变成有效权重 W_d/ΣW；归因一律用**有效权重**（与 aggregate
     实际施加的同值同精度），故维度被清空时恒等式仍精确；发生重归一即披露 WEIGHT_REALLOCATED。
-  6 本模块**零 L6 依赖**：dsm/__init__ 给 L0b 的授权是 L1-L5，故 whatif.py 不 import
-    dsm.audit；INV-2 的目录哈希自证由 tests/test_methods_whatif.py 直接调用 audit 的原语
-    完成（tests 不在 INV-1 的分层扫描面内）。
+  6 本模块**零 L6 依赖**（ORCH-27 裁决 D-A4-01 的修法）：M00 L294 给 L0b 的授权是 L1-L5，
+    故 whatif.py 不 import dsm.audit；INV-2 的目录哈希作为 **callable 注入**（run 的
+    input_dir + directory_hash 两个 keyword-only 入参）。R-7 禁止本模块自行实现哈希，
+    调用方（cli / tests）注入 audit.sha256_bytes + canonical_text + sha256_text 的组合；
+    注入即在 run() 内部做前后比对并回吐 readonly_proof，不注入则 None（不冒充已验证）。
   7 段值保留精确乘积（≤24 位小数），**不中途量化**：逐列 q12 会把三列之和与总差推到
     1e-12 以上，直接违反 T-WIF-01；对外哈希由 audit.canonical_text rule 1 统一 q12。
 
@@ -66,7 +68,8 @@ from dsm.reason_codes import RC, is_registered
 
 __all__ = ['WhatifError', 'WhatifRunIdError', 'WhatifBaselineError', 'WhatifInputError',
            'WhatifPlaceholderError', 'WhatifStructureError', 'WhatifOperatorError',
-           'WhatifAttributionError', 'WhatifConsistencyError', 'GradeChange',
+           'WhatifAttributionError', 'WhatifConsistencyError', 'WhatifReadonlyError',
+           'GradeChange',
            'DimAttribution', 'AttributionReconciliation', 'OccupancyDelta',
            'SensitivitySchemeDelta', 'SensitivityDelta', 'WhatifReport', 'ArmBase',
            'run', 'signoff_verdict', 'is_refused']
@@ -137,6 +140,10 @@ class WhatifAttributionError(WhatifError):
 
 class WhatifConsistencyError(WhatifError):
     '''预演臂与生产 Step 5/6 不一致，或三臂行集不可比（T-WIF-03）。'''
+
+
+class WhatifReadonlyError(WhatifError):
+    '''INV-2 被违反：注入的目录哈希在预演前后不一致（只读自证失败，属程序缺陷）。'''
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +248,8 @@ class WhatifReport(_Frozen):
     sensitivity_delta: SensitivityDelta | None = None
     warnings: tuple[str, ...]
     refuse_signoff: StrictBool
+    readonly_proof: str | None = None   # 注入的目录哈希（前后同值）；未注入即 None，
+                                      # 不用 None 冒充已验证（V-14）
 
 
 class ArmBase(_Frozen):
@@ -653,7 +662,7 @@ def _pool_args(config, params):
 # 入口
 # ---------------------------------------------------------------------------
 def run(candidate, baseline, inputs, config, period, *, run_id=None,
-        include_sensitivity=False, schemes=()):
+        include_sensitivity=False, schemes=(), input_dir=None, directory_hash=None):
     '''M42 [L1073] 的签名：run(candidate, baseline, inputs, config, period) -> WhatifReport。
 
     **只返回对象、一个字节都不写盘**（INV-2 / V-18）：写 reports/whatif/<run_id>/ 是
@@ -666,8 +675,13 @@ def run(candidate, baseline, inputs, config, period, *, run_id=None,
     run_id：签认链上的预演编号，必填（缺即抛 WhatifRunIdError，见 _check_run_id）。
     include_sensitivity / schemes：[L645] 的 --include-sensitivity 与其方案清单；不开时
       sensitivity_delta 恒为 None，**不用 None 冒充已验证**（ORCH-09 边界）。
+    input_dir + directory_hash：INV-2 只读自证的**注入**对（ORCH-27 D-A4-01 的修法）。
+      两者要么都给要么都不给；给了就在预演前后各算一次目录哈希，不等即抛
+      WhatifReadonlyError，相等则把该哈希写进 readonly_proof。哈希本身由调用方注入
+      （只应是 dsm.audit 原语的组合），本模块不实现、也不 import L6（R-7 / M00 L294）。
     '''
     run_id = _check_run_id(run_id)
+    proof_before = _readonly_before(input_dir, directory_hash)
     cand = _weight_doc(candidate, config, 'candidate')
     base = _check_baseline(_weight_doc(baseline, config, 'baseline'))
     if not isinstance(period, str) or is_placeholder_value(period) or not period.strip():
@@ -775,6 +789,7 @@ def run(candidate, baseline, inputs, config, period, *, run_id=None,
         found.add(RC.FIRST_PERIOD.value)            # 显式声明的首期，不静默
     if _grade_counts(grade1).get(NOT_ASSESSED, 0) or _grade_counts(grade0).get(NOT_ASSESSED, 0):
         found.add(RC.NOT_ASSESSED.value)            # [L1004] 单列披露
+    readonly_proof = _readonly_after(input_dir, directory_hash, proof_before)
     return WhatifReport(
         run_id=run_id, period=period,
         candidate_weight_version_id=cand.weight_version_id,
@@ -785,7 +800,33 @@ def run(candidate, baseline, inputs, config, period, *, run_id=None,
         attribution=attribution, reconciliation=reconciliation,
         sensitivity_delta=sens_delta,
         warnings=tuple(c for c in _WARNING_ORDER if c in found),
-        refuse_signoff=bool(redline_delta))
+        refuse_signoff=bool(redline_delta), readonly_proof=readonly_proof)
+
+
+def _readonly_before(input_dir, directory_hash):
+    '''INV-2 自证的注入对校验 + 运行前哈希。半给（只给一个）即抛：不静默跳过自证。'''
+    if (input_dir is None) != (directory_hash is None):
+        raise WhatifInputError('INV-2 只读自证的 input_dir 与 directory_hash 必须**同时**'
+                               + ' 给出（ORCH-27 D-A4-01：哈希只能注入，本模块不实现、'
+                                 '不 import L6）')
+    if input_dir is None:
+        return None
+    if not callable(directory_hash):
+        raise WhatifInputError('directory_hash 必须是 callable（例如由 dsm.audit 的 '
+                               'sha256_bytes / canonical_text / sha256_text 组合而成）')
+    return directory_hash(input_dir)
+
+
+def _readonly_after(input_dir, directory_hash, before):
+    '''运行后再取一次哈希：与运行前不等 -> INV-2 被违反，抛而不是出报告。'''
+    if before is None:
+        return None
+    after = directory_hash(input_dir)
+    if after != before:
+        raise WhatifReadonlyError('INV-2 只读自证失败：输入目录 ' + str(input_dir)
+                                  + ' 在预演前后哈希不同（before=' + str(before)
+                                  + ' after=' + str(after) + '）')
+    return after
 
 
 def signoff_verdict(report):

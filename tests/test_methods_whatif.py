@@ -299,13 +299,15 @@ def test_wif02_input_directory_hash_unchanged_before_and_after_run(tmp_path):
     root = _input_dir(tmp_path)
     before_files = fingerprints(root)
     before = digest(root)
-    report = go()
+    report = whatif.run(CAND, BASE, carriers(), None, PERIOD, run_id=RUN_ID,
+                        input_dir=root, directory_hash=digest)   # ORCH-27 D-A4-01 注入
     after_files = fingerprints(root)
     after = digest(root)
     assert before == after and len(before) == 64
     assert before_files == after_files
     assert sorted(before_files) == ['metric_fact.csv', 't1/weights_WV-2026-01.yaml']
     assert report.run_id == RUN_ID
+    assert report.readonly_proof == before == after
     from dsm import audit
     assert before == audit.sha256_text(audit.canonical_text(after_files))
     assert all(len(v) == 64 for v in after_files.values())
@@ -324,6 +326,17 @@ def test_wif02_directory_digest_detects_a_single_byte_change(tmp_path):
     assert fingerprints(root)['metric_fact.csv'] != before_file
     assert not (root / 'reports').exists()
     assert sorted(p.name for p in root.iterdir()) == ['metric_fact.csv', 't1']
+    # 注入的哈希若前后不一致，run() 必须抛而不是出报告（INV-2 的运行时闸门）
+    seq = iter(('aaa', 'bbb'))
+    with pytest.raises(whatif.WhatifReadonlyError) as exc:
+        whatif.run(CAND, BASE, carriers(), None, PERIOD, run_id=RUN_ID,
+                   input_dir=root, directory_hash=lambda _root: next(seq))
+    assert exc.value.reason_code == RC.INVARIANT_VIOLATION.value
+    with pytest.raises(whatif.WhatifInputError):
+        whatif.run(CAND, BASE, carriers(), None, PERIOD, run_id=RUN_ID, input_dir=root)
+    with pytest.raises(whatif.WhatifInputError):
+        whatif.run(CAND, BASE, carriers(), None, PERIOD, run_id=RUN_ID,
+                   directory_hash=digest)
 
 
 def test_wif02_run_writes_nothing_at_all(monkeypatch):
