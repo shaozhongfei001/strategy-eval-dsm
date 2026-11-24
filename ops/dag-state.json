@@ -396,6 +396,33 @@
     "④ spine 第③条 normalize 锚定标注 FAIL 的归属：P3a-prep 认为属 SEAM-1（ORCH-28 读法），ORCH-32 已把该项并入 MODELS-1 落地 -> 以 ORCH-32 为准，SEAM-1 已关闭不再 reopened",
     "⑤ G-05 golden 层 FAIL 与 P-4 属性层 PASS 结论相反 -> 采信 golden 层实测，V-7 判 ❌，根因登记为 D-A1-08（anchor_set 覆盖不足），不得以属性层绿掩盖"
    ]
+  },
+  "ORCH-35": {
+   "at_epoch": 1795561060.47,
+   "clock": "T+5.67h",
+   "title": "G-10「维度被清空」原文互斥裁决：以 M22 C-02（SDD L901）为规范判据，实现正确、测试期望过严，M31 L1412 与 §4.4 L1585 记为文档勘误",
+   "adr": "docs/adr/RUN-ORCH-35-g10-dimension-emptied-conflict.md",
+   "evidence": {
+    "L901": "未签认指标 -> 剔除并重归一（WARN）；某维度被清空 -> 该维度 W 置 0 重归一；清空维度数 >= 2 -> BLOCK",
+    "L1286": "M28 与 L901 同文（第二来源旁证）",
+    "L1412": "M31：若该维度被清空 -> preflight BLOCK",
+    "L1585": "§4.4：整个维度被清空 -> BLOCK",
+    "DIMENSION_EMPTIED": "SDD 全文 0 命中，注册表自名",
+    "preflight_209_211": "全维清空也 BLOCK 分支，原文未找到独立依据",
+    "C03": "孤儿定义原文未找到，实现按不在字典才算孤儿 -> 本变体不命中"
+   },
+   "decisive_reason": "内部一致性论证，不依赖任何「哪节权限更高」的元规则：L901 同句内既规定单维清空 -> 该维度 W 置 0 重归一，又规定清空维度数 >= 2 -> BLOCK。若单维清空即 BLOCK，则「W 置 0 重归一」一支永无执行机会而成死条款。原文同句保留两支，证明单维清空被设计为可继续（WARN + 重归一），仅 >=2 维阻断。M28 L1286 同文为第二来源印证。故 ADJ-G10 提出的「L911 口径统一声明是否覆盖 M31 golden 表」争议不影响本裁决成立，该争议另记 ERRATUM-02。",
+   "rulings": [
+    "1) 规范判据 = M22 C-02（SDD L901）。实现正确；tests/test_golden_b.py::test_g10_sust_dimension_emptied_must_block_preflight 属测试构造错误（同 ORCH-29 对 test_p13b 的定性），非实现缺陷。",
+    "2) 修法归 E3b：期望改为单维清空 -> WARN、blocks_run=False、exit_code=0、该维度 W 置 0、重归一后权重和 Decimal 精确等于 1（V-9）、披露码用注册名 WEIGHT_REALLOCATED；测试改名以反映正确期望；并必须新增「清空 >=2 维 -> BLOCK + exit_code 2」的测试（该分支当前零覆盖），断言总数须 >= 改前，git diff -U0 自证零弱化（R-14）。",
+    "3) DIMENSION_EMPTIED 原文 0 命中属工程自名：按 ADJ-3 不改名不删除，但其 severity/blocks_run 须服从 L901（单维清空场景 WARN / blocks_run=False）；P3a 须披露该码名无原文依据。",
+    "4) preflight.py:209-211「全维清空也 BLOCK」分支归 P2 核验：仅在与 L901「清空维度数 >= 2 -> BLOCK」严格等价时可保留；若维度总数为 1 且被清空（清空数=1）应为 WARN，该分支不得触发 BLOCK，不等价则修正。P2 须补「单维度体系被清空 -> WARN 非 BLOCK」边界测试。",
+    "5) 登记 ERRATUM-01（M31 L1412 与 §4.4 L1585 与 L901 不一致）交 P3a 披露并列为待业务签认项：若业务确认单维清空即应阻断，则属 C-02 阈值变更（>=2 改为 >=1），须走契约变更流程并同步改实现与本裁决，不得由本 RUN 单方决定。",
+    "6) 登记 ERRATUM-02（L911 口径统一声明的适用范围只逐字约束 C 表 vs DSN，对 M31 golden 表权限未明确）交签认。",
+    "7) C-03「孤儿权重项」定义原文未找到：保持实现现状不猜（R-12），登记 PLACEHOLDER 交签认；本裁决不据 C-03 改变 G-10 结论。",
+    "8) D-SPEC-G10 状态 OPEN-ADJUDICATING -> CLOSED-BY-ORCH-35，落地在 E3b（测试）+ P2（preflight 分支核验）。裁决前该测试保持 RED，禁止任何一方反填。"
+   ],
+   "redline_self_proof": "本裁决不弱化任何既有断言：被改的是一条期望值与规范判据 L901 相矛盾的测试，且同时新增此前完全无覆盖的 >=2 维 BLOCK 分支测试，净覆盖增强。"
   }
  },
  "pkg_id_remap_from_5lane": {
@@ -2019,14 +2046,18 @@
    "scope": "P2 只读前置设计：cli.py 调用点盘点 / smoke 实测 / 编码校验定义与实测 / 六门禁基线量化(含 skip+xfail 清单) / 红测试归因表 / 施工顺序与并行度 / verify_p2.sh"
   },
   "ADJ-G10": {
-   "status": "running",
-   "agent": "ADJ-G10",
+   "status": "done",
+   "agent": "Hubble",
    "model": "qwen3.8-flash",
    "effort": "medium",
    "spawned_at_epoch": 1795560556.36,
    "budget_min": 15,
    "readonly": true,
-   "scope": "G-10 原文取证（M31 vs M22 C-02 互斥）：逐字摘录 + C-01~C-08 全表 + 变体实测事实 + 实现落点 + 候选方案列举（不推荐不排序，裁决权在主控）"
+   "scope": "G-10 原文取证（M31 vs M22 C-02 互斥）：逐字摘录 + C-01~C-08 全表 + 变体实测事实 + 实现落点 + 候选方案列举（不推荐不排序，裁决权在主控）",
+   "closed_at_epoch": 1795561060.47,
+   "minutes": 16,
+   "commit": null,
+   "result": "取证产物 dsm_stage/ADJ-G10/G10-EVIDENCE.md（306 行，sha256 7775539924e4…）。三问直答：(a) C-02 逐字判据在 SDD L901，确为「清空维度数>=2 才 BLOCK」，单维清空走 WARN + 该维度 W 置 0 重归一；M28 L1286 同文旁证。(b) 除 C-02 外唯一可能旁落的是 C-03「无孤儿权重项」(L902, BLOCK)，但「孤儿」定义原文未找到，实现按「不在字典才算孤儿」故不命中(preflight.py:226-227)；C-01 恒 BLOCK 系 D-A1-04 数据缺陷与清空无关。(c) M31 L1412 逐字明确要求 BLOCK，§4.4 L1585 亦写 BLOCK；但 DIMENSION_EMPTIED 全文 0 命中系注册表自名；实现另有 preflight.py:209-211「全维清空也 BLOCK」分支原文未找到。列 4 个候选处置未排序，裁决权交主控。仓库零改动。"
   },
   "P3a-prep": {
    "status": "done",
@@ -2844,15 +2875,6 @@
    "effort": "high",
    "adhoc": true,
    "spawned_at_epoch": 1795560556.36,
-   "readonly": true
-  },
-  "ADJ-G10": {
-   "agent_id": "01a20fbe-07ab-7772-8de7-eb1f7d1d3d27",
-   "nickname": "Hubble",
-   "model_id": "qwen3.8-flash",
-   "effort": "medium",
-   "adhoc": true,
-   "spawned_at_epoch": 1795560796.63,
    "readonly": true
   },
   "P3b-prep": {
@@ -3681,13 +3703,14 @@
   },
   {
    "id": "D-SPEC-G10",
-   "status": "OPEN-ADJUDICATING",
+   "status": "CLOSED-BY-ORCH-35",
    "found_at": "T+5.53h",
    "found_by": "E3（commit 35a6635，GAP-E3-02）",
    "file": "SDD M31(约 L1412) vs M22 C-02",
    "symptom": "原文互斥：M31 单维清空 -> BLOCK + DIMENSION_EMPTIED；M22 C-02 清空维度数>=2 才 BLOCK。实测实现走 WARN + WEIGHT_REALLOCATED / exit_code=0；红测试 tests/test_golden_b.py::test_g10_sust_dimension_emptied_must_block_preflight",
    "disposition": "派 ADJ-G10 只读取证（逐字原文 + C-01~C-08 全表 + 是否命中其他 C-xx + 候选方案列举），主控裁 ORCH-34 后由 E3b 或 preflight 修复包落地；裁决前保持 RED，禁止任何一方反填",
-   "ruling": "ORCH-33 第4条"
+   "ruling": "docs/adr/RUN-ORCH-35-g10-dimension-emptied-conflict.md",
+   "resolution": "规范判据取 M22 C-02（SDD L901）：单维清空 WARN + 该维度 W 置 0 重归一，>=2 维才 BLOCK。实现正确，测试期望过严 -> E3b 改期望+改名+新增 >=2 维 BLOCK 测试；preflight.py:209-211 分支等价性核验 -> P2；M31 L1412 与 §4.4 L1585 记 ERRATUM-01 交签认"
   }
  ],
  "environment_changes": [
@@ -3890,9 +3913,9 @@
   }
  },
  "clock_now": {
-  "epoch": 1795560796.63,
-  "t_hours": 5.594,
-  "remaining_hours": 4.406
+  "epoch": 1795561060.47,
+  "t_hours": 5.667,
+  "remaining_hours": 4.333
  },
  "gap_adjudications_SP2": {
   "new_gaps_reported_wave1_2": {
@@ -4059,5 +4082,31 @@
    "wiring_todo": "dsm_stage/R15B2/CONSUMPTION-TODO.md 共 9 条（含 preflight.py:36-40 RUN_BLOCKING_CODES 与 :42-49 DISCLOSURE 两个接线口），归属 A1c 或 P2",
    "models_deferred": "dsm_stage/R15B2/MODELS-DEFERRED.md 共 4 项，本 RUN 不做"
   }
- }
+ },
+ "errata": [
+  {
+   "id": "ERRATUM-01",
+   "at": "T+5.67h",
+   "where": "SDD M31 L1412 与 §4.4 L1585",
+   "issue": "两处写「维度被清空 -> BLOCK」，与规范判据 M22 C-02（L901）「清空维度数 >= 2 才 BLOCK、单维清空 WARN + 该维度 W 置 0 重归一」不一致",
+   "disposition": "本 RUN 以 L901 为准（ORCH-35）；交业务签认，若确认单维即阻断则属 C-02 阈值变更须走契约变更流程",
+   "owner": "P3a 披露 + 业务签认"
+  },
+  {
+   "id": "ERRATUM-02",
+   "at": "T+5.67h",
+   "where": "SDD L911 口径统一声明",
+   "issue": "其适用范围只逐字约束「C 表 vs DSN」，对 M31 golden 表的权限未逐字明确",
+   "disposition": "ORCH-35 的裁决不依赖 L911（改用内部一致性论证 + M28 L1286 第二来源），故不影响结论；该元规则争议交签认",
+   "owner": "P3a 披露 + 业务签认"
+  },
+  {
+   "id": "ERRATUM-03",
+   "at": "T+5.67h",
+   "where": "dsm/reason_codes.py 的 DIMENSION_EMPTIED",
+   "issue": "该码名在 SDD 全文 0 命中，属工程自名",
+   "disposition": "按 ADJ-3 不改名不删除；severity/blocks_run 服从 L901（单维清空 WARN / blocks_run=False）；P3a 披露无原文依据",
+   "owner": "P3a 披露"
+  }
+ ]
 }
