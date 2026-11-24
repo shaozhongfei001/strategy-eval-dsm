@@ -11,7 +11,7 @@
     "path": "/home/szf/dev/strategy-eval-dsm",
     "branch": "main",
     "remote": "git@github.com:shaozhongfei001/strategy-eval-dsm.git",
-    "head": "8b488b3a5249",
+    "head": "336e1ad1f29e",
     "head_ancestors": [
       "72a04b3",
       "940d683",
@@ -24,7 +24,8 @@
       "4c9318b",
       "6e1167a",
       "e579bed",
-      "8b488b3"
+      "8b488b3",
+      "336e1ad"
     ],
     "note": "校验用祖先链包含，不用 HEAD 定值（ORCH-v1.0 §1.3）"
   },
@@ -649,14 +650,97 @@
         "R2",
         "R4"
       ],
-      "status": "pending",
-      "attempts": 0,
-      "loop_rounds": 0,
-      "evidence": {},
-      "blockers": [],
-      "tokens_used": 0,
+      "status": "done",
+      "attempts": 1,
+      "loop_rounds": 2,
+      "evidence": {
+        "commit": "336e1ad1f29e",
+        "digest": "docs/digest/S1-T05.md",
+        "contract_adr": "docs/adr/ORCH-23.md（裁决 1~24，397 行 / 33914 B / 08d5f97637e9）",
+        "review_adr_round1": "docs/adr/ORCH-23-review-S1-T05.md（312 行 / 32036 B / aeb4e2fb5346，判 FAIL(2)）",
+        "review_adr_round2": "docs/adr/ORCH-23-review-S1-T05-round2.md（155 行 / 19432 B / c234520cd85b，判 PASS）",
+        "tests_total": 1487,
+        "tests_passed": 1487,
+        "tests_failed": 0,
+        "tests_skipped": 0,
+        "tests_error": 0,
+        "duration_s": 5.03,
+        "new_tests_this_task": 219,
+        "baseline_tests_before_task": 1268,
+        "config_files_only": {
+          "passed": 219,
+          "duration_s": 3.8
+        },
+        "files": {
+          "dsm/config.py": 22873,
+          "tests/test_config_placeholder.py": 68178,
+          "tests/test_config_properties.py": 21886
+        },
+        "files_lines": {
+          "dsm/config.py": 480,
+          "tests/test_config_placeholder.py": 1623,
+          "tests/test_config_properties.py": 530
+        },
+        "sha256_12": {
+          "dsm/config.py": "54e6813eeaca",
+          "tests/test_config_placeholder.py": "55f28652ad1b",
+          "tests/test_config_properties.py": "01b53feeee94"
+        },
+        "public_api_count": 12,
+        "mutation": {
+          "round1": {
+            "killed": 14,
+            "survived": 2,
+            "survivors": [
+              "M09",
+              "M12"
+            ]
+          },
+          "round2": {
+            "killed": 8,
+            "survived": 0,
+            "variants": [
+              "M09R",
+              "M12R",
+              "M11R",
+              "M17R",
+              "M04R",
+              "M05R",
+              "M14R",
+              "M16R"
+            ]
+          }
+        },
+        "checklist": "T05-A~T05-M 13 组 / 219 id 全归属 / unaccounted 0 / rc 全 0",
+        "normalize_check": "NEEDS_NORMALIZATION 0 of 81 files, rc=0",
+        "r4_verdicts": [
+          "round1 FAIL(2): F1 paths 未套裁决 9 文件序键; F2 M09/M12 存活",
+          "round2 PASS，无待修项"
+        ],
+        "r6_rounds": 2,
+        "rulings_added_by_orchestrator": [
+          "裁决 21（i09 属 R3 测试缺陷，补 1 个 fixture 键）",
+          "裁决 22（join 的 [ 补口）",
+          "裁决 23（构造器恒用 _path_key；b05 期望按裁决 9 独立重算）",
+          "裁决 24（裁决 19 与去重补可证伪闸）"
+        ],
+        "quality_incidents": 0,
+        "h11_anticheat": "两轮 R4 反作弊审计均干净：无放宽断言 / 无 golden 跟随实现 / 无删测试（209→219 删除集为空）/ 无 skip·xfail / 无绕过分支",
+        "readonly_neighbor_check": "CampaignLab m0-framework / 0cccb76cdee94689448b547b6f06254c51b75d72 / porcelain 空，全程未触碰",
+        "tokens_used_note": "本运行时未暴露子智能体 token 计量（B-006），置 null 而非填估值（H-10 不编造）；token_budget 90000 保留作档位标识",
+        "files_bytes_measured_by": "wc -c / wc -l 实测（2026-11-24 08:55，工作树 = commit 336e1ad 内容）"
+      },
+      "blockers": [
+        "B-022",
+        "B-023",
+        "B-024",
+        "B-025",
+        "B-026",
+        "B-027"
+      ],
+      "tokens_used": null,
       "token_budget": 90000,
-      "updated_at": "2026-11-23T00:00:00+08:00"
+      "updated_at": "2026-11-24T08:55:00+08:00"
     },
     {
       "task_id": "S1-T06",
@@ -710,9 +794,9 @@
   ],
   "counters": {
     "flash_tasks": 3,
-    "max_tasks": 2,
+    "max_tasks": 3,
     "escalations": 1,
-    "rework_rounds": 5,
+    "rework_rounds": 7,
     "quality_incidents": 0
   },
   "session_log": [
@@ -843,6 +927,29 @@
       "next_task": "S1-T05",
       "resume_level": "T1（同会话直接续跑 S1-T05：先 ORCH-23 裁决 → R3 RED → R2 实现；S1 严格串行）",
       "seq": 6
+    },
+    {
+      "date": "2026-11-24",
+      "session": "orchestrator-unattended-S1-resumed-4",
+      "did": [
+        "恢复后第一动作（T3 续跑，next_task=S1-T05 已过 L5、R4 第 1 轮在飞）：不重跑任何审次，先收 R4 结论",
+        "R4 第 1 轮判 FAIL(2)：F1 = ConfigPlaceholderError.paths 未套裁决 9 的文件序键（dsm/config.py:202 的 canonical if deduped == canonical 双分支恒为空操作，构造器永不主动套 _path_key）；F2 = 变异体 M09（空串变命中，违裁决 19）与 M12（删 scan_config_trees 去重）存活、0 杀手。R4 同时判 H-11 反作弊审计干净（偏差在 docstring 公开披露、未改 golden、未加 skip/xfail、未删测试），故不计质量事故",
+        "主控裁决 23：paths 只有一种排序 = 裁决 9 的文件序键。裁定实现与测试双侧均为缺陷 —— 实现删双分支改为无条件 self.paths = canonical；b05 期望值按 [L1250]-[L1257] 独立重算为 (eval_config.SYN-m, redlines.SYN-z, anchor_set.SYN-a)，明确禁止以改前实现输出 (anchor_set.SYN-a, ...) 为准（H-11 期望值不得跟随实现）。R4 第 2 轮已独立重算 rank（eval_config=0 / redlines=2 / anchor_set=4）并逐字比对通过",
+        "主控裁决 24：裁决 19 与去重必须有可证伪测试闸。定性 M12 在纯 str 键空间内是等价变异体，但 YAML 允许同层并存 int 键 1 与 str 键 '1'，经 _walk 的 str 化折叠为同一路径 → 去重按裁决 9 生效并可被 b11 / j_p11 杀死；p06 的恒真断言保留不删，另补可达断言（禁止以删恒真部分代替补可达断言）；R4 极低项 4（_join docstring 补裁决 22 说明）顺延 S1-T06，以收窄本轮写集",
+        "R6 第 2 轮（同 R6 agent 实例续跑，写集严格 3 文件 + 1 证据）：dsm/config.py 唯一功能行改动 :205 self.paths = canonical，docstring :181-199 改写为裁决 9 单一口径；tests 侧 b05 期望重算 + MISS_STRINGS/FILLED_TEXTS 各追加 ''/三空白串 + 新增 c12（3 参）/b11/b12/b13 + properties 侧 colliding_dict 策略与 p11",
+        "R4 第 2 轮判 PASS：8 项 E1~E8 全绿。自建 8 个变异体 8/8 KILLED（M09R 13 杀手 / M12R 2 / M11R 3 / M17R 4；回归对照 M04R 2 / M05R 26 / M14R 26 / M16R 43），无存活体；反作弊重扫 collected 209→219 删除集为空、144 个既有 def 中只有 b05 变（裁决 23 明令）、17 个 test_t05_j_* 全部 identical；oracle _join 改动经 4000 棵纯 str 键随机树验证 mismatch=0，属 oracle 对齐契约而非期望跟随实现；T05-A~T05-M 13 组 rc 全 0",
+        "三层 pytest（R4 本人复跑，未加 -q）：全量 1487 passed in 5.03s、两个 config 文件 219 passed in 3.80s、-k i09 → 3 passed 198 deselected；failed/error/skipped/xfailed/xpassed/warning 六 token 全 False；算术 1487-219=1268 既有一条不坏、219-209=10 第 2 轮新增",
+        "主控独立产出 S1-T06 契约 ADR docs/adr/ORCH-24.md（422 行 / 35784 B / 0327390ead34，24 条裁决 + 16 条新 blocker B-028~B-043 + T06-A~T06-S 19 条验收清单），关闭 digest S1-T06 的 13 条矛盾/沉默：容差唯一取 [L902] 的 1e-12 并走 numeric.TOL；attainment_floor 四级严格递减（分册 L4 可空在 T05「None 一律命中」口径下不可达）；异常名取 SDD 逐字 ConfigSemanticError/WeightVersionInvalidError，分册 WeightSumError/WeightVersionNotFrozenError 不建；退出码 ConfigSemanticError=3 / WeightVersionInvalidError=2（新增 EXIT_BLOCK，依 [L1280]/[L900]/[L1413]）；anchor 存在性双出口定性为 config 层静态硬失败 + C-10 运行期动态回退；action 键名取 [L1205] 复数 actions；period 取 [L386] 月粒度、双闭区间、一律补 -01 后字典序比较（[L1307] 宁可不评）；whatif_run_id 只校验存在与非空不校验格式（H-5 禁拟定）；跨文件判据用必填入参注入，禁 None 默认后静默跳过（V-14）",
+        "L6/R5 落库：git add 显式 23 个路径（dsm/config.py + 2 测试 + ORCH-23.md + 两份 review ADR + ops/evidence/S1-T05/ 全部 16 份证据）→ 中文 commit 336e1ad（message 3964 B / 53 行，含档位/实现/测试/实测证据/复核与返工/登记六段）→ git ls-remote --heads origin main 探活 rc=0（返回 17dd568）→ git push origin main（17dd568..336e1ad）→ rev-list origin/main..HEAD = 0、HEAD == origin/main == 336e1ad1f29e",
+        "ORCH-24.md 与 docs/digest/S1-T06.md 刻意不入本次 commit，留作 S1-T06 的落库内容（任务归属清晰，避免 T05 commit 混入 T06 契约）",
+        "counters 口径：T05 首派即 C3/qwen3.8-max（complexity_score 5 >= 4），非 flash 升档 → max_tasks +1（2→3）、flash_tasks 不变（3）、escalations +0（1）；rework_rounds +2（5→7，本任务 R6 共 2 轮：裁决 21 的 1 行 fixture 修复 + 裁决 23/24 的双侧修复）；quality_incidents 保持 0。成本护栏核算：S1 已完成 T01~T05 共 5 个实体任务（T01 为 C1 digest），flash 3 / max 2 → 低档占比 3/5 = 60%（达标下限），T06/T07 均预置 flash，S1 末将为 flash 5 / max 2 = 71.4% 低档占比",
+        "踩坑并处置（追加 ORCH §7.1 坑清单）：B-022 —— PowerShell 5.1 的 Set-Content -Encoding UTF8 会写 BOM，主控用 here-string 生成给 Python 读的中间文件（插入片段 / commit message / 脚本）时，Python 侧必须用 encoding='utf-8-sig' 读回，否则首行会带 \\ufeff 导致 grep '^### 裁决 23' 一类锚点匹配全 0 命中（本轮实测：首次插入后 ORCH-23.md 里裁决 23 标题 grep 不到，改 utf-8-sig 后 297 行命中）；commit message 同理，写盘后须重写为无 BOM 再 git commit -F",
+        "踩坑并处置：wait_agent 对长时间运行的子智能体会连续返回 timed_out + 空 status，不代表卡死。判活正确姿势是看子智能体自己 staging 根（dsm_stage_<task>_r4*/）的产物 mtime 与仓库 .pytest_cache/v/cache/nodeids 的 mtime；本轮据此确认 R4 仍在跑（07:20 pytest、07:42 最后一份证据），避免了误判死锁而换 agent 重跑",
+        "会话自检：本轮为 T3 续跑恢复，未重跑第 1 步全量自检（上一会话已实测通过并留痕于 session_log seq 6）；恢复后实测 HEAD 17dd568 / porcelain 仅 6 项本流程在制品 / CampaignLab 快照一致 / venv 3.12.3，均与交接摘要相符，不触发 §10.1 任一项"
+      ],
+      "next_task": "S1-T06",
+      "resume_level": "T1（同会话直接续跑 S1-T06：ORCH-24 已就绪 → R3 写 RED → R2 最小实现 → R4 复核；S1 严格串行）",
+      "seq": 7
     }
   ],
   "artifacts": {
@@ -850,5 +957,5 @@
     "orch_template": "docs/ORCH-TEMPLATE-v1.0.md",
     "run_prompt": "docs/RUN-UNATTENDED-v1.0.md"
   },
-  "next_task": "S1-T05"
+  "next_task": "S1-T06"
 }
