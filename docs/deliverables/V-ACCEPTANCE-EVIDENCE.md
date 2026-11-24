@@ -62,3 +62,10 @@
 2. 本包**未执行**且**不得由本包执行**的动作：A1c（fixtures 受控解冻）、MODELS-1（`PoolKey.evidence_class` 改可选，R-15）、E3（`test_golden_b.py` 提交）、P3b（第二人全新 clone + 断网 + 同 seed 复跑）、V-2 的 500 例门禁跑、V-14 的 M28 26 行遍历守护（**当前不存在，需新写；本包禁改 `tests/**`**）。
 3. 本包写集 = `docs/deliverables/V-ACCEPTANCE-EVIDENCE.md` 单文件；探针脚本与原始输出留在 `dsm_stage/P3a-prep/`（`vrun.sh`、`vrun2~9.sh`、`hash_probe.py`、`v4_probe.py`、`v4b_probe.py`、`full_run.txt`、`full_run2.txt`、`v_results.txt`、`fixtures-sha256-pre-thaw.txt`），未提交、未污染 `ops/evidence/`（R-3 零证据转储）。
 4. **未做任何为提高证据观感而修改被测物的动作**：`dsm/**`、`tests/**`、`fixtures/**`、`ops/**`、`config/**`、既有 `docs/**` 写集为空（`git status` 可核）。
+## 四、观测窗口结束后的写集漂移（诚实性补记 · 写入时刻 2026-11-25 06:44 CST）
+
+- 本表**全部 pytest 实测在 06:23–06:34 CST 完成**；该窗口内 `git status --porcelain` 只有 `?? tests/test_golden_b.py`，**tracked 树干净、被测代码 == `8f2eca3`**（§前言的 HEAD 等价性实测同此）。
+- **06:40:59 / 06:41:59 CST** 起（即本文件写盘 06:43:43 之前、实测窗口之后），**R15B2** lane 在**未提交**状态下开始修改 `dsm/reason_codes.py`（**+150 行**）与 `tests/test_reason_codes.py`（**+128 行**）——实测 `git diff --stat` = `2 files changed, 278 insertions(+)`。本包**未 add、未提交、未改动**这两个文件（R-1 写集禁改）。
+- 因此下列 **V-14 相关数字是 R15B2 之前的快照**，P3a 定稿必须重测：注册表 **79 码（BLOCK 28 / WARN 38 / INFO 13）**、`CONTRACT_DISCLOSURE_CODES` **15 个**、`tests/test_reason_codes.py` **`18 passed in 0.15s`**、以及 `test_registry_is_big_enough_to_cover_the_documented_paths` 的下限断言（`>=70 / BLOCK>=20 / WARN>=25 / INFO>=8`）与 `test_every_downgrade_path_has_a_disclosure_code` 的覆盖面。ORCH-30 第 4 条已预告该批注册（`DESIGN_CARD_TABLE_ABSENT`、重复 `strategy_id × version` 卡索引码、Spearman 零方差码、A2 的 H-2/H-3/H-5 与红线排除码、C5 的「等级 != L1」码、C2 的 C-03 专用码、A4 的 `APPROXIMATE_ATTRIBUTION`）。
+- **V-14 的 ❌ 结论不受该漂移影响**：R15B2 只**新增注册码**，并**不新增**「M28 26 行逐条断言（情形 → 检测点 → 降级动作 → 是否出分 → 披露位置 → reason_code）+ 该 reason_code 确实出现在 `report.md`」的遍历守护；该守护当前**不存在**，需另派包新写（本包禁改 `tests/**`）。
+- 同理，`tests/test_golden_b.py`（E3，06:41:03 CST 仍在写、1687 行 / 16 个 test 函数、未提交）与 R15B2 的落地都会使 **V-1 / V-7 / V-9 / V-20** 的载体发生变化；这与 §三.1 的口径一致：**P3a 定稿时 20 条全部重测**，本表不主张跨 commit 有效。
