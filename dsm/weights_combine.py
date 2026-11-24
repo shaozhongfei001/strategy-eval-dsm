@@ -20,36 +20,45 @@ dimension) over the non-fallback ones. That is the only reading of [L588]-[L590]
 which P-14 (sum w_j = 1 per dimension) and P-15 (a fallback metric keeps its AHP
 weight exactly, before the dimension renormalisation) both hold; scaling it with the
 others would halve it at alpha 0.5, exactly the dilution [L585]-[L586] forbids.
-INV-1: no L1-L5 business module is imported; dsm.entropy (L1) is the authorised
-exception (ORCH-03), models / reason_codes / numeric are the contract layer this tool
-publishes into, weights_ahp is the sibling L0a tool Step 1 calls. V-9: counts are int,
-every ratio is a Decimal built by numeric.D (floats refused there), every division
-goes through safe_div with an explicit on_zero, every published number passes q12, no
-float is accumulated. H-8: no clock, no randomness, mappings traversed sorted, dates
-injected. Status can only be DRAFT ([L600], [L1071]), as in weights_ahp (T-AHP-06).
+INV-1 / ORCH-29: no L0 module is imported, and no L1-L5 business module either.
+[L286] reads "L0a -> 无内部依赖（独立命令行工具）", so the "消费 L0a" of [L278] can only
+mean consuming the L0a PRODUCT -- AHP snapshot DATA the caller hands in -- and never the
+L0a module: that is the one reading under which [L276], [L278] and [L286] all hold, and
+[L282] 拆分后依赖仍严格单向 confirms it. Step 1 therefore takes an AhpHierarchySnapshot
+(declared here, pure data) and run_six_steps takes the elicitation itself as an injected
+callable; the L0a -> L0a edge belongs to the caller, which owns both sides. dsm.entropy
+(L1) stays the authorised exception (ORCH-03, SDD 2.4.2 六步两个计算者共用同一实现), and
+models / reason_codes / numeric are the L1 contract and primitive layer this tool
+publishes into. A missing injection raises; it never falls back to an import (V-14).
+V-9: counts are int, every ratio is a Decimal built by numeric.D (floats refused
+there), every division goes through safe_div with an explicit on_zero, every published
+number passes q12, no float is accumulated. H-8: no clock, no randomness, mappings are
+traversed sorted and dates are injected. Status can only be DRAFT ([L600], [L1071]), as
+in weights_ahp (T-AHP-06).
 '''
 from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal, localcontext
-from typing import Literal, Mapping, Sequence
+from typing import Callable, Literal, Mapping, Sequence
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from dsm import numeric, weights_ahp
+from dsm import numeric
 from dsm.entropy import entropy_weights
 from dsm.models import (AhpSegment, CombineSegment, EntropySegment, MetricWeightComparison,
                         Ratio, WeightProvenance, WeightVersionDoc)
 from dsm.numeric import D, ONE, TOL, ZERO, q12, safe_div
 from dsm.reason_codes import RC
 
-__all__ = ['AhpInputError', 'AhpLayer', 'AlphaFloorError', 'AlphaInfeasibleError',
-           'CombinedWeights', 'CombineError', 'CombineOptions', 'ConsistencyGateError',
+__all__ = ['AhpHierarchySnapshot', 'AhpInputError', 'AhpLayer', 'AhpLevelSnapshot',
+           'AlphaFloorError', 'AlphaInfeasibleError', 'CombinedWeights', 'CombineError',
+           'CombineOptions', 'ConsistencyGateError',
            'DraftHeader', 'EntropyInsufficientSample', 'EntropySnapshot', 'FrozenStatusError',
            'HardCheckReport', 'MetricWeightTrace', 'MixedWeights', 'assert_feasible',
            'build_draft', 'calibrate_entropy_window', 'combine', 'freeze',
            'run_six_steps', 'step1_ahp_gate', 'step3_inactive_fallback',
-           'step4_combine_normalize', 'step5_hard_checks', 'run_six_steps', 'step6_draft']
+           'step4_combine_normalize', 'step5_hard_checks', 'step6_draft']
 
 LAYER = 'L0a'
 DRAFT = 'DRAFT'
@@ -156,6 +165,77 @@ class CombineOptions(_Frozen):
 
 # --- container types declared locally: models.py has none of them, and a package
 # --- declares its own containers instead of editing the frozen contract layer. ---
+class AhpLevelSnapshot(_Frozen):
+    '''The Step-1 input for ONE comparison level: the AHP derivation carried as DATA.
+
+    Every field name is copied verbatim from dsm.models.AhpSegment ([L1232]-[L1233]),
+    which is exactly the keyword set the AHP tool publishes through its
+    segment_payload(); `findings` ([L515] METHOD_MISMATCH) is the one column AhpSegment
+    does not carry and Step 1 needs for the AHP_METHOD_MISMATCH notice. The CALLER
+    builds one out of the AHP snapshot, per level:
+
+        AhpLevelSnapshot.from_payload(result.segment_payload(), result.findings)
+
+    ORCH-29 ruling 1: [L278] 消费 L0a is the consumption of the L0a PRODUCT, because
+    [L276] and [L286] make L0a 无内部依赖 -- so this module imports no L0a module and
+    offers no fallback to one (V-14). Nothing is quantised beyond numeric.D, so the
+    Decimals the CR gate of [L573] reads are the published ones, never a re-rounded
+    copy of them (V-9).'''
+
+    comparison_matrices: dict[str, dict[str, dict[str, Ratio]]]  # [L1232] expert x item x item
+    lambda_max: Ratio                                            # [L1232]
+    ci: Ratio                                                    # [L1232] consistency index
+    ri: Ratio                                                    # [L1232] random index
+    cr: Ratio                                                    # [L1232] the [L573] gate
+    expert_count: int                                            # [L1232] a count -> int
+    interview_dates: tuple[date, ...]                            # [L1232] injected (H-8)
+    weights_geometric: dict[str, Ratio]                          # [L1233] the published set
+    weights_eigenvector: dict[str, Ratio]                        # [L1233] the cross check
+    max_method_gap: Ratio                                        # [L1233]
+    findings: tuple[str, ...] = ()                               # [L515] METHOD_MISMATCH
+
+    @classmethod
+    def from_payload(cls, payload: Mapping, findings: Sequence = ()) -> AhpLevelSnapshot:
+        '''One level out of an AHP snapshot payload (the AhpSegment keyword set) plus that
+        level's findings. Data in, data out: no L0a module is reached for (ORCH-29
+        ruling 1), and an unusable payload raises instead of being padded with invented
+        columns (R-12, V-14).'''
+        if not isinstance(payload, Mapping):
+            raise AhpInputError('the AHP snapshot payload must be a mapping carrying the '
+                                'AhpSegment columns ([L1232]-[L1233]); got '
+                                + type(payload).__name__)
+        return cls(**dict(payload), findings=tuple(str(item) for item in findings))
+
+    def segment_payload(self) -> dict:
+        '''Exactly the keyword set of dsm.models.AhpSegment, nothing more, so step6_draft
+        hands it straight to the contract layer ([L1232]-[L1233]).'''
+        return {
+            'comparison_matrices': {expert: {i: dict(row) for i, row in sorted(cells.items())}
+                                    for expert, cells
+                                    in sorted(self.comparison_matrices.items())},
+            'lambda_max': self.lambda_max,
+            'ci': self.ci,
+            'ri': self.ri,
+            'cr': self.cr,
+            'expert_count': int(self.expert_count),
+            'interview_dates': list(self.interview_dates),
+            'weights_geometric': dict(self.weights_geometric),
+            'weights_eigenvector': dict(self.weights_eigenvector),
+            'max_method_gap': self.max_method_gap,
+        }
+
+
+class AhpHierarchySnapshot(_Frozen):
+    '''The Step-1 input in full (Step 7 of [L520], carried as a snapshot): the dimension
+    layer W_d(AHP) plus one metric layer w_j(AHP) per dimension. H-1 of [L594] needs
+    BOTH levels, which is why step1_ahp_gate accepts this carrier and nothing else. The
+    caller builds it out of the AHP snapshot payloads; this module imports no L0a module
+    and never falls back to one (ORCH-29 ruling 1, [L286], V-14).'''
+
+    dimension: AhpLevelSnapshot
+    metrics_by_dim: dict[str, AhpLevelSnapshot]
+
+
 class EntropySnapshot(_Frozen):
     '''Step 2 product ([L579]-[L580]) and the `entropy` argument of [L558]. The
     contract-side shape is EntropySegment, which to_segment() fills. INV-3 / [L535]:
@@ -318,15 +398,20 @@ def _require_unit_sum(weights: Mapping, label: str) -> None:
 def step1_ahp_gate(ahp) -> AhpLayer:
     '''Step 1: take the AHP weights and re-run the CR gate before anything else.
     [L558] annotates the argument as AhpResult; H-1 of [L594] needs BOTH the dimension
-    layer W_d and the metric layer w_j, so the accepted product is
-    weights_ahp.AhpHierarchy (Step 7 of [L520]), whose .dimension and every
-    .metrics_by_dim[d] is an AhpResult. weights_geometric of [L514] is the published
-    set; the eigenvector set stays in provenance as the cross check and resurfaces as
-    an AHP_METHOD_MISMATCH notice when the two diverge.'''
-    if not isinstance(ahp, weights_ahp.AhpHierarchy):
-        raise AhpInputError('step1_ahp_gate needs a weights_ahp.AhpHierarchy (dimension layer '
+    layer W_d and the metric layer w_j, so the accepted product is the Step 7 hierarchy
+    of [L520] carried as DATA -- an AhpHierarchySnapshot whose .dimension and every
+    .metrics_by_dim[d] is an AhpLevelSnapshot (ORCH-29 ruling 1: [L278] consumes the L0a
+    product, [L286] forbids importing the L0a module). weights_geometric of [L514] is the
+    published set; the eigenvector set stays in provenance as the cross check and
+    resurfaces as an AHP_METHOD_MISMATCH notice when the two diverge.'''
+    if not isinstance(ahp, AhpHierarchySnapshot):
+        raise AhpInputError('step1_ahp_gate needs an AhpHierarchySnapshot (dimension layer '
                             'plus one metric layer per dimension) for H-1 of [L594]; got '
-                            + type(ahp).__name__)
+                            + type(ahp).__name__ + '. The AHP side crosses this boundary as '
+                            'snapshot DATA the caller injects (ORCH-29 ruling 1, [L278] / '
+                            '[L286]): AhpLevelSnapshot.from_payload(result.segment_payload(), '
+                            'result.findings) per level. No import repairs a missing '
+                            'injection (V-14).')
     levels = {'DIMENSION': ahp.dimension}
     for dim_id in sorted(ahp.metrics_by_dim):
         levels[dim_id] = ahp.metrics_by_dim[dim_id]
@@ -708,10 +793,18 @@ def combine(ahp, entropy, opts, alpha_source: str = 'MANUAL') -> CombinedWeights
                            entropy=entropy, step_trace=tuple(trace))
 
 
-def run_six_steps(ahp_matrices, facts_history, metric_dict, opts, header: DraftHeader, shift):
+def run_six_steps(ahp_matrices, facts_history, metric_dict, opts, header: DraftHeader, shift,
+                  *, elicit_hierarchy: Callable):
     '''All six steps out of raw inputs, returning (CombinedWeights, WeightVersionDoc).
 
-    Step 1 elicits the hierarchy through weights_ahp ([L572]) and gates CR BEFORE Step
+    `elicit_hierarchy` is the INJECTED Step-1 elicitation of [L572]: a callable taking
+    (dimension_matrices, metric_matrices_by_dim, interview_dates) and returning an
+    AhpHierarchySnapshot. It is keyword-only and required -- [L286] makes L0a 无内部依赖,
+    so the L0a -> L0a edge belongs to the caller (dsm/cli.py, the integration skeleton),
+    which owns both sides and converts the AHP product into snapshot DATA. A missing or
+    non-callable injection raises; nothing is imported here to fill the hole (V-14).
+
+    Step 1 elicits the hierarchy through that callable and gates CR BEFORE Step
     2 touches a single fact. Step 2 builds the calibration window; the [L577] degrade
     leaves it empty and alpha becomes 1. STEP6 joins the trace only after the draft
     exists, so an infeasible alpha (Step 5) never claims to have reached Step 6.
@@ -721,9 +814,15 @@ def run_six_steps(ahp_matrices, facts_history, metric_dict, opts, header: DraftH
     already dropped ([L1151], C-06); metric_dict is a sequence or mapping of
     MetricDictRow; shift is the [L540] technical epsilon, for which the digest states
     no value, so it is never a literal here.'''
+    if not callable(elicit_hierarchy):
+        raise AhpInputError('run_six_steps needs the Step-1 elicitation injected as '
+                            'elicit_hierarchy (keyword-only, required): a callable '
+                            '(dimension_matrices, metric_matrices_by_dim, interview_dates) '
+                            '-> AhpHierarchySnapshot ([L572], [L286], ORCH-29 ruling 1); '
+                            'got ' + type(elicit_hierarchy).__name__)
     dimension_matrices, metric_matrices = _split_matrices(ahp_matrices)
-    hierarchy = weights_ahp.elicit_hierarchy(dimension_matrices, metric_matrices,
-                                             tuple(header.interview_dates))
+    hierarchy = elicit_hierarchy(dimension_matrices, metric_matrices,
+                                 tuple(header.interview_dates))
     step1_ahp_gate(hierarchy)                    # Step 1 CR gate, before any entropy work
     try:
         snapshot = calibrate_entropy_window(facts_history, metric_dict, opts, shift)
@@ -736,11 +835,13 @@ def run_six_steps(ahp_matrices, facts_history, metric_dict, opts, header: DraftH
 
 
 def build_draft(ahp_matrices, facts_history, metric_dict, opts, header: DraftHeader,
-                shift) -> WeightVersionDoc:
+                shift, *, elicit_hierarchy: Callable) -> WeightVersionDoc:
     '''build_draft(ahp_matrices, facts_history, metric_dict, opts) -> WeightVersionDoc
     ([L559], status = DRAFT). `header` carries the identity and the dates H-8 forbids
-    this module to read from a clock, which is why the signature has one argument more
-    than the [L559] sketch. Raises ConsistencyGateError (or the weights_ahp
-    ConsistencyFailedError of Step 1, [L573]) and AlphaInfeasibleError when H-1..H-5
-    reject this alpha ([L593]).'''
-    return run_six_steps(ahp_matrices, facts_history, metric_dict, opts, header, shift)[1]
+    this module to read from a clock, and `elicit_hierarchy` is the injected Step-1
+    elicitation of run_six_steps, which is why the signature has two arguments more
+    than the [L559] sketch. Raises ConsistencyGateError (or the ConsistencyFailedError
+    the injected Step-1 elicitation raises, [L573]) and AlphaInfeasibleError when
+    H-1..H-5 reject this alpha ([L593]).'''
+    return run_six_steps(ahp_matrices, facts_history, metric_dict, opts, header, shift,
+                         elicit_hierarchy=elicit_hierarchy)[1]

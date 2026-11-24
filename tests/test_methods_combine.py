@@ -43,10 +43,28 @@ def matrix(weights):
     return {i: {j: str((w[i] / w[j]).quantize(Q20)) for j in keys} for i in keys}
 
 
+def snapshot(result):
+    '''The AHP product carried as the DATA weights_combine consumes (ORCH-29 ruling 1:
+    the 消费 L0a of [L278] is the L0a PRODUCT, [L286] forbids importing the module).
+    Crossing that boundary is the CALLER's job: in production dsm/cli.py, here the test.'''
+    return wc.AhpHierarchySnapshot(
+        dimension=wc.AhpLevelSnapshot.from_payload(result.dimension.segment_payload(),
+                                                   result.dimension.findings),
+        metrics_by_dim={dim: wc.AhpLevelSnapshot.from_payload(level.segment_payload(),
+                                                              level.findings)
+                        for dim, level in sorted(result.metrics_by_dim.items())})
+
+
+def elicit(dimension_matrices, metric_matrices_by_dim, interview_dates=()):
+    '''The Step-1 elicitation injected into run_six_steps / build_draft: the L0a -> L0a
+    edge stays here in the caller and never inside weights_combine ([L286]).'''
+    return snapshot(weights_ahp.elicit_hierarchy(dimension_matrices, metric_matrices_by_dim,
+                                                 tuple(interview_dates)))
+
+
 def hierarchy(dim_weights=DIMS, metric_weights=MW):
-    return weights_ahp.elicit_hierarchy({'E1': matrix(dim_weights)},
-                                        {d: {'E1': matrix(metric_weights[d])}
-                                         for d in sorted(metric_weights)})
+    return elicit({'E1': matrix(dim_weights)},
+                  {d: {'E1': matrix(metric_weights[d])} for d in sorted(metric_weights)})
 
 
 def rows(spec=SPEC, redline=()):
@@ -142,7 +160,8 @@ def test_step_order_1_gate_runs_before_the_entropy_window():
         wc.run_six_steps({'dimension': {'E1': INCONSISTENT},
                           'metrics_by_dim': {'D1': {'E1': matrix(MW['D1'])},
                                              'D2': {'E1': matrix(MW['D2'])}}},
-                         facts(CONST), redlined, opts(), HDR, SHIFT)
+                         facts(CONST), redlined, opts(), HDR, SHIFT,
+                         elicit_hierarchy=elicit)
     layer = hierarchy()
     with pytest.raises(wc.CombineError):
         wc.calibrate_entropy_window(facts(CONST), redlined, opts(), SHIFT)
@@ -186,11 +205,13 @@ def test_step_order_5_gate_runs_before_the_draft():
     with pytest.raises(wc.AlphaInfeasibleError):
         wc.build_draft({'dimension': {'E1': matrix(DIMS)},
                         'metrics_by_dim': {d: {'E1': matrix(MW[d])} for d in sorted(MW)}},
-                       facts(COLS), rows(), opts(min_dim_weight=D('0.99')), HDR, SHIFT)
+                       facts(COLS), rows(), opts(min_dim_weight=D('0.99')), HDR, SHIFT,
+                       elicit_hierarchy=elicit)
     combined, doc = wc.run_six_steps({'dimension': {'E1': matrix(DIMS)},
                                       'metrics_by_dim': {d: {'E1': matrix(MW[d])}
                                                          for d in sorted(MW)}},
-                                     facts(COLS), rows(), opts(), HDR, SHIFT)
+                                     facts(COLS), rows(), opts(), HDR, SHIFT,
+                                     elicit_hierarchy=elicit)
     assert combined.step_trace == wc.STEP_IDS
     assert doc.status == 'DRAFT'
 
@@ -305,7 +326,8 @@ def test_t_cmb_05_insufficient_sample_degrades_to_pure_ahp():
     short = facts(COLS, strategies=IDS[:2])
     with pytest.raises(wc.EntropyInsufficientSample):
         wc.calibrate_entropy_window(short, rows(), opts(), SHIFT)
-    combined, doc = wc.run_six_steps(mats(), short, rows(), opts(), HDR, SHIFT)
+    combined, doc = wc.run_six_steps(mats(), short, rows(), opts(), HDR, SHIFT,
+                                     elicit_hierarchy=elicit)
     assert combined.entropy is None and combined.entropy_sufficient is False
     assert eq_tol(combined.alpha, ONE, TOL) and combined.kind == wc.KIND_AHP_ONLY
     assert doc.provenance.entropy is None and doc.provenance.kind == 'AHP_ONLY'
@@ -324,7 +346,8 @@ def test_t_cmb_05_insufficient_sample_degrades_to_pure_ahp():
 def test_t_cmb_06_entropy_provenance_is_a_frozen_snapshot():
     '''[L535] INV-3: WeightProvenance.entropy is a snapshot value -- no callable, no
     live mapping a scoring run could consume, and immutable once written.'''
-    combined, doc = wc.run_six_steps(mats(), facts(COLS), rows(), opts(), HDR, SHIFT)
+    combined, doc = wc.run_six_steps(mats(), facts(COLS), rows(), opts(), HDR, SHIFT,
+                                     elicit_hierarchy=elicit)
     segment = doc.provenance.entropy
     assert isinstance(segment, EntropySegment)
     assert isinstance(combined.entropy, wc.EntropySnapshot)
@@ -349,7 +372,7 @@ def test_t_cmb_08_provenance_is_complete():
                             effective_to=date(2026, 12, 31), alpha_source='MANUAL',
                             whatif_run_id='WIF-1', interview_dates=(date(2026, 1, 5),))
     combined, doc = wc.run_six_steps(mats(), facts(COLS), rows(), opts(alpha=D('0.6')),
-                                     header, SHIFT)
+                                     header, SHIFT, elicit_hierarchy=elicit)
     prov = doc.provenance
     assert prov is not None and prov.kind == 'AHP_ENTROPY_COMBINED'
     for field in ('comparison_matrices', 'lambda_max', 'ci', 'ri', 'cr', 'expert_count',
@@ -379,7 +402,8 @@ def test_t_cmb_08_provenance_is_complete():
 def test_t_cmb_09_weight_table_matches_the_combination():
     '''[L1192]: level1/level2 of the draft are exactly the combined weights, and the
     published four-column table agrees with them row by row.'''
-    combined, doc = wc.run_six_steps(mats(), facts(CONST), rows(), opts(), HDR, SHIFT)
+    combined, doc = wc.run_six_steps(mats(), facts(CONST), rows(), opts(), HDR, SHIFT,
+                                     elicit_hierarchy=elicit)
     assert doc.level1_weights == {d: combined.dim_weights[d] for d in sorted(combined.dim_weights)}
     for dim in sorted(combined.metric_weights):
         assert doc.level2_weights[dim] == combined.metric_weights[dim]
@@ -426,7 +450,8 @@ def test_four_column_comparison_table_is_traceable():
 
 def test_status_is_draft_only_and_frozen_is_refused():
     '''[L600] / [L1071]: the product is DRAFT, asking this module for FROZEN raises.'''
-    combined, doc = wc.run_six_steps(mats(), facts(COLS), rows(), opts(), HDR, SHIFT)
+    combined, doc = wc.run_six_steps(mats(), facts(COLS), rows(), opts(), HDR, SHIFT,
+                                     elicit_hierarchy=elicit)
     assert doc.status == 'DRAFT' and combined.status == 'DRAFT'
     payload = combined.model_dump()
     payload['status'] = 'FROZEN'
@@ -468,7 +493,8 @@ def test_build_draft_on_the_frozen_a1_fixtures():
             row['strategy_id']] = row['value']
     ahp_matrices = mats(version['level1_weights'], version['level2_weights'])
     options = wc.CombineOptions(alpha=D('0.5'), min_dim_weight=D('0.05'))
-    combined, doc = wc.run_six_steps(ahp_matrices, history, metric_dict, options, HDR, SHIFT)
+    combined, doc = wc.run_six_steps(ahp_matrices, history, metric_dict, options, HDR,
+                                     SHIFT, elicit_hierarchy=elicit)
     assert doc.status == 'DRAFT' and combined.feasible is True
     assert combined.step_trace == wc.STEP_IDS
     assert combined.entropy.calibration_periods == ('2025-Q3', '2025-Q4', '2026-Q1', '2026-Q2')
