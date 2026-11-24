@@ -51,72 +51,51 @@
   "concurrency_probed": 6,
   "concurrency_actual": 6,
   "concurrency_probe": {
-    "date": "2026-11-24",
-    "method": "同时 spawn 8 个探针 agent，每个只跑 date +%s%N → sleep 45 → date +%s%N，回收后做区间重叠分析",
-    "spawn_limit": 6,
-    "rejection_message": "collab spawn failed: agent thread limit reached（第 7、8 个）",
-    "intervals_rel_s": {
+    "date": "2026-11-25",
+    "method": "一次性 spawn 8 个 flash/low 探针，每个只跑 date +%s.%N; sleep 25; date +%s.%N",
+    "accepted": 6,
+    "rejected": 2,
+    "rejection_message": "collab spawn failed: agent thread limit reached",
+    "intervals": {
       "P1": [
-        0.0,
-        52.92
+        1795540620.605,
+        1795540645.611
       ],
       "P2": [
-        5.14,
-        62.73
+        1795540621.121,
+        1795540646.13
       ],
       "P3": [
-        8.14,
-        63.9
+        1795540622.437,
+        1795540647.442
       ],
       "P4": [
-        9.44,
-        69.24
-      ],
-      "P6": [
-        15.09,
-        75.52
+        1795540626.469,
+        1795540651.475
       ],
       "P5": [
-        43.91,
-        97.29
+        1795540629.871,
+        1795540654.875
+      ],
+      "P6": [
+        1795540633.143,
+        1795540658.148
       ]
     },
-    "peak_overlap": 6,
-    "peak_overlap_window_s": [
-      43.91,
-      52.92
+    "six_way_overlap_s": 12.47,
+    "overlap_window": [
+      1795540633.143,
+      1795540645.611
     ],
-    "wall_s": 97.29,
-    "serial_sum_s": 339.87,
-    "speedup": 3.49,
-    "notes": [
-      "主控（父会话）不占这 6 个槽",
-      "已完成未 close 的 agent 仍占槽，必须及时 close_agent",
-      "各探针 START 相差 0~43.9s 属 bootstrap 抖动而非排队：P5 的 START 43.91s 早于 P1 的 END 52.92s",
-      "run 启动时必须重新实测，不得沿用本值"
-    ],
-    "nesting_probe": {
-      "date": "2026-11-24",
-      "method": "spawn 1 个 agent，要求它连续 spawn 3 个子 agent 并逐个 wait + close",
-      "result": "子 agent 报告 spawn_agent 工具不存在，CHILD_REPLIES=0",
-      "subagent_toolset": [
-        "web_search",
-        "web_extractor",
-        "exec_command",
-        "write_stdin",
-        "request_user_input",
-        "view_image",
-        "get_goal",
-        "create_goal",
-        "update_goal"
-      ],
-      "conclusions": [
-        "嵌套不可能 → 6 槽绝对天花板，31 包由主控单层扁平派发",
-        "子 agent 有 exec_command → 写文件/pytest/git commit 可行，§8 模板成立",
-        "子 agent 有 request_user_input → 无人值守挂死风险，R-17 明令禁止",
-        "子 agent 无 multi_agent 工具 → R4 复核只能主控派"
-      ]
-    }
+    "not_queued_proof": "P1 END 645.611 > P6 START 633.143，若为排队则 P6 START 必然晚于 P1 END",
+    "start_spread_s": 12.54,
+    "start_spread_cause": "agent bootstrap / 首命令延迟抖动，非排队",
+    "speedup_x": 4.0,
+    "speedup_basis": "串行当量 6x25.0=150.0s / 墙钟 658.148-620.605=37.543s = 3.995",
+    "prev_measurement": "2026-11-24：上限同为 6，重叠 9.01s，加速比 3.49x",
+    "conclusion": "上限 6 复现，真并行复现，加速比由 3.49x 升到 4.00x（bootstrap 抖动更小）。排程仍按 6 lane，无需改动",
+    "nesting_possible": false,
+    "all_probes_closed": true
   },
   "concurrency_fallback": {
     "6": "达标：ORCH-07 时算得 7.75h/缓冲 2.25h；ORCH-09 后实际 7.25h/缓冲 2.75h（当前采用）",
@@ -125,7 +104,11 @@
     "3-": "停机上报",
     "_note": "本表在 ORCH-07（5 lane→6 lane）时算得，未逐档重算。ORCH-09 使 Phase 1 -0.50h，故各档实际完成时刻应再减 0.50h（6 档已由 7.75h 修正为 7.25h/缓冲 2.75h，见 goal）；5 档标称 8.6h → 约 8.1h，仍达标。降级判据本身不变。"
   },
-  "t0_wall_clock": null,
+  "t0_wall_clock": {
+    "epoch": 1795540658.15,
+    "local": "2026-11-25 01:17:38 CST",
+    "note": "并发复测结束后立即派 T+0 六包；本字段为排程 T+0 基准"
+  },
   "phase_current": "P1",
   "phase_order": [
     "P1",
@@ -302,7 +285,7 @@
       "module": "fixtures_gen.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "running",
       "deps": [],
       "budget_min": 60,
       "prod_max": 600,
@@ -320,7 +303,10 @@
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "dispatched_at_epoch": 1795540658.15,
+      "agent_id": "01a20e92-7669-79b1-9dab-895a94427e18",
+      "nickname": "James"
     },
     "A2": {
       "lane": "A",
@@ -416,7 +402,7 @@
       "module": "attainment.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "running",
       "deps": [],
       "budget_min": 60,
       "prod_max": 450,
@@ -434,7 +420,10 @@
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "dispatched_at_epoch": 1795540658.15,
+      "agent_id": "01a20e92-e252-7750-ad55-25e40a09b323",
+      "nickname": "Nash"
     },
     "B2": {
       "lane": "B",
@@ -520,7 +509,7 @@
       "module": "io_loaders.py",
       "cx": "C2",
       "model": "flash",
-      "status": "pending",
+      "status": "running",
       "deps": [],
       "budget_min": 45,
       "prod_max": 300,
@@ -538,7 +527,10 @@
       },
       "model_id": "qwen3.8-flash",
       "effort": "medium",
-      "token_budget_k": 40
+      "token_budget_k": 40,
+      "dispatched_at_epoch": 1795540658.15,
+      "agent_id": "01a20e93-6477-79d2-8a4a-09f8889e9928",
+      "nickname": "Mencius"
     },
     "C2": {
       "lane": "C",
@@ -650,7 +642,7 @@
       "module": "weights_ahp.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "running",
       "deps": [],
       "budget_min": 60,
       "prod_max": 450,
@@ -668,7 +660,10 @@
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "dispatched_at_epoch": 1795540658.15,
+      "agent_id": "01a20e93-ef06-7152-85cb-e0e11370f425",
+      "nickname": "Jason"
     },
     "D2": {
       "lane": "D",
@@ -777,7 +772,7 @@
       "module": "tests/test_integration_spine.py",
       "cx": "C3",
       "model": "max",
-      "status": "pending",
+      "status": "running",
       "deps": [
         "A1"
       ],
@@ -797,7 +792,10 @@
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "dispatched_at_epoch": 1795540658.15,
+      "agent_id": "01a20e94-8098-7521-b252-ccf0d1be93a5",
+      "nickname": "Noether"
     },
     "E2": {
       "lane": "E",
@@ -941,7 +939,7 @@
       "module": "audit.py",
       "cx": "C3",
       "model": "flash",
-      "status": "pending",
+      "status": "running",
       "deps": [],
       "budget_min": 45,
       "prod_max": 300,
@@ -959,7 +957,10 @@
       },
       "model_id": "qwen3.8-max",
       "effort": "high",
-      "token_budget_k": 90
+      "token_budget_k": 90,
+      "dispatched_at_epoch": 1795540658.15,
+      "agent_id": "01a20e95-17e9-7953-80fd-af72056bf710",
+      "nickname": "Hypatia"
     },
     "F3": {
       "lane": "F",
@@ -1215,7 +1216,7 @@
     "budget_violations": 0,
     "net_new_test_funcs": 14,
     "net_new_test_funcs_cap": 120,
-    "slots_in_use": 0,
+    "slots_in_use": 6,
     "slots_limit": 6,
     "c2_pkgs": 6,
     "c1_pkgs": 2,
@@ -1302,6 +1303,20 @@
         "§6 SP-1 / §7.1 / §12 / §13 / 附B ORCH-11 五处口径同步"
       ],
       "next": "A1 B1 C1 D1 E1 F2（T+0 派发，spawn 必须显式带 model+effort）"
+    },
+    {
+      "seq": 8,
+      "date": "2026-11-25",
+      "session": "unattended v3.0 RUN START",
+      "n_items": 5,
+      "items": [
+        "自检全绿：SDD 708679e9a83d 命中 / CampaignLab m0-framework+0cccb76+porcelain 0 / DSM b41d84b 干净 / pytest 211 failed 基线符合",
+        "并发复测：spawn 8 -> 6 accepted + 2 rejected，六路重叠 12.47s，加速比 4.00x（前次 3.49x），上限 6 复现",
+        "6 个探针 agent 全部 close，槽位归零后再派工",
+        "T+0 派发六包 A1/B1/C1/D1/E1/F2（F1 已先行完成）；spawn 全部显式带 model+effort（R-16）",
+        "新增派工级澄清 D-1~D-6：并发 git index 纪律、contract-gaps 归属改由主控落盘、包专属临时目录、禁跑全量、RED 基线告知、MIN 自报须可核实"
+      ],
+      "next": "等六包 PKG= 上报；SP-1 @ T+1.00（epoch 1795544258）做 fixtures 冻结 + ORCH-03 + 吞吐重基线"
     }
   ],
   "model_routing": {
@@ -1420,5 +1435,66 @@
   },
   "decisions_ref": "全部裁决的完整论证与 SDD 逐字证据见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §5.1~§5.5 与附 B；本文件只存结论",
   "session_log_ref": "全文见 ops/session-log-archive.md（v2.0 §6 瘦身规则）",
-  "next_dispatch_note": "F1 已完成（a4bd363），Lane F 首派改为 F2 audit.py（qwen3.8-max, high）"
+  "next_dispatch_note": "F1 已完成（a4bd363），Lane F 首派改为 F2 audit.py（qwen3.8-max, high）",
+  "dispatch_clarifications": {
+    "D-1_git_index": "6 路共用同一工作树 -> 派工 prompt 强制：禁 git add -A / git add .，只能逐个显式添加本包写集路径；commit 前用 git diff --cached --name-only 自查；遇 index.lock 则 sleep 3s 重试最多 10 次，仍失败保留工作树改动并在 NOTES 写 GITLOCK_FAILED，禁 reset/checkout/stash。依据：R-1 写集互斥 + R-13 一包一提交；§2.4 原文未覆盖并发 index 竞争，此处补齐",
+    "D-2_contract_gaps": "§2.1 要求 lane 自行追加 ops/contract-gaps.md，但 §2.4 规定该文件只有主控能写，二者冲突。裁决：lane **不写** ops/*.md，改为在上报行的 GAPS 计数 + NOTES 里给出缺口内容，由主控在同步点统一落盘 ops/contract-gaps.md 并批量裁决（§7 步骤 2）。理由：6 路并发写同一文件必然互相覆盖，且违反 §2.4 的写权限表",
+    "D-3_temp_dir": "每包强制使用专属临时子目录 C:\\Users\\szf\\AppData\\Local\\Temp\\dsm_stage\\<包号>\\，禁写 dsm_stage 根与 dsm_ops 根。依据：ops/blockers.md B-011 已发生过主控脚本被 R6 同名探针覆盖的事故",
+    "D-4_no_full_pytest": "派工 prompt 明令只跑本包测试文件；全量 pytest 只在 4 个同步点由主控跑（ORCH-06）",
+    "D-5_red_baseline": "派工 prompt 告知 211 failed 是故意的 RED（B4 负责抢救），lane 不得修、不得 skip",
+    "D-6_min_honesty": "上报行 MIN 必须是从收到任务到 commit 的墙钟分钟，并明示主控会用 git 时间戳独立核实。依据：F1 探针实测 agent 自报 15min vs 独立核实 21min，自报偏乐观 29%"
+  },
+  "active_agents": {
+    "A1": {
+      "agent_id": "01a20e92-7669-79b1-9dab-895a94427e18",
+      "nickname": "James"
+    },
+    "B1": {
+      "agent_id": "01a20e92-e252-7750-ad55-25e40a09b323",
+      "nickname": "Nash"
+    },
+    "C1": {
+      "agent_id": "01a20e93-6477-79d2-8a4a-09f8889e9928",
+      "nickname": "Mencius"
+    },
+    "D1": {
+      "agent_id": "01a20e93-ef06-7152-85cb-e0e11370f425",
+      "nickname": "Jason"
+    },
+    "E1": {
+      "agent_id": "01a20e94-8098-7521-b252-ccf0d1be93a5",
+      "nickname": "Noether"
+    },
+    "F2": {
+      "agent_id": "01a20e95-17e9-7953-80fd-af72056bf710",
+      "nickname": "Hypatia"
+    }
+  },
+  "self_check_T0": {
+    "sdd_sha256_12": "708679e9a83d",
+    "sdd_match": true,
+    "sdd_file": "工行参考文件/开发设计文档-策略评价可辩护评分模型DSM-v1.1.md",
+    "sdd_bytes": 177646,
+    "campaignlab": {
+      "branch": "m0-framework",
+      "head": "0cccb76",
+      "porcelain": 0,
+      "rev_list_count": 154,
+      "ok": true
+    },
+    "dsm": {
+      "branch": "main",
+      "head": "b41d84b",
+      "porcelain": 0,
+      "remote_reachable": true
+    },
+    "pytest_baseline_failed": 211,
+    "pytest_baseline_split": {
+      "test_config_semantic": 108,
+      "test_config_weight_version": 96,
+      "test_config_properties": 7
+    },
+    "digest_count": 45,
+    "venv_ok": true
+  }
 }
