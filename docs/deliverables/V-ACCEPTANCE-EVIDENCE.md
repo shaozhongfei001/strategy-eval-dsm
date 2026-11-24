@@ -69,3 +69,24 @@
 - 因此下列 **V-14 相关数字是 R15B2 之前的快照**，P3a 定稿必须重测：注册表 **79 码（BLOCK 28 / WARN 38 / INFO 13）**、`CONTRACT_DISCLOSURE_CODES` **15 个**、`tests/test_reason_codes.py` **`18 passed in 0.15s`**、以及 `test_registry_is_big_enough_to_cover_the_documented_paths` 的下限断言（`>=70 / BLOCK>=20 / WARN>=25 / INFO>=8`）与 `test_every_downgrade_path_has_a_disclosure_code` 的覆盖面。ORCH-30 第 4 条已预告该批注册（`DESIGN_CARD_TABLE_ABSENT`、重复 `strategy_id × version` 卡索引码、Spearman 零方差码、A2 的 H-2/H-3/H-5 与红线排除码、C5 的「等级 != L1」码、C2 的 C-03 专用码、A4 的 `APPROXIMATE_ATTRIBUTION`）。
 - **V-14 的 ❌ 结论不受该漂移影响**：R15B2 只**新增注册码**，并**不新增**「M28 26 行逐条断言（情形 → 检测点 → 降级动作 → 是否出分 → 披露位置 → reason_code）+ 该 reason_code 确实出现在 `report.md`」的遍历守护；该守护当前**不存在**，需另派包新写（本包禁改 `tests/**`）。
 - 同理，`tests/test_golden_b.py`（E3，06:41:03 CST 仍在写、1687 行 / 16 个 test 函数、未提交）与 R15B2 的落地都会使 **V-1 / V-7 / V-9 / V-20** 的载体发生变化；这与 §三.1 的口径一致：**P3a 定稿时 20 条全部重测**，本表不主张跨 commit 有效。
+
+## 五、E3 落地 `tests/test_golden_b.py`（`35a6635`）后的补测 —— **本节结论覆盖 §一 汇总行**
+
+- **触发**：E3 于本包实测窗口结束后提交 `35a6635`（golden G-05/06/07/10/11/12/14），HEAD 变为 `0d4d4aa`（= 本包第 2 个 commit）。按 L-02（数字必须标注 commit）与 R-12（不编造），本包**补测**而不沿用 §一 的「golden_b 不存在」口径。
+- **补测环境**：HEAD `0d4d4aa`；**tracked 树含 R15B2 未提交改动 2 件**（`dsm/reason_codes.py`、`tests/test_reason_codes.py`，见 §四），本包未 add、未改；观测时刻 2026-11-25 06:47–06:48 CST。
+- **全量基线（补测，实测）**：**`13 failed, 2182 passed in 11.11s`**，**0 skipped / 0 error / 0 xfail** = golden_a 2 + **golden_b 5** + spine 6。（§前言的 `8 failed / 2162 passed` 是 HEAD `8f2eca3`、golden_b 未落地时的快照，两者不矛盾，差异 = E3 新增 16 个 test 函数中 5 条 RED。）
+- **golden_b 实测 = `5 failed, 11 passed in 0.90s`**；FAIL = `test_g05_...`、`test_g06_...`、`test_g07_...`、`test_g10_...`、`test_g14_...`；PASS 侧含 G-11 / G-12（故 **V-9 / V-3 的 golden 载体已到位且实测通过**）。
+- **逐条实测失败原因（`--tb=line` 原文摘引，均为 E3 独立手算 vs 实现，R-14 不迁就实现）**：
+  - **G-05**：`S-011/v1 composite_absolute: 手算=不变(0.967705891652) 实测=0.968545891652 / composite_relative: 手算=不变(0.321975872361) 实测=0.325475872360 / norm M_ROI: 手算=不变(0.5…) 实测改变` → **存量策略的分数随「新增极值策略」改变**，与 M36 L1500 的 V-7 判据直接冲突；`fixtures/variants/G05_append_extreme.json` 为 A1 构造件。
+  - **G-06**：`S-004 基线等级：M31 G-06 手算=L2（0.905000000000 落 [0.90, 1.00)）实测=NOT_ASSESSED`、`assessed 集 手算应含 S-004 实测 by_strategy=['S-001','S-002','S-003','S-006','S-009','S-011']` → 根因 **D-A1-02**（design_card 缺两字段致证据落 D），归 **A1c**。
+  - **G-07**：`loo_impact 最大者: 手算=M_REV_MINOR（跨度 0.120000000000）实测=loo_dominant_metrics=('M_CONTACT_FREQ_PER_30D','M_SATISFY_SCORE')` → sensitivity 的 LOO 归因与手算不一致，归属待 P2 裁（D2 实现 or E3 手算）。
+  - **G-10**：`status: M31 G-10 手算=BLOCK 实测=WARN（exit_code=0）`、`reason_code: 手算含 DIMENSION_EMPTIED 实测=['METRIC_NOT_SIGNED','METRIC_NOT_SIGNED','WEIGHT_REALLOCATED','MISSING_RATE_BLOCK','MISSING_RATE_WARN',…]` → **M28 L1286「某维度指标被清空 … 清空维度数 ≥ 2 → BLOCK」实测未按 BLOCK 走**，且 `DIMENSION_EMPTIED` 未出现在实测 reason_code 列表中。
+  - **G-14**：`M31 G-14 判据：C 类占比由 3/11 = 0.272727272727 升到 5/11 = 0.454545454545（+2/11 = 0.181818181818）-> 应出 MIX_QUALITY_DEGRADED 警示；实测 verdict=None（实现按 (C+D)=8/11 不变判 None）` → **分池质量防作弊码 `MIX_QUALITY_DEGRADED`（M44 L1854 点名）的判据口径分歧**：分子取「C 占比」还是「C+D 占比」，需主控裁决（属口径裁决、非数值拟定）。
+- **据此修订的结论（覆盖 §一 汇总行）**：
+  - **V-1 仍 ❌，证据升级**：G-01~G-15 中实测 RED = **7 条**（golden_a g04/g08 + golden_b g05/g06/g07/g10/g14），PASS = 8 条（golden_a 6 + golden_b 的 g11/g12 等）。缺：A1c（g04/g08/g06 的 fixtures 根因）+ P2 对 g05/g07/g10/g14 的归属裁决。
+  - **V-7 由 ⏳ 改判 ❌**：golden G-05 **实测 FAIL**，失败内容正是判据本身（新增极值策略改变了存量 S-011 的 `composite_absolute` / `composite_relative` / `norm M_ROI`）。**冲突点必须披露**：同一判据的属性层与模块层守护仍全绿 —— `test_properties_all.py::test_p04_adding_non_anchor_strategy_keeps_existing_norm_and_grade` `1 passed`、`pytest tests/test_normalize.py -k "g05 or p4"` `4 passed`；即 **P-4 / 模块级 G-05 与 golden G-05 结论相反**，疑与 SEAM-1（`8f2eca3`）「锚定参考尺不按池裁剪」的改动相关，需 P2 归因，**不得按属性层绿就判 V-7 通过**。
+  - **V-14 仍 ❌，证据加强**：除「无 M28 26 行遍历守护」外，新增实测反例 —— **G-10 的 M28 L1286 分支（清空维度数 ≥ 2 → BLOCK）实测走 WARN 且 `DIMENSION_EMPTIED` 未出现在 reason_code 列表**，即「降级路径有 reason_code」在该行**实测不成立**。
+  - **V-9 维持 ✅**（golden G-11 实测 PASS + P-07 + numeric 68 passed + `numeric.TOL=1E-12`）；**V-3 维持 ⏳**（golden G-12 实测 PASS，但第二人全新 clone + 断网复跑仍未做，且哈希见 D-8）；**V-20 维持 ⏳**（括注「G-01~G-15 全过」实测仍不成立，7 条 RED）。
+  - **V-2 / V-10 / V-15 维持 ⏳**，**V-4 / V-5 / V-6 / V-8 / V-11 / V-12 / V-13 / V-16 / V-17 / V-18 / V-19 维持 ✅**（其载体均未被 golden_b 触及）。
+- **修订后汇总（HEAD `0d4d4aa`，本节为准）**：✅ **12** 条（V-4、V-5、V-6、V-8、V-9、V-11、V-12、V-13、V-16、V-17、V-18、V-19）；❌ **3** 条（**V-1、V-7、V-14**）；⏳待P2复测 **5** 条（V-2、V-3、V-10、V-15、V-20）。合计 20 条。
+- **四条不可砍底线（修订）**：V-9 数值口径 ✅／**V-14 无静默降级 ❌（新增 G-10 实测反例）**／V-6+G-03+P-2 红线非补偿 ✅／G-02+P-6 证据门禁与分池禁混排 ✅（但 **G-14 的 `MIX_QUALITY_DEGRADED` 口径分歧实测未决**，见上）。
