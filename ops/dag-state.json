@@ -1013,7 +1013,7 @@
       "module": "properties P-1~P-15",
       "cx": "C2",
       "model": "flash",
-      "status": "pending",
+      "status": "running",
       "deps": [
         "E3"
       ],
@@ -1303,7 +1303,7 @@
       "module": "缺陷 D-C1-01 修复（io_loaders parquet dtype）+ pyarrow optional extra（ADJ-8）",
       "cx": "C2",
       "model": "flash",
-      "status": "running",
+      "status": "done",
       "deps": [
         "C1"
       ],
@@ -1311,12 +1311,12 @@
       "prod_max": 300,
       "tf_max": 20,
       "ev": {
-        "min": null,
+        "min": 8,
         "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "tf": 16,
+        "pass": 16,
+        "fail": 0,
+        "commit": "6430e2b",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
@@ -1325,19 +1325,63 @@
       "effort": "medium",
       "token_budget_k": 30,
       "adhoc": true,
-      "plan_scope": false
+      "plan_scope": false,
+      "gaps_reported": 0
     },
     "ORCH-25": {
       "lane": "adhoc",
       "module": "tests/test_config_placeholder.py triage（ORCH-25 裁决 G1 四级 grade_rules + G2 load_all 三参签名）",
       "cx": "C2",
       "model": "flash",
-      "status": "running",
+      "status": "done",
       "deps": [
         "B4"
       ],
       "budget_min": 25,
       "prod_max": 300,
+      "tf_max": 20,
+      "ev": {
+        "min": 11,
+        "prod": 0,
+        "tf": 118,
+        "pass": 200,
+        "fail": 1,
+        "commit": "1c0d2fb",
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 30,
+      "adhoc": true,
+      "plan_scope": false,
+      "gaps_reported": 1
+    },
+    "P2a": {
+      "lane": "adhoc",
+      "module": "集成骨架贯通：清除 E1 skip，M29 九步端到端（P2 首项工作前移）",
+      "cx": "C3",
+      "model": "max",
+      "status": "running",
+      "deps": [
+        "E1",
+        "A1",
+        "B1",
+        "B2",
+        "B3",
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "D2",
+        "D3",
+        "F2",
+        "F4"
+      ],
+      "budget_min": 75,
+      "prod_max": 0,
       "tf_max": 20,
       "ev": {
         "min": null,
@@ -1350,9 +1394,40 @@
         "first_pass": null,
         "escalated_from": null
       },
-      "model_id": "qwen3.8-flash",
-      "effort": "medium",
-      "token_budget_k": 30,
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90,
+      "adhoc": true,
+      "plan_scope": false
+    },
+    "A2b": {
+      "lane": "adhoc",
+      "module": "消除 weights_combine→weights_ahp 的 H-9/INV-1 import 边（公开签名冻结）",
+      "cx": "C3",
+      "model": "max",
+      "status": "blocked_on_A3_A4",
+      "deps": [
+        "A2",
+        "A3",
+        "A4"
+      ],
+      "budget_min": 30,
+      "prod_max": 100,
+      "tf_max": 6,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 40,
       "adhoc": true,
       "plan_scope": false
     }
@@ -1469,24 +1544,23 @@
     "pkgs_total": 31,
     "stale_number_sweep": "2026-11-24 已清除 doc 内 ORCH-09 前过期口径 8 处（头部答案/§1目标2/P2·P3a·P3b·P3c 时间窗/内嵌状态模板 plan·lanes·sync_points·counters）",
     "bookkeeping_note": "主控两次漏记在跑包状态（C2、F3）；根因是派发与状态落盘分处两个工具调用。已改为：每次 spawn 后的下一次状态写入必须核对 active_agents 与 work_packages.status 双向一致",
-    "work_packages_total": 33,
+    "work_packages_total": 35,
     "plan_scope_total": 31,
-    "done": 21,
+    "done": 23,
     "running": 6,
-    "pending": 6,
+    "pending": 5,
     "done_plan_scope": 21,
-    "updated_at_epoch": 1795553631.4
+    "updated_at_epoch": 1795554223.8
   },
   "next_dispatch": {
-    "queue_after_wave2": [
+    "immediate": "A2b（等 A3+A4 落地，签名冻结，消除 H-9 import 边）",
+    "then": [
       "E3（前置 E2）",
-      "E4（前置 各模块，含 A3/A4 落地后）",
-      "P2（集成对齐+全量回归，前置 全部实现包）",
-      "P3a/P3b/P3c（并行，前置 P2）"
+      "P2 剩余项（全量回归 0 failed/0 error/0 新增 skip/0 xfail + 编码校验）",
+      "P3a/P3b/P3c 并行"
     ],
-    "slot_policy": "6 槽硬上限；收到交付先 close_agent 再补派；C1b/ORCH-25 为小包，预计 15~20min 先回，回收槽位后优先派 E4（properties P-1~P-15）",
-    "critical_path_now": "A3(90 budget-min)→E5 覆盖补齐→P2；A4 与 A3 并行不构成串联",
-    "note": "关键路径已不再是 A2→A3→E5 串联（A2 已交付、E5 已提前并行），SP-1 绑定的 143min 临界值预计富余"
+    "slot_policy": "6 槽硬上限，收到交付先 close_agent 再补派",
+    "note": "计划内 pending 仅剩 E3/P2/P3a/P3b/P3c；A3/A4 为最长杆"
   },
   "session_log": [
     {
@@ -1686,6 +1760,16 @@
       },
       "event": "wave-1 收口 + wave-2 齐发",
       "detail": "close_agent ×11（F3/C4/F4/C2/A2/D5/D4/C5/B4 等）释放槽位；交付累计 21/31（plan scope）；全量 pytest 213 failed → 10 failed（B4）；派 A3/A4/E2/E5/C1b/ORCH-25 六路"
+    },
+    {
+      "at": {
+        "epoch": 1795554223.8,
+        "elapsed_h": 3.768,
+        "hard_stop_h": 10.0,
+        "remaining_h": 6.232
+      },
+      "event": "SP-2 同步点（延后执行）",
+      "detail": "C1b/ORCH-25 收口 → 全量 1 failed；巡检：编码 0 违规、CampaignLab 未动、24 commits 未 push；裁 ORCH-26(H-9) + ADJ-10；派 P2a 前移集成贯通"
     }
   ],
   "model_routing": {
@@ -2109,21 +2193,21 @@
       "adhoc": false,
       "spawned_at_epoch": 1795553631.4
     },
-    "C1b": {
-      "agent_id": "01a20f52-e00e-7ec1-a178-476e2b8faee5",
-      "nickname": "Carson",
-      "model_id": "qwen3.8-flash",
-      "effort": "medium",
+    "P2a": {
+      "agent_id": "01a20f5c-9c9a-7912-a82b-b8f354ccf118",
+      "nickname": "Gauss",
+      "model_id": "qwen3.8-max",
+      "effort": "high",
       "adhoc": true,
-      "spawned_at_epoch": 1795553631.4
+      "spawned_at_epoch": 1795554223.8
     },
-    "ORCH-25": {
-      "agent_id": "01a20f53-3f14-7f72-874d-bb30fe1799ae",
-      "nickname": "Dewey",
+    "E4": {
+      "agent_id": "01a20f57-f9b8-7313-952c-ea915e95810d",
+      "nickname": "Confucius",
       "model_id": "qwen3.8-flash",
       "effort": "medium",
-      "adhoc": true,
-      "spawned_at_epoch": 1795553631.4
+      "adhoc": false,
+      "spawned_at_epoch": 1795554223.8
     }
   },
   "self_check_T0": {
@@ -2236,6 +2320,28 @@
       "trigger": "F4 reports PROD=632 超 §3.2 预算 450 行 232 行（自称按 R-6 收尾）；D4 PROD=524 超 450 行 74 行（纯代码 308 行，超出全为 docstring/注释）；C2 PROD=423 超 400 行 6%；A2 PROD=746 超 700 行 46 行",
       "decision": "裁 ADJ-9：四包超限一律**核可入账、不返工**。理由：①ADJ-5 已定行数上限只算 dsm/**，四包均在 SDD §7 单模块 200~500 区间的上沿或略超，超出部分为手算依据与缺口书面披露（R-12 要求），压缩会牺牲可辩护性；②返工需重占槽位，与 10h 硬停线冲突。**但 SP-3 必须复核 reports.py 是否拆为 render/ledger 两文件**（唯一超 500 行者），若拆分则派 flash 小包，不动断言",
       "followup": "SP-3 复核 reports.py 拆分"
+    },
+    "RT-10": {
+      "at": {
+        "epoch": 1795554223.8,
+        "elapsed_h": 3.768,
+        "hard_stop_h": 10.0,
+        "remaining_h": 6.232
+      },
+      "trigger": "ORCH-25 与 C1b 两个小包提前回收 2 槽，而 E3 需等 E2、P3a/b/c 需等 P2，无可派的计划内包",
+      "decision": "把 P2 的第一项交付（去掉 E1 全部 skip、M29 九步端到端贯通）**前移**为 ad-hoc 包 P2a 立即派出（Gauss / max·high），写集仅 tests/test_integration_spine.py",
+      "why_safe": "① 属 P2 范围内工作前移，**不追加范围**（SP-1 的『不追加范围』约束不被违反）；② 写集与在跑 5 路互斥；③ 提前暴露跨模块契约冲突，使 P2 从『75min 集中爆雷』变为『已预先贯通+收尾』，直接压缩关键路径尾段"
+    },
+    "RT-11": {
+      "at": {
+        "epoch": 1795554223.8,
+        "elapsed_h": 3.768,
+        "hard_stop_h": 10.0,
+        "remaining_h": 6.232
+      },
+      "trigger": "全量唯一残留 RED = H-9/INV-1（weights_combine→weights_ahp）",
+      "decision": "裁 ORCH-26：H-9 断言不得弱化；消除 import 边（数据注入首选 / L1 上提次选 / 禁隐藏导入）；修复包 A2b **等 A3+A4 落地后**再派且**公开签名冻结**；P2 的 0 failed 门禁在 A2b 后才判定。同批核可 ADJ-10（ORCH-25 对 _clean_weights 的越界自判），要求 P3a 如实披露",
+      "adr": "docs/adr/RUN-ORCH-26-inv1-h9-weights-combine.md"
     }
   },
   "contract_gaps_pending": [
@@ -2659,8 +2765,23 @@
       "severity": "HIGH",
       "fix_owner": "Lane C（写集 dsm/io_loaders.py + tests/test_io_loaders.py）",
       "fix_package": "C1b（缺陷修复微包，待槽位空闲即派）",
+      "status": "CLOSED",
+      "baseline_effect": "全量 failed 由 211 -> 212（新增 tests/test_io_loaders.py::test_parquet_dispatch_and_float_guard）；修复后应回到 211",
+      "fixed_at": "T+3.7h",
+      "fix_commit": "6430e2b",
+      "fix": "去掉 read_parquet 的 dtype=str，原生 cell 经 cell_to_text 拍平为 CSV 等价文本后与 CSV 分支共用同一 coerce()；float 守卫原样保留并加文件级断言；新增 CSV/Parquet 双分支逐字段值+type 双断言；pyproject 增 parquet optional extra（ADJ-8）"
+    },
+    {
+      "id": "D-A2-01",
+      "found_at": "T+3.73h",
+      "found_by": "主控同步点全量巡检 + ORCH-25 上报",
+      "file": "dsm/weights_combine.py",
+      "symptom": "H-9 INV-1 violation: [('weights_combine.py','dsm.weights_ahp')]",
+      "root_cause": "L0a 直接 import L0b 以取 AHP 结果，违反『任何 dsm 模块不得 import L0 模块』",
       "status": "OPEN",
-      "baseline_effect": "全量 failed 由 211 -> 212（新增 tests/test_io_loaders.py::test_parquet_dispatch_and_float_guard）；修复后应回到 211"
+      "ruling": "docs/adr/RUN-ORCH-26-inv1-h9-weights-combine.md",
+      "fix_package": "A2b",
+      "constraint": "公开签名冻结；等 A3/A4 落地后派；禁 TYPE_CHECKING/try-import/importlib 隐藏"
     }
   ],
   "environment_changes": [
@@ -2752,13 +2873,21 @@
       "failed": 1,
       "residual": "test_config_placeholder.py::test_t05_m03（INV-1 争议，待 ORCH-26 裁决）"
     },
-    "note": "P2 门禁要求全量 0 failed / 0 error / 0 新增 skip / 0 xfail；m03 必须在 P2 前由 ORCH-26 收口"
+    "note": "P2 门禁要求全量 0 failed / 0 error / 0 新增 skip / 0 xfail；m03 必须在 P2 前由 ORCH-26 收口",
+    "after_ORCH25": {
+      "failed": 1,
+      "passed": 2048,
+      "collection_errors": 0,
+      "commit": "1c0d2fb",
+      "residual": "tests/test_config_placeholder.py::test_t05_m03_no_dsm_module_imports_an_l0_module（H-9 INV-1：weights_combine.py→dsm.weights_ahp）",
+      "resolution": "ORCH-26 → A2b，等 A3/A4 落地后派；P2 的 0 failed 门禁必须在 A2b 后判定"
+    }
   },
   "clock_now": {
-    "epoch": 1795553631.4,
-    "elapsed_h": 3.604,
+    "epoch": 1795554223.8,
+    "elapsed_h": 3.768,
     "hard_stop_h": 10.0,
-    "remaining_h": 6.396
+    "remaining_h": 6.232
   },
   "gap_adjudications_SP2": {
     "new_gaps_reported_wave1_2": {
