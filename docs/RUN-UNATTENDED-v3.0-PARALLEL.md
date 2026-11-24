@@ -281,7 +281,7 @@ PKG=<包号> STATUS=<done|blocked|partial> COMMIT=<sha7> MIN=<实际墙钟> PROD
 
 **断点续跑规则（不变，ORCH §8）**：新会话启动先读本文件 §3/§4 + `ops/dag-state.json` + `ops/blockers.md`，从 `lanes[*].queue` 的第一个 `pending` 包继续；**不重跑已 done 的包**；`evidence` 字段只存数字（v2.0 §6）。
 
-## 10. 风险登记（并行模式特有，4 条 + 缓解）
+## 10. 风险登记（并行模式特有，RK-P1 ~ RK-P5 共 5 条 + 缓解）
 
 | 编号 | 风险 | 概率 | 影响 | 缓解（已内置） |
 |---|---|---|---|---|
