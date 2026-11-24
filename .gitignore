@@ -13,3 +13,6 @@ reports/
 *.log
 .DS_Store
 Thumbs.db
+# raw evidence dumps stay local (ORCH v2.0 s6): only <=200-line summaries are committed
+ops/evidence/
+ops/handoff-*.md

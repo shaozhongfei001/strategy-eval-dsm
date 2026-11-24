@@ -528,3 +528,350 @@ def test_t05_j_n03_a_fully_filled_dir_loads_into_an_appconfig(tree):
         loaded = cfg('load_all')(str(base))
     assert isinstance(loaded, appconfig)
     assert loaded.eval_config == tree
+
+# ---------------------------------------------------------------------------
+# T06-Q / P-11. Appended by S1-T06 R3 under ORCH-24 ruling 19 and checklist
+# row T06-Q ("任意 FROZEN 且 provenance 不完整的合成权重树必被拦、必不产出
+# AppConfig; 同 seed 逐字节可复现"). Every line above this block is the frozen
+# S1-T05 file and none of it was edited: ORCH-24 ruling 20 pins the write set
+# to "tests/test_config_properties.py (追加 P-11 属性; 既有 P-10 用例一条不改)"
+# and ruling 1 pins "T05 已冻结的 12 个公开名与既有用例一条不改".
+#
+# [L1435] P-11 verbatim: "任何 FROZEN 权重版本必须具备完整 provenance（AHP
+# 矩阵 + CR；若 combined 则含 α + alpha_basis + whatif_run_id），缺任一项 ->
+# 配置加载失败". The required segment matrix is ORCH-24 ruling 17; the
+# reason_code split is ruling 15 fixed order (序 5 whatif before 序 6 other
+# segments); the exit code is ruling 4 (EXIT_BLOCK = 2).
+#
+# RED mechanism: cfg_t06() resolves a name of ruling 19 lazily, so each case
+# below fails as AttributeError "dsm.config has no attribute <X>", never as a
+# collection error, never as a fixture error. Reproducibility follows the same
+# OPTS the file already uses (max_examples / deadline=None / derandomize=True
+# / database=None), which is what makes the two runs of q03 byte identical.
+# ---------------------------------------------------------------------------
+T06_Q_PERIOD = '2026-10'
+T06_Q_FROM = '2026-01'
+T06_Q_TO = '2026-12'
+T06_Q_DIMS = ('SYN-DIM-A', 'SYN-DIM-B')
+T06_Q_METRICS = ('SYN-M-01', 'SYN-M-02')
+T06_Q_KINDS = ('AHP_ONLY', 'AHP_ENTROPY_COMBINED', 'EXPERT_ONLY')
+T06_Q_GRADES = ('L1', 'L2', 'L3', 'L4')
+T06_Q_FLOORS = ('0.9', '0.75', '0.6', '0.4')
+T06_Q_RUN_ID = 'SYN-WHATIF-RUN'
+T06_Q_APPROVED_BY = 'SYN-APPROVER'
+T06_Q_APPROVED_DATE = '2026-01-05'
+T06_Q_CR = '0.25'      # parseable only; ruling 17 forbids judging the value
+T06_Q_ALPHA = '0.25'   # parseable only; ruling 17 forbids judging the range
+T06_Q_MATRIX = 'SYN-MATRIX-PAYLOAD'
+T06_Q_EXIT_BLOCK = 2   # ruling 4, the version policy exit code
+T06_Q_WHATIF_BLANK = ''  # ruling 15 序 5: 缺 whatif_run_id 或 strip 后为空
+
+
+def _t06_rc():
+    '''The registered reason_code enum (ORCH-24 ruling 5).'''
+    return importlib.import_module('dsm.reason_codes').RC
+
+
+def cfg_t06(name):
+    '''Resolve a name of ORCH-24 ruling 19 (the T06 half of the contract).'''
+    module = _config_module()
+    resolved = getattr(module, name, None)
+    if resolved is None:
+        raise AttributeError(
+            'dsm.config has no attribute ' + name
+            + ' (S1-T06 not implemented yet, ORCH-24 ruling 19)')
+    return resolved
+
+
+def _t06_required_segments(kind):
+    '''The ruling 17 matrix, written out as an independent oracle.'''
+    base = ('ahp', 'ahp.comparison_matrices', 'ahp.cr', 'whatif_run_id',
+            'approved_by', 'approved_date')
+    if kind == 'AHP_ENTROPY_COMBINED':
+        return base + ('entropy', 'combine', 'combine.alpha', 'alpha_basis')
+    return base
+
+
+def _t06_eval_config():
+    return {'SYN-evidence_mode': 'SYN-EVIDENCE-MODE'}
+
+
+def _t06_redlines():
+    return {'rules': {'HARD': [{'metric_id': metric, 'level': 'HARD',
+                                'threshold_value': 'SYN-THRESHOLD-REF'}
+                               for metric in T06_Q_METRICS]}}
+
+
+def _t06_grade_rules():
+    levels = []
+    for code, floor in zip(T06_Q_GRADES, T06_Q_FLOORS):
+        levels.append({'grade_code': code, 'attainment_floor': floor,
+                       'actions': ['SYN-ACTION-01'],
+                       'action_gate': 'SYN-ACTION-GATE'})
+    return {'levels': levels}
+
+
+def _t06_anchor():
+    return {'anchor_set_id': 'SYN-ANCHOR-0001',
+            'strategy_ids': ['SYN-S-001', 'SYN-S-002'],
+            'effective_from': T06_Q_FROM, 'effective_to': T06_Q_TO,
+            'rationale': 'SYN-RATIONALE'}
+
+
+def _t06_ahp_matrices():
+    return {'matrices': {'SYN-DIM-A': T06_Q_MATRIX}}
+
+
+def _t06_complete_tree(kind, stem=WEIGHTS_STEM_A):
+    '''A FROZEN weights tree whose provenance is complete for the kind.'''
+    prov = {
+        'kind': kind,
+        'whatif_run_id': T06_Q_RUN_ID,
+        'approved_by': T06_Q_APPROVED_BY,
+        'approved_date': T06_Q_APPROVED_DATE,
+        'ahp': {'comparison_matrices': {'SYN-DIM-A': T06_Q_MATRIX},
+                'cr': T06_Q_CR},
+    }
+    if kind == 'AHP_ENTROPY_COMBINED':
+        prov['entropy'] = {'SYN-entropy_weights': 'SYN-ENTROPY-PAYLOAD'}
+        prov['combine'] = {'alpha': T06_Q_ALPHA}
+        prov['alpha_basis'] = 'SYN-ALPHA-BASIS'
+    return {
+        'weight_version_id': stem,
+        'status': 'FROZEN',
+        'effective_from': T06_Q_FROM,
+        'effective_to': T06_Q_TO,
+        'level1_weights': {dim: '0.5' for dim in T06_Q_DIMS},
+        'level2_weights': {dim: {T06_Q_METRICS[0]: '0.5',
+                                 T06_Q_METRICS[1]: '0.5'}
+                           for dim in T06_Q_DIMS},
+        'provenance': prov,
+    }
+
+
+def _t06_apply_gap(tree, gap):
+    '''Remove or blank one required segment of the ruling 17 matrix. A gap
+    under a parent that is already gone stays a no-op: the parent absence is
+    the breach, and _t06_missing_segments still reports it.'''
+    prov = tree.get('provenance')
+    if not isinstance(prov, dict):
+        return tree
+    if gap == 'provenance':
+        tree.pop('provenance', None)
+        return tree
+    if gap == 'whatif_run_id_blank':
+        tree['provenance']['whatif_run_id'] = T06_Q_WHATIF_BLANK
+        return tree
+    if gap == 'ahp.comparison_matrices':
+        if 'ahp' in prov:
+            prov['ahp']['comparison_matrices'] = {}
+        return tree
+    if gap == 'ahp.cr':
+        if 'ahp' in prov:
+            prov['ahp'].pop('cr', None)
+        return tree
+    if gap == 'combine.alpha':
+        if 'combine' in prov:
+            prov['combine'].pop('alpha', None)
+        return tree
+    holder = prov
+    if gap == 'ahp':
+        holder.pop('ahp', None)
+    elif gap == 'entropy':
+        holder.pop('entropy', None)
+    elif gap == 'combine':
+        holder.pop('combine', None)
+    else:
+        holder.pop(gap, None)
+    return tree
+
+
+def _t06_missing_segments(tree, kind):
+    '''The oracle: which required segments the tree really lacks.'''
+    required = _t06_required_segments(kind)
+    prov = tree.get('provenance')
+    if not isinstance(prov, dict):
+        return ('provenance',) + required
+    missing = []
+    for segment in required:
+        node = prov
+        ok = True
+        for part in segment.split('.'):
+            if not isinstance(node, dict) or part not in node:
+                ok = False
+                break
+            node = node[part]
+        if not ok:
+            missing.append(segment)
+        elif segment.endswith('comparison_matrices') and node == {}:
+            missing.append(segment)
+        elif segment == 'whatif_run_id' and str(node).strip() == '':
+            missing.append(segment)
+    return tuple(missing)
+
+
+@st.composite
+def frozen_incomplete_case(draw):
+    '''A FROZEN weights tree that provably lacks at least one required
+    provenance segment of its own kind (no assume() filter, so nothing can
+    pass vacuously). One mandatory gap first, then zero to two extra ones.'''
+    kind = draw(st.sampled_from(T06_Q_KINDS))
+    tree = _t06_complete_tree(kind)
+    pool = list(_t06_required_segments(kind)) + ['whatif_run_id_blank',
+                                                 'provenance']
+    first = draw(st.sampled_from(pool))
+    tree = _t06_apply_gap(tree, first)
+    extras = draw(st.lists(st.sampled_from(pool), max_size=2, unique=True))
+    for gap in extras:
+        if 'provenance' not in tree:
+            break
+        if 'combine' not in tree['provenance'] and gap in ('combine',
+                                                           'combine.alpha'):
+            continue
+        tree = _t06_apply_gap(tree, gap)
+    return kind, tree, (first,) + tuple(extras)
+
+
+def _t06_appcfg(tree):
+    return cfg_t06('AppConfig')(**{
+        'eval_config': _t06_eval_config(),
+        'weights': {WEIGHTS_STEM_A: tree},
+        'redlines': _t06_redlines(),
+        'grade_rules': _t06_grade_rules(),
+        'anchor_set': _t06_anchor(),
+        'ahp_matrices': _t06_ahp_matrices()})
+
+
+def _t06_write_dir(base, tree):
+    base = Path(base)
+    base.mkdir(parents=True, exist_ok=True)
+    trees = {WEIGHTS_STEM_A: tree, 'eval_config': _t06_eval_config(),
+             'redlines': _t06_redlines(), 'grade_rules': _t06_grade_rules(),
+             'anchor_set': _t06_anchor(), 'ahp_matrices': _t06_ahp_matrices()}
+    for stem, item in trees.items():
+        (base / (stem + '.yaml')).write_text(
+            yaml.safe_dump(item, allow_unicode=True, sort_keys=False),
+            encoding='utf-8')
+    return base
+
+
+@OPTS
+@given(case=frozen_incomplete_case())
+def test_t06_q01_an_incomplete_frozen_provenance_is_always_blocked(case):
+    '''[L1435] / T06-Q: any FROZEN version with a missing provenance segment
+    fails the load, and it fails as a version policy breach, exit code 2
+    (ORCH-24 ruling 4), never as a silent pass.'''
+    kind, tree, gaps = case
+    err = cfg_t06('WeightVersionInvalidError')
+    assert _t06_missing_segments(tree, kind), (kind, gaps)
+    with pytest.raises(err) as excinfo:
+        cfg_t06('validate_weights')(_t06_appcfg(tree), period=T06_Q_PERIOD)
+    assert excinfo.value.exit_code == T06_Q_EXIT_BLOCK
+
+
+@OPTS
+@given(case=frozen_incomplete_case())
+def test_t06_q02_an_incomplete_frozen_provenance_never_produces_appconfig(case):
+    '''[L1435] "配置加载失败" plus [L1091]: nothing escapes, so no downstream
+    stage can score, and P-11 rides the same single exit as P-10.'''
+    kind, tree, gaps = case
+    err = cfg_t06('WeightVersionInvalidError')
+    appconfig = cfg_t06('AppConfig')
+    produced = []
+    with tempfile.TemporaryDirectory() as raw:
+        base = _t06_write_dir(Path(raw), tree)
+        try:
+            produced.append(cfg_t06('load_all')(str(base),
+                                                period=T06_Q_PERIOD))
+        except err:
+            pass
+    assert produced == []
+    assert not any(isinstance(item, appconfig) for item in produced)
+
+
+@OPTS
+@given(case=frozen_incomplete_case())
+def test_t06_q03_the_block_is_reproduced_byte_for_byte_on_a_rerun(case):
+    '''H-14 / V-3: the randomness is the hypothesis seed alone (derandomize),
+    so the same generated tree yields the identical message and reason_code.'''
+    kind, tree, gaps = case
+    err = cfg_t06('WeightVersionInvalidError')
+
+    def once():
+        try:
+            cfg_t06('validate_weights')(_t06_appcfg(tree),
+                                        period=T06_Q_PERIOD)
+        except err as caught:
+            return (str(caught), repr(caught.violations),
+                    caught.reason_code.value, caught.exit_code)
+        raise AssertionError('an incomplete provenance passed: ' + repr(gaps))
+
+    assert once() == once()
+
+
+@OPTS
+@given(case=frozen_incomplete_case())
+def test_t06_q04_the_reason_code_follows_the_ruling_15_fixed_order(case):
+    '''Ruling 15: reason_code takes the FIRST hit, 序 5 (whatif_run_id)
+    before 序 6 (every other required segment), so a blank run id outranks a
+    missing AHP segment and both are BLOCK / exit code 2.'''
+    kind, tree, gaps = case
+    registry = _t06_rc()
+    err = cfg_t06('WeightVersionInvalidError')
+    missing = _t06_missing_segments(tree, kind)
+    assert missing, gaps
+    with pytest.raises(err) as excinfo:
+        cfg_t06('validate_weights')(_t06_appcfg(tree), period=T06_Q_PERIOD)
+    code = excinfo.value.reason_code
+    assert isinstance(code, registry)
+    if missing[0] == 'provenance':
+        # ruling 17: the provenance key itself absent on a FROZEN version is
+        # RC.WEIGHT_VERSION_INVALID, the more specific of the two sentences.
+        assert code is registry.WEIGHT_VERSION_INVALID, missing
+    elif 'whatif_run_id' in missing:
+        assert code is registry.WEIGHT_MISSING_WHATIF_RUN_ID, missing
+    else:
+        assert code is registry.WEIGHT_VERSION_INVALID, missing
+    assert excinfo.value.exit_code == T06_Q_EXIT_BLOCK
+
+
+def test_t06_q05_the_ruling_17_matrix_is_blocked_segment_by_segment():
+    '''The non-vacuous half of P-11: one generated case cannot hide a segment
+    the checker never looks at, so every (kind, required segment) pair of the
+    ruling 17 table is falsified explicitly here, plus the provenance key
+    itself.'''
+    err = cfg_t06('WeightVersionInvalidError')
+    blocked = []
+    for kind in T06_Q_KINDS:
+        for segment in _t06_required_segments(kind) + ('whatif_run_id_blank',
+                                                      'provenance'):
+            tree = _t06_apply_gap(_t06_complete_tree(kind), segment)
+            assert _t06_missing_segments(tree, kind), (kind, segment)
+            with pytest.raises(err):
+                cfg_t06('validate_weights')(_t06_appcfg(tree),
+                                            period=T06_Q_PERIOD)
+            blocked.append((kind, segment))
+    assert len(blocked) == 28, blocked  # (6+2) + (10+2) + (6+2)
+
+
+def test_t06_q06_a_complete_frozen_provenance_is_not_blocked():
+    '''The reverse direction of P-11, without which the gate above could pass
+    by rejecting everything: [L1435] demands the segments, it does not forbid
+    a FROZEN version that has them (ruling 17: 多余的段不报错).'''
+    for kind in T06_Q_KINDS:
+        tree = _t06_complete_tree(kind)
+        assert _t06_missing_segments(tree, kind) == ()
+        assert cfg_t06('validate_weights')(_t06_appcfg(tree),
+                                           period=T06_Q_PERIOD) is None
+
+
+def test_t06_q07_the_p11_cases_join_the_frozen_p10_conventions():
+    '''T06-Q "同 seed 逐字节可复现" is the same discipline ruling 13 / H-14
+    set for P-10, so the settings object must be the one s01 already pins.'''
+    assert OPTS.deadline is None
+    assert OPTS.derandomize is True
+    assert OPTS.database is None
+    source = THIS_PATH.read_text(encoding='utf-8')
+    assert source.count('@OPTS') >= 18
+    assert cfg_t06('WeightVersionInvalidError').__name__ == \
+        'WeightVersionInvalidError'
