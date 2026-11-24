@@ -375,6 +375,27 @@
     },
     "note": "E3 的 5 条红使全量由 8 -> 13；这不是回退，是把此前未被测试覆盖的缺陷显性化。P2 门禁判定必须在 A1c + MODELS-1 + ORCH-34 之后进行。"
    }
+  },
+  "ORCH-34": {
+   "at_epoch": 1795560796.63,
+   "clock": "T+5.59h",
+   "title": "R15B2 收口裁决：退出码归属、PLACEHOLDER 严重度处置、ratchet 白名单收缩排程",
+   "rulings": [
+    "1) DESIGN_CARD_TABLE_ABSENT 的退出码冲突裁定：R15B2 上报 ORCH-30 第4条写「退出码 2」而第1条 + M21 L892 是 io 层「退出码 4」。裁：**以 M21 L892 的 io 层退出码 4 为准**，因为「设计卡表整体缺失」在语义上是「输入表加载失败」而非「轮级门禁阻断」；ORCH-30 第4条的「退出码 2」属笔误/层归属误记，在此更正。落地要求：该码归 io_loaders 层消费，退出码 4；**不得**同时出现在 preflight 的 RUN_BLOCKING_CODES（退出码 2）里，否则一码两退出码属口径矛盾。此项与 C2b 的 GAP-C2b-02 同源，一并收口。",
+    "2) 两处 R-12 PLACEHOLDER 严重度（SPEARMAN_ZERO_VARIANCE、APPROXIMATE_ATTRIBUTION）裁定：**维持 Anscombe 的暂定 WARN + PLACEHOLDER 标记不变**，不得升格为 BLOCK（ORCH-30：不得凭空升格严重级）。理由：原文无严重度列，暂定值只是为使流水线可运行的工程默认，其正当性来源是 V-14（必须披露）而非门禁。处置：P3a 必须把这两条列入「待业务签认」清单（与 K-01~K-20 同类），并在 V-ACCEPTANCE-EVIDENCE 的披露节逐条点名；测试侧已用「只许缩短的清单」钉死，符合防漂移要求。",
+    "3) ratchet 白名单 32 -> 28 的收缩**不在本批做**，排给 P2，且必须在 A1c 之后。理由：A1c 会经 dsm/fixtures_gen.py 重生成 fixtures，而 4 对失效项全在 fixtures_gen；若现在收缩，A1c 后可能再次变化，造成两次改动与两次论证成本。收缩属**收紧**而非弱化（fresh 碰撞已实测为 0），P2 执行时须重新实测实际碰撞对数并据此设定新常量，同时保留「只许缩短」的守护方向。",
+    "4) CONSUMPTION-TODO.md 的 9 条接线分派：属 fixtures/重生成侧的并入 **A1c**；属 dsm/cli.py、reports.py、whatif.py、preflight.py 的并入 **P2**。特别注意 Anscombe 的告警——换 C-03 码（WEIGHT_DICT_MISALIGNED）时**必须同批**把该码加进 preflight 的 DISCLOSURE，否则 _f() 会抛 PreflightError。此告警升级为 P2 的强制检查项。",
+    "5) models_questions 4 项本 RUN 不做（已由 ORCH-31 第3条确定），MODELS-DEFERRED.md 交 P3a 归档进 KNOWN-GAPS。注意 P3c-prep 已实测纠偏：A4 自述「whatif.py 有 8 个输出模型」不实，实测仅 1 个非异常类（WhatifReport:232）；故该 4 项中的第 2 项应按实测重写后再交下一版本，不得沿用 A4 的自述数字。",
+    "6) 全量口径统一：以 R15B2 与 P3a-prep 双向独立实测一致的 **13 failed / 2182 passed / 0 error / 0 skip / 0 xfail（collected 2195）** 为当前权威基线，截至 commit 358b4ea。13 条红的归责：6 条 spine -> MODELS-1（ORCH-32）；2 条 golden_a g04/g08 -> A1c（D-A1-02）；5 条 golden_b g05/g06/g07/g10/g14 -> 分别归 D-A1-08 / D-A1-02 / D-D2-01(本 RUN 不修) / D-SPEC-G10(取证中) / D-A1-07+口径分歧(取证中)。",
+    "7) 复现哈希登记纠正：dag-state 旧值 8083efc9… 已被 SEAM-1（8f2eca3）作废，实测现值 **4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7**（2026-Q2，两连跑相等，exit 0/0，P3a-prep 与 SEAM-1 双向独立实测一致）。invalidation_log 的 seq1 补全 64 位。P3b 判据仍为「A1c + MODELS-1 落地后重测、两连跑精确相等」。"
+   ],
+   "p3a_discrepancies_accepted": [
+    "① dag-state 哈希 8083efc9 早于 A1c 失效 -> 已由本条第7项纠正",
+    "② SEAM-1 自报 10->9，P3a-prep 实测 8 -> 采信实测 8（SEAM-1 自己的 A/B 表也写 9->8，属其摘要行笔误）",
+    "③ ORCH-29「全文件无 lambda」实测 grep=8（均为 sorted key）-> 记录为 ORCH-29 表述不精确，不影响其裁决实质（禁隐藏导入）",
+    "④ spine 第③条 normalize 锚定标注 FAIL 的归属：P3a-prep 认为属 SEAM-1（ORCH-28 读法），ORCH-32 已把该项并入 MODELS-1 落地 -> 以 ORCH-32 为准，SEAM-1 已关闭不再 reopened",
+    "⑤ G-05 golden 层 FAIL 与 P-4 属性层 PASS 结论相反 -> 采信 golden 层实测，V-7 判 ❌，根因登记为 D-A1-08（anchor_set 覆盖不足），不得以属性层绿掩盖"
+   ]
   }
  },
  "pkg_id_remap_from_5lane": {
@@ -1969,7 +1990,7 @@
    "scope": "A1c ???????BEFORE ??? / A1b ?????? / D-A1-02..05 ????(????+??) / design_card ?????? / golden ????? / A1c ???? / ? MODELS-1 ????"
   },
   "R15B2": {
-   "status": "running",
+   "status": "done",
    "agent": "Anscombe",
    "agent_id": "01a20fac-e444-7fd1-966e-ec14efe0778c",
    "model": "qwen3.8-max",
@@ -1980,7 +2001,11 @@
     "dsm/reason_codes.py",
     "tests/test_reason_codes.py"
    ],
-   "scope": "reason_code ?????2??????79? + codes_requested 8? + ??? SEAM-1/SMALL_POOL?models_questions 4?????(?? MODELS-DEFERRED.md)????????? CONSUMPTION-TODO.md"
+   "scope": "reason_code ?????2??????79? + codes_requested 8? + ??? SEAM-1/SMALL_POOL?models_questions 4?????(?? MODELS-DEFERRED.md)????????? CONSUMPTION-TODO.md",
+   "commit": "db13471",
+   "closed_at_epoch": 1795560796.63,
+   "minutes": 70,
+   "result": "盘点实测 79 码（KNOWN-GAPS B-10 的 81 系把 _DYNAMIC_PREFIXES 的 2 行前缀映射误计为码）+ 新增 11 码 = 90；codes_requested 8 项全覆盖；ORCH-30 第2条落地（_BLOCKS_RUN + _BASIS，severity 与 blocks_run 分离登记，依据分 verbatim/derived/PLACEHOLDER 三档并带 Mxx Lnnn 逐字引文）；ratchet 32->32 未改（fresh 碰撞 0，白名单有 4 对已失效全在 fixtures_gen）；SEAM-1 的 normalize 4 处 + pooling 9 处 RC 引用全部已在册，SMALL_POOL 与 INACTIVE_METRIC 早已注册故按 ADJ-3 不重复注册、改以新测试锁死语义；9 条接线登记 CONSUMPTION-TODO.md，4 项 models_questions 登记 MODELS-DEFERRED.md；git diff 278 insertions / 0 deletions（零弱化）；全量 13 failed / 2182 passed / 0 error / 0 skip / 0 xfail（collected 2195）"
   },
   "P2PREP": {
    "status": "running",
@@ -2002,6 +2027,14 @@
    "budget_min": 15,
    "readonly": true,
    "scope": "G-10 原文取证（M31 vs M22 C-02 互斥）：逐字摘录 + C-01~C-08 全表 + 变体实测事实 + 实现落点 + 候选方案列举（不推荐不排序，裁决权在主控）"
+  },
+  "P3a-prep": {
+   "status": "done",
+   "agent": "Singer",
+   "commit": "358b4ea",
+   "closed_at_epoch": 1795560796.63,
+   "minutes": 40,
+   "result": "docs/deliverables/V-ACCEPTANCE-EVIDENCE.md（92 行，V-1~V-20 四列，全部数字亲自跑出）：✅12 / ❌3（V-1、V-7、V-14）/ ⏳5（V-2、V-3、V-10、V-15、V-20）；须披露 D-1~D-12 + §四写集漂移补记 + §五 E3 落地后补测（覆盖 §一汇总行）；实测复现哈希 4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7（2026-Q2，两连跑相等，exit 0/0）；fixtures 解冻前 sha256 全 17 件清单落 dsm_stage/P3a-prep/fixtures-sha256-pre-thaw.txt（汇总摘要 d17e5d40…）；V-4 三层回溯真抽查闭合；上报与既有记录不符 5 处"
   }
  },
  "legacy_tasks": [
@@ -2796,14 +2829,6 @@
    "spawned_at_epoch": 1795559486.19,
    "readonly": true
   },
-  "R15B2": {
-   "agent_id": "01a20fac-e444-7fd1-966e-ec14efe0778c",
-   "nickname": "Anscombe",
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "adhoc": true,
-   "spawned_at_epoch": 1795559486.19
-  },
   "MODELS-1": {
    "agent_id": "01a20fbc-0a6c-7181-90b6-2520168fc916",
    "nickname": "Harvey",
@@ -2822,13 +2847,21 @@
    "readonly": true
   },
   "ADJ-G10": {
-   "agent_id": "PENDING_FILL",
-   "nickname": "ADJ-G10",
+   "agent_id": "01a20fbe-07ab-7772-8de7-eb1f7d1d3d27",
+   "nickname": "Hubble",
    "model_id": "qwen3.8-flash",
    "effort": "medium",
    "adhoc": true,
-   "spawned_at_epoch": 1795560556.36,
+   "spawned_at_epoch": 1795560796.63,
    "readonly": true
+  },
+  "P3b-prep": {
+   "agent_id": "01a20fc1-7c2b-7f52-89c2-3256c26d983c",
+   "nickname": "Erdos",
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "adhoc": true,
+   "spawned_at_epoch": 1795560796.63
   }
  },
  "self_check_T0": {
@@ -3835,12 +3868,31 @@
     "golden_a_g04_g08": "A1c（D-A1-02 证据分布 A3B3C4D2）"
    },
    "note": "m03 已由 A2b 转绿；p13b 已由 EFIX-1 转绿；calibrate 24 条已由 A3b 转绿；preflight/pooling/normalize/io_loaders 全绿"
+  },
+  "after_R15B2_and_P3aprep": {
+   "commit": "358b4ea",
+   "failed": 13,
+   "passed": 2182,
+   "errors": 0,
+   "skipped": 0,
+   "xfailed": 0,
+   "collected": 2195,
+   "attribution": {
+    "spine_6": "MODELS-1（ORCH-32：D-MODELS-01 + 单值槽契约缺陷）",
+    "golden_a_g04_g08_2": "A1c（D-A1-02）",
+    "golden_b_g05_1": "A1c（D-A1-08 anchor_set 覆盖不足）",
+    "golden_b_g06_1": "A1c（D-A1-02）",
+    "golden_b_g07_1": "D-D2-01（本 RUN 不修，交下一版本）",
+    "golden_b_g10_1": "D-SPEC-G10（ADJ-G10 取证中，待 ORCH-35）",
+    "golden_b_g14_1": "D-A1-07 + MIX_QUALITY_DEGRADED 口径分歧（ADJ-G14 取证中，待 ORCH-35）"
+   },
+   "verified_by": "R15B2（db13471）与 P3a-prep（358b4ea）双向独立实测一致"
   }
  },
  "clock_now": {
-  "epoch": 1795560556.36,
-  "t_hours": 5.527,
-  "remaining_hours": 4.473
+  "epoch": 1795560796.63,
+  "t_hours": 5.594,
+  "remaining_hours": 4.406
  },
  "gap_adjudications_SP2": {
   "new_gaps_reported_wave1_2": {
@@ -3908,10 +3960,11 @@
    {
     "seq": 1,
     "hash_before": "8083efc940c648c460516291efe61ae35b6093671ae9b68f93fbab8bbc3a26b8",
-    "hash_after": "4de4b8cb(P3a/P3b 须补全 64 位)",
+    "hash_after": "4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7",
     "cause": "SEAM-1 commit 8f2eca3：锚定参考尺改为不按池裁剪，normalize 输出变化",
     "at": "T+5.53h",
-    "pre_declared_by": "无（ORCH-30 只预声明了 A1c，属遗漏，已由 ORCH-33 第3条纠正）"
+    "pre_declared_by": "无（ORCH-30 只预声明了 A1c，属遗漏，已由 ORCH-33 第3条纠正）",
+    "verified_by": "SEAM-1 与 P3a-prep 双向独立实测一致（2026-Q2，两连跑相等，exit 0/0）"
    },
    {
     "seq": 2,
@@ -3930,10 +3983,12 @@
     "pre_declared_by": "ORCH-30 第5条"
    }
   ],
-  "p3b_criterion": "最终判据 = A1c 与 MODELS-1 均落地后重测的哈希，在全新 clone + 断网单机 + 同 seed 下两连跑精确相等；不是与 8083efc9 相等"
+  "p3b_criterion": "最终判据 = A1c 与 MODELS-1 均落地后重测的哈希，在全新 clone + 断网单机 + 同 seed 下两连跑精确相等；不是与 8083efc9 相等",
+  "current_hash": "4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7",
+  "current_hash_asof": "358b4ea"
  },
  "r15_batch_2": {
-  "status": "queued",
+  "status": "done",
   "blocked_on": "EFIX-1（test_architecture.py 的碰撞 ratchet 32 对会随新增码变化）",
   "codes_requested": [
    {
@@ -3979,6 +4034,30 @@
    "A4 的 WhatifReport 等 8 个输出模型是否从 whatif.py 上移 models.py",
    "C5 请求 PoolStats 加 flags 列（照 SensitivityReport.flags）",
    "F3 请求 EntropyDiagnostic/CollinearityReport 容器"
-  ]
+  ],
+  "delivered_at": "T+5.59h",
+  "commit": "db13471",
+  "result": {
+   "codes_before_measured": 79,
+   "codes_added": 11,
+   "codes_after": 90,
+   "new_codes": [
+    "DESIGN_CARD_TABLE_ABSENT",
+    "DESIGN_CARD_DUPLICATE_KEY",
+    "SPEARMAN_ZERO_VARIANCE",
+    "H2_DIM_WEIGHT_BELOW_FLOOR",
+    "H3_METRIC_WEIGHT_BELOW_FLOOR",
+    "H5_SHIFT_FROM_AHP_EXCEEDED",
+    "REDLINE_EXCLUDED_FROM_ENTROPY",
+    "PRIMARY_POOL_REJECTED_GRADE",
+    "WEIGHT_DICT_MISALIGNED",
+    "APPROXIMATE_ATTRIBUTION",
+    "MISSING_FACT_RULE_APPLIED"
+   ],
+   "text_81_explained": "KNOWN-GAPS B-10 的「实测 81」把 _DYNAMIC_PREFIXES 的 2 行前缀映射（REDLINE_HARD_/REDLINE_SOFT_ -> 模板码）误计为码，该 2 行不产生 RC 成员；实测三证一致（_DEFS 行数 = len(list(RC)) = len(all_codes()) = len(_META)）= 79",
+   "ratchet": "改前 32 对 / 改后 32 对，fresh 碰撞 0；确切定义 = tests/test_architecture.py:561-579 的 COLLISION_INVENTORY（模块, 裸字面量）对白名单，由 :716 的 test_p8_registry_name_collisions_stay_inside_the_reviewed_inventory 守护；实测实际仍发生 28 对，白名单中 4 对已失效（全在 fixtures_gen）",
+   "wiring_todo": "dsm_stage/R15B2/CONSUMPTION-TODO.md 共 9 条（含 preflight.py:36-40 RUN_BLOCKING_CODES 与 :42-49 DISCLOSURE 两个接线口），归属 A1c 或 P2",
+   "models_deferred": "dsm_stage/R15B2/MODELS-DEFERRED.md 共 4 项，本 RUN 不做"
+  }
  }
 }
