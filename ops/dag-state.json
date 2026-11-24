@@ -1416,7 +1416,7 @@
       "module": "消除 weights_combine→weights_ahp（L0a→L0a）：改为消费 AHP 快照注入",
       "cx": "C3",
       "model": "max",
-      "status": "blocked_on_A3_A4",
+      "status": "done",
       "deps": [
         "A2",
         "A3",
@@ -1431,7 +1431,7 @@
         "tf": null,
         "pass": null,
         "fail": null,
-        "commit": null,
+        "commit": "41f0e13",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
@@ -1441,7 +1441,8 @@
       "token_budget_k": 40,
       "adhoc": true,
       "plan_scope": false,
-      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md",
+      "merged_into": "ARCH-1"
     },
     "A1b": {
       "lane": "adhoc",
@@ -1480,7 +1481,7 @@
       "module": "消除 weights_calibrate L84/L85 → weights_ahp/weights_combine（L0b→L0a）：改注入组合后权重快照",
       "cx": "C3",
       "model": "max",
-      "status": "blocked",
+      "status": "done",
       "deps": [
         "A3",
         "A2b"
@@ -1494,7 +1495,7 @@
         "tf": null,
         "pass": null,
         "fail": null,
-        "commit": null,
+        "commit": "dcf12e4",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
@@ -1504,14 +1505,15 @@
       "token_budget_k": 40,
       "adhoc": true,
       "plan_scope": false,
-      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md",
+      "merged_into": "ARCH-1"
     },
     "A4b": {
       "lane": "adhoc",
       "module": "消除 whatif L262/L275 → audit（L0b→L6）：哈希改 callable 注入；并修 L571/L76 裸字面量",
       "cx": "C3",
       "model": "max",
-      "status": "blocked",
+      "status": "done",
       "deps": [
         "A4"
       ],
@@ -1534,14 +1536,15 @@
       "token_budget_k": 40,
       "adhoc": true,
       "plan_scope": false,
-      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md"
+      "ruling": "docs/adr/RUN-ORCH-27-layer-dependency-final.md",
+      "merged_into": "A4（飞行中途按 ORCH-27 自修，commit 9078201）"
     },
     "E5b": {
       "lane": "adhoc",
       "module": "收紧 tests/test_architecture.py 的 ALLOWED['L0a'] 为 ('L1',)（ORCH-27 第 6 条）",
       "cx": "C1",
       "model": "flash",
-      "status": "pending",
+      "status": "done",
       "deps": [
         "E5",
         "A2b"
@@ -1564,7 +1567,8 @@
       "effort": "medium",
       "token_budget_k": 20,
       "adhoc": true,
-      "plan_scope": false
+      "plan_scope": false,
+      "merged_into": "EFIX-1"
     },
     "B1b": {
       "lane": "adhoc",
@@ -1659,7 +1663,9 @@
       "token_budget_k": 50,
       "adhoc": true,
       "plan_scope": false,
-      "ruling": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md 第三节"
+      "ruling": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md 第三节",
+      "priority": "HIGHEST",
+      "first_priority_defect": "D-A1-04（FROZEN 权重缺 whatif_run_id，主流程唯一 blocks_run=True 源）"
     },
     "E2b": {
       "lane": "adhoc",
@@ -1760,7 +1766,7 @@
       "module": "D-C2-01：C-08 两分法（表级缺失→整轮 BLOCK；单主体缺卡→NOT_ASSESSED 单列不 BLOCK）",
       "cx": "C3",
       "model": "max",
-      "status": "running",
+      "status": "done",
       "deps": [
         "C2",
         "P2a"
@@ -1769,12 +1775,12 @@
       "prod_max": 300,
       "tf_max": 20,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 27,
+        "prod": 0,
+        "tf": 4,
+        "pass": 24,
+        "fail": 0,
+        "commit": "10df9f8",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
@@ -1784,7 +1790,9 @@
       "token_budget_k": 70,
       "adhoc": true,
       "plan_scope": false,
-      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md",
+      "gaps_reported": 4,
+      "note": "PROD=0：原文核对后判定 preflight 单主体侧在 8cd222c 已合规，P2a 归因错误。新增 4 条负向测试（20→24 全绿），C2 既有 20 条零弱化（169+/1-，唯一删除为 import 合并）"
     },
     "MODELS-1": {
       "lane": "adhoc",
@@ -2220,6 +2228,16 @@
       },
       "event": "31 计划包全部交付 + ORCH-29",
       "detail": "A3(2de42db)/A4(9078201)/P2a(8cd222c) 落地；D-A4-01/02 关闭；取得 reproducibility_hash 8083efc9… 与九步贯通证据；派 ARCH-1/EFIX-1/C2b；MODELS-1 与 A1c 挂起等前置"
+    },
+    {
+      "at": {
+        "epoch": 1795558641.1,
+        "elapsed_h": 4.995,
+        "hard_stop_h": 10.0,
+        "remaining_h": 5.005
+      },
+      "event": "C2b 交付 + ORCH-30 自我纠错",
+      "detail": "撤回 ORCH-29 第3条的 BLOCK 分支；主流程真阻塞重定位为 D-A1-04；A1c 升最高优先；R-15 第2批排队等 EFIX-1；A2b/A3b/C2b 已提交（41f0e13/dcf12e4/10df9f8）"
     }
   ],
   "model_routing": {
@@ -2650,14 +2668,6 @@
       "effort": "medium",
       "adhoc": true,
       "spawned_at_epoch": 1795556956.0
-    },
-    "C2b": {
-      "agent_id": "01a20f86-3f3e-7a61-ba78-19292ef3bfd4",
-      "nickname": "Pasteur",
-      "model_id": "qwen3.8-max",
-      "effort": "high",
-      "adhoc": true,
-      "spawned_at_epoch": 1795556956.0
     }
   },
   "self_check_T0": {
@@ -2827,6 +2837,18 @@
       "trigger": "A3/A4/P2a 同时交付，带来 6 类需裁事项（L0 层 import 边、p13b 测试构造、ALLOWED 收紧、C-08 语义、池键顺序矛盾、fixtures 系统性缺陷）+ 3 包预算超支",
       "decision": "出 ORCH-29 七条批量裁决；派 ARCH-1（Epicurus/max·high）、EFIX-1（Pascal/flash·medium）、C2b（Pasteur/max·high）三路；MODELS-1 挂起等 SEAM-1；A1c→E2b/E3b 挂起等 B1b/SEAM-1/E3（禁在飞 lane 验证期间换 fixtures 数据）",
       "adr": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+    },
+    "RT-15": {
+      "at": {
+        "epoch": 1795558641.1,
+        "elapsed_h": 4.995,
+        "hard_stop_h": 10.0,
+        "remaining_h": 5.005
+      },
+      "trigger": "C2b 依「原文优先于裁决」核对 M22 L907 后推翻 ORCH-29 第 3 条的部分内容，并以三期实测推翻 P2a 的缺陷归因",
+      "decision": "出 ORCH-30：①撤回「C-08 表级缺失→整轮 BLOCK」（原文无据，表级故障走 io 层退出码 4 / M21 L892）；②定口径 severity 属签认属性不得改写、是否阻断只看 blocks_run；③主流程真阻塞重定位为 D-A1-04，A1c 升为最高优先且以该项为第一优先；④R-15 第 2 批排程等 EFIX-1；⑤预先声明 A1c 后复现哈希必然改变，避免后续误判为造假",
+      "adr": "docs/adr/RUN-ORCH-30-c08-retraction-and-r15-batch2.md",
+      "self_correction": "主控在 ORCH-29 第 3 条犯了与 E5 同类的错误：凭『合理推断』补齐原文未写的 BLOCK 分支。已记 L-05"
     }
   },
   "contract_gaps_pending": [
@@ -3352,9 +3374,12 @@
       "found_by": "P2a tests/test_integration_spine.py（commit 8cd222c）+ E2 独立印证",
       "file": "dsm/preflight.py",
       "symptom": "C-08 把单主体 design_card 缺失判为整轮 BLOCK，与 M29 L1346『NOT_ASSESSED 单列』冲突；致冻结 fixtures 任何一期都走 L1322 BLOCK 分支",
-      "status": "OPEN",
+      "status": "CLOSED_AS_MISREPORTED",
       "fix_package": "C2b（ORCH-29 第 3 条）",
-      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md",
+      "fix_commit": "10df9f8",
+      "closed_at": "T+5.1h",
+      "resolution": "ORCH-30 第 1/3 条：M22 L907 C-08 严重度列只有『降级』、无 BLOCK；三期实测唯一 blocks_run=True 为 C-01 WEIGHT_MISSING_WHATIF_RUN_ID。P2a 归因错误（把 severity=BLOCK 读成阻断整轮）。preflight 实现合规，PROD=0，仅补 4 条测试锁死行为"
     },
     {
       "id": "D-MODELS-01",
@@ -3384,7 +3409,9 @@
       "symptom": "FROZEN 权重 provenance=null 缺 whatif_run_id → C-01 恒 BLOCK，主流程永久无法走 M29 L1322 的 PASS/WARN 分支",
       "status": "OPEN",
       "fix_package": "A1c",
-      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+      "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md",
+      "priority": "HIGHEST",
+      "note": "ORCH-30 第 3 条确认为主流程唯一真阻塞（M22 L900 + M28 L1281）；实现照原文正确，数据违约，不得降为 WARN"
     },
     {
       "id": "D-A1-05",
@@ -3438,6 +3465,12 @@
       "at": "T+4.9h",
       "observation": "A3 实测 161min（预算 90）、A4 110（75）、P2a 145（75）。共同原因：ORCH 裁决在飞行中途下达改变写集语义 + 并行期每包都跑全量回归（成本随包数上升）+ 集成包需等上游落地反复重跑",
       "rule_added": "① 飞行中途下达的 ORCH 裁决必须同时重设该包墙钟预算，不得按原预算判超时；② lane 侧只跑『本包 + 受影响邻包』测试，全量回归只在同步点由主控跑一次；③ 集成类包预算按上游落地重跑次数上浮"
+    },
+    {
+      "id": "L-05",
+      "at": "T+5.1h",
+      "observation": "主控 ORCH-29 第 3 条自行补出「C-08 表级缺失→整轮 BLOCK」，M22 L907 原文 C-08 严重度列只有『降级』；同时 P2a 把 severity=BLOCK 误读为阻断整轮，两者同源——都把『严重度标签』当成『阻断行为』",
+      "rule_added": "①裁决涉及新增阻断/降级行为时，必须先取该检查项在 M22/M28 的**严重度列与动作列逐字原文**，原文未写 BLOCK 一律不得新增 BLOCK；②severity 与 blocks_run 分离：severity 是签认属性（禁改写），阻断只看 blocks_run；③lane 依『原文优先』推翻主控裁决属正确行为，主控须公开纠错并记教训，不得压回"
     }
   ],
   "gap_adjudications_SP1": {
@@ -3551,10 +3584,10 @@
     }
   },
   "clock_now": {
-    "epoch": 1795556956.0,
-    "elapsed_h": 4.527,
+    "epoch": 1795558641.1,
+    "elapsed_h": 4.995,
     "hard_stop_h": 10.0,
-    "remaining_h": 5.473
+    "remaining_h": 5.005
   },
   "gap_adjudications_SP2": {
     "new_gaps_reported_wave1_2": {
@@ -3615,6 +3648,46 @@
     "period": "2026-Q2",
     "assertion": "tests/test_integration_spine.py::test_reproducibility_hash_is_identical_across_two_runs",
     "commit": "8cd222c",
-    "note": "V-3 / G-12 / V-10 的实测证据，P3b 第二人复跑须得到同一 hash"
+    "note": "V-3 / G-12 / V-10 的实测证据，P3b 第二人复跑须得到同一 hash",
+    "status": "valid_until_A1c",
+    "supersede_note": "ORCH-30 第 5 条：A1c 受控解冻后该哈希必然改变，属预期非回归；P3b 须以 A1c 后重测哈希为准，P3a 须同时披露解冻前后两个哈希与 fixtures sha256 清单"
+  },
+  "r15_batch_2": {
+    "status": "queued",
+    "blocked_on": "EFIX-1（test_architecture.py 的碰撞 ratchet 32 对会随新增码变化）",
+    "codes_requested": [
+      {
+        "from": "C2b",
+        "code": "DESIGN_CARD_TABLE_ABSENT",
+        "severity": "BLOCK"
+      },
+      {
+        "from": "C2b",
+        "code": "重复 strategy_id×version 卡索引码（名称待盘点后定）",
+        "why": "现静默取后一行，违 M18 L1102，属 V-14 静默降级"
+      },
+      {
+        "from": "D4",
+        "code": "Spearman 零方差码"
+      },
+      {
+        "from": "A2",
+        "code": "H-2/H-3/H-5 与红线排除专用码"
+      },
+      {
+        "from": "C5",
+        "code": "一级库准入 grade!=L1 码"
+      },
+      {
+        "from": "C2",
+        "code": "C-03 专用码"
+      },
+      {
+        "from": "A4",
+        "code": "APPROXIMATE_ATTRIBUTION"
+      }
+    ],
+    "discipline": "主控统一改 dsm/reason_codes.py + tests/test_reason_codes.py；先盘点已注册 79 码，只补缺失者；不得重复注册、不得改名既有码（ADJ-3 一律用注册名）",
+    "ruling": "docs/adr/RUN-ORCH-30-c08-retraction-and-r15-batch2.md 第 4 条"
   }
 }
