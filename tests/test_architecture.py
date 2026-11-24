@@ -50,42 +50,38 @@ authoritative copy; the F3 one is redundant from this commit on and can be
 dropped at a sync point (that file is not in the E5 write set).
 
 --------------------------------------------------------------------------
-The L0a dispute, judged on the M00 wording (BLOCKING, routed to ORCH-26; the
-full write-up with the surrounding lines is staged in dsm_stage/E5/GAPS-E5.md
-because ops/contract-gaps.md is 主控-only, run doc L59 and the E5 discipline).
-Verbatim from docs/digest/M00-architecture.md:
+The L0a dispute -- CLOSED by ruling ORCH-29 (EFIX-1, 主控 第 2 条裁).
+Verbatim digest lines, re-read by this lane in
+docs/digest/M00-architecture.md (L276, L277-L279, L282, L286, L294, L300;
+the extracted lines are staged in dsm_stage/EFIX-1/ORCH-29-LINES.md):
 
   L276|     | L0a 离线无依赖工具（不依赖任何内部层）                           |
   L278|     |     weights_combine.py     组合权重（消费 L0a 与熵权快照）        |
   L286|     L0a → 无内部依赖（独立命令行工具）
   L294|     L0b → L1-L5（单向调用；反向禁止）
-  L300| | **INV-1** | L0b 可 import L1–L5；**L1–L5 不得 import L0a / L0b** | import-linter 契约或测试断言扫描 AST |
+  L300| | **INV-1** | L0b 可 import L1–L5；**L1–L5 不得 import L0a / L0b** |
 
-M00 contradicts itself on L0a: L276 and L286 say L0a depends on nothing
-internal, while L278 says weights_combine consumes L0a (that is weights_ahp) and
-an entropy snapshot. ORCH-03 (run doc L264-L272) then rules that weights_combine
-(L0a) and diagnostics (L5) both import dsm.entropy at L1, which is itself an
-L0a -> L1 edge, so the strict reading of L276/L286 is already superseded by a
-recorded ruling.
-
-INV-1 (L300) is narrow and unambiguous: it forbids L1-L5 to import L0a/L0b, and
-says nothing about an edge that leaves L0a. weights_ahp is L0a, not L0b (M00
-L277, M15 L831), so the disputed edge weights_combine -> weights_ahp is
-intra-L0a, exactly what L278 authorises.
-
-Judgement: INV-1 does not forbid that edge, therefore
-tests/test_config_placeholder.py::test_t05_m03_no_dsm_module_imports_an_l0_module
-(which forbids ANY dsm module to import ANY L0 module, a strictly stronger claim
-than INV-1) is over-specified and needs 主控 triage under R-8. weights_combine.py
-is not touched here (not in the E5 write set). ALLOWED[L0a] below is the
-intersection of the two readings, i.e. only what both agree on: never L0b, never
-L2..L7; intra-L0a and L0a -> L1 stay legal per L278 + ORCH-03. Should 主控 rule
-the strict reading instead, ALLOWED[L0a] becomes the empty tuple and three
-delivered modules go RED at once: weights_ahp (dsm.numeric), fixtures_gen
-(dsm.models) and weights_combine (dsm.entropy / models / numeric / reason_codes
-plus weights_ahp). That consequence is the reason this is filed BLOCKING instead
-of being decided inside a test file.
---------------------------------------------------------------------------
+ORCH-29 rules: L278 says weights_combine CONSUMES A PRODUCT SNAPSHOT (the
+L0a artifact and the entropy snapshot), NOT that it imports a sibling L0a
+module; L276/L286 both keep L0a 不依赖任何内部层 (L282 explains only why L0
+was split: L0b needs the full pipeline). Therefore:
+  * ALLOWED['L0a'] is TIGHTENED from ('L0a', 'L1') to ('L1',). The
+    surviving L0a -> L1 edge stands on ORCH-03 + SDD 2.4.2 L537 (熵权六步的
+    两个计算者共用 dsm/entropy.py 同一实现) plus numeric.py as the single
+    numeric caliber (M16 L844); INV-1 (L300) itself binds only L1-L5.
+  * ALLOWED['L0b'] stays verbatim L294 (L1-L5, 单向调用；反向禁止). E5's
+    proposed widening with 'L0a'/'L6' was REJECTED by 主控 -- do not
+    re-add it. Tightening is an allowed action, weakening is not.
+  * The two edges this tightening targets: weights_combine -> weights_ahp
+    (L0a -> L0a) was removed by package A2b (41f0e13, snapshot injection)
+    and weights_calibrate -> weights_combine (L0b -> L0a, verbatim L294)
+    by the ruling-3 dependency-injection rework of weights_calibrate. The
+    scan stays ARMED for both: re-introduce either edge and the direction
+    test goes RED on the spot. The whitelist sits exactly at the ruling,
+    never softer (weakening banned), never wider than the digest allows.
+    whatif -> audit is GONE: A4 per ORCH-27 (9078201) injects the
+    directory hash as a callable and imports zero L6 -- re-proved by the
+    no-L6-edge assertion inside the direction test below.
 '''
 import ast
 import pathlib
@@ -119,9 +115,11 @@ PENDING = ('weights_calibrate', 'whatif')   # A3 / A4, mapped, not on disk yet
 # itself: intra-layer imports are what M16 L844 orders (every module goes
 # through numeric.py) and what M00 L278 orders for L0a, so 无内部依赖 is read as
 # 不依赖其它层, never as 层内互不引用. L6 / L7 read 全部（只读）. The L0a row is
-# the intersection described in the module docstring above.
+# the ORCH-29 RULING: L1 only -- L278 consumes a product snapshot, not a
+# sibling module, so intra-L0a edges are forbidden; the surviving
+# L0a -> L1 exception is ORCH-03 + SDD 2.4.2 L537 + M16 numeric.
 ALLOWED = {
-    'L0a': ('L0a', 'L1'),
+    'L0a': ('L1',),
     'L0b': ('L0b', 'L1', 'L2', 'L3', 'L4', 'L5'),
     'L1': ('L1',),
     'L2': ('L1', 'L2'),
@@ -626,8 +624,21 @@ def test_inv1_l1_through_l5_never_import_l0a_or_l0b():
 def test_inv1_dependency_direction_follows_the_m00_table():
     '''M00 L284-L294 (1.6.2 依赖方向，严格单向，禁止环) plus the supplement at
     L303 (L3 计算层不得引用 L4 门禁层). One edge matrix over every mapped module
-    on disk; the L0a row is the intersection reading argued in the module
-    docstring (BLOCKING, ORCH-26).'''
+    on disk; the L0a row is the ORCH-29 ruling argued in the module
+    docstring (tightened; weakening the whitelist to go green is banned).
+    Both edges the tightening targeted were removed before this run
+    (A2b 41f0e13 killed weights_combine -> weights_ahp; ruling 3 DI
+    killed weights_calibrate -> weights_combine); the scan stays armed.
+    whatif must show NO L0/L6 edge (A4 / ORCH-27, 9078201).'''
+    whatif_path = DSM_DIR / 'whatif.py'
+    if whatif_path.is_file():
+        l0_l6_edges = [(lineno, dotted, target)
+                       for lineno, dotted, target in
+                       internal_imports(_read(whatif_path))
+                       if LAYERS.get(target) in L0A_L0B + ('L6',)]
+        assert not l0_l6_edges, (
+            'A4 (ORCH-27) removed the whatif -> audit edge; it must '
+            'stay gone (L0b -> L1-L5 only, M00 L294): ' + repr(l0_l6_edges))
     offenders, scanned = [], []
     for stem, path in layered_modules():
         scanned.append(stem)

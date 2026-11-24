@@ -29,8 +29,11 @@ Relationship to the pre-existing module-local property tests (none removed):
   P-15  tests/test_methods_combine.py::test_p15_fallback_keeps_the_ahp_weight
         (CombinedWeights object layer) -> the E4 global version checks the PUBLISHED
         WeightVersionDoc and its consumption by dsm.aggregate
-Gated (importorskip inside the test body, auto-unlocks when A3 lands, no edit needed):
-  P-13b dsm.weights_calibrate -- the calibrate half of P-13. Currently skipped.
+P-13b calibration half: EFIX-1 (E4b) replaced the gated body (written
+  against an EXPECTED signature -- inputs=None + window={'periods':
+  [...]} + TypeError-only capture -- that no V-14-compliant
+  implementation can pass; it now drives the real CalibrationInputs
+  contract of dsm/weights_calibrate.py (A3, 2de42db).
 P-11/P-12/P-13a are NOT gated: the FROZEN-provenance completeness rule of [L1435]
 is config-layer policy already landed (config.validate_weights / _frozen_provenance
 序5+6+7), and alpha governance invariance is drivable through the landed
@@ -48,15 +51,17 @@ from hypothesis import strategies as st
 
 from dsm import (aggregate, attainment, audit, config, evidence, grading,
                  normalize, numeric, pooling, redline, sensitivity,
-                 weights_ahp, weights_combine)
+                 weights_ahp, weights_calibrate, weights_combine)
 from dsm.attainment import AttainmentParams
 from dsm.evidence import EvidenceParams
 from dsm.models import (AnchorSetDoc, AttainmentFrame, AttainmentRow,
                         DesignCardRow, EvidenceFrame, EvidenceRow,
                         GradeFrame, GradeLedgerRow, GradeRuleRow, GradeRow,
                         MetricDictRow, MetricFactRow, NormalizedFrame,
-                        NormalizedRow, PoolKey, RedlineEvalRow, RedlineFrame,
-                        ScoreCardRow, ScoreFrame, ScoreRow, SensitivityReport,
+                        NormalizedRow, PoolFrame, PoolKey, PoolStats,
+                        RedlineEvalRow, RedlineFrame,
+                        ScoreCardRow, ScoreFrame, ScoreRow, ScoringContext,
+                        SensitivityReport,
                         SensitivitySchemeResult, StrategyMasterRow,
                         WeightVersionDoc)
 from dsm.numeric import (D, ONE, TOL, ZERO, eq_exact, eq_tol,
@@ -66,6 +71,7 @@ from dsm.pooling import PoolingParams
 from dsm.reason_codes import RC
 
 wc = weights_combine
+wcal = weights_calibrate
 MAXEX = settings(max_examples=25, deadline=None)  # R-11 dev-phase gauge
 
 DAY1 = dt.date(2026, 1, 1)
@@ -206,6 +212,19 @@ def hierarchy(dim_weights, metric_weights):
         {'E1': matrix(dim_weights)},
         {d: {'E1': matrix(metric_weights[d])} for d in sorted(metric_weights)})
 
+
+def ahp_snapshot(dim_weights, metric_weights):
+    '''ORCH-29 ruling 1 ([L278] / [L286]): what crosses into weights_combine
+    is the L0a ARTIFACT (AhpHierarchySnapshot), not the AhpHierarchy object
+    -- the injection is the CALLER (cli / tests) job, the same construction
+    the combine lane uses in tests/test_methods_combine.py::snapshot.'''
+    result = hierarchy(dim_weights, metric_weights)
+    return wc.AhpHierarchySnapshot(
+        dimension=wc.AhpLevelSnapshot.from_payload(result.dimension.segment_payload(),
+                                                   result.dimension.findings),
+        metrics_by_dim={dim: wc.AhpLevelSnapshot.from_payload(
+                            level.segment_payload(), level.findings)
+                        for dim, level in sorted(result.metrics_by_dim.items())})
 
 def metric_rows(spec):
     return [{'metric_id': m, 'dim_code': spec[m], 'direction': 1,
@@ -793,7 +812,7 @@ def _governance_at(alpha, floor, snapshot):
     opts = wc.CombineOptions(alpha=D(alpha), alpha_floor=D(floor),
                              min_dim_weight=ZERO, entropy_min_strategies=3,
                              max_shift_from_ahp=D('5'))
-    combined = wc.combine(hierarchy(DIMS12, MW12), snapshot, opts)
+    combined = wc.combine(ahp_snapshot(DIMS12, MW12), snapshot, opts)
     assert all(combined.hard_checks.results[k] is True
                for k in sorted(combined.hard_checks.results))
     doc = frozen_doc({d: str(combined.dim_weights[d])
@@ -880,7 +899,7 @@ def test_p13a_combine_run_never_mutates_governance_budgets(ak):
                              min_dim_weight=ZERO, entropy_min_strategies=3,
                              max_shift_from_ahp=D('0.30'))
     snap = window(COLS12, SPEC12, SIDS12, opts)
-    ahp = hierarchy(DIMS12, MW12)
+    ahp = ahp_snapshot(DIMS12, MW12)
     opts_before = opts.model_dump()
     ahp_before = ahp.model_dump()
     snap_before = snap.model_dump()
@@ -895,42 +914,274 @@ def test_p13a_combine_run_never_mutates_governance_budgets(ak):
     assert doc.status == 'DRAFT'          # sign-off stays a human act [L600]
 
 
-def test_p13b_calibration_run_never_mutates_governance_budgets():
-    '''P-13 [L1437] (calibrate half) -- GATED. dsm.weights_calibrate.py is
-    being developed in parallel (A3, card §4 Lane A); this function body
-    importorskips so it auto-unlocks the moment A3 lands, no edit here.
-    Why the property must hold after unlock: [L638] "标定不得自行放宽这些预算
-    来凑出更小的 α". The six SYN values below are test-fixture numbers, NOT
-    the K-15~K-18 business defaults (those stay PLACEHOLDER until signed --
-    no number guessing, V-14). The call marshal mirrors dsm/cli.py
-    cmd_calibrate, which froze the public signature:
-    calibrate(grid=..., window=..., inputs=..., config=...).'''
-    cal = pytest.importorskip('dsm.weights_calibrate')
-    fn = getattr(cal, 'calibrate', None)
-    if fn is None:
-        pytest.fail('P-13: weights_calibrate landed but exposes no '
-                    'calibrate() -- dsm.cli._attr already froze that entry '
-                    'name; report the divergence, do not guess a second one')
-    gov = {'alpha_floor': '0.31', 'drift_budget': '0.13',
-           'boundary_budget': '0.27', 'boundary_epsilon': '0.031',
-           'min_dim_weight': '0.07', 'max_shift_from_ahp': '0.42'}
-    eval_config = {'weight_construction': dict(gov,
-                                               alpha_grid=['0.40', '0.60'],
-                                               window={'periods':
-                                                       ['2026-01',
-                                                        '2026-02']})}
-    before = copy.deepcopy(eval_config)
-    app = config.AppConfig(eval_config=eval_config, weights={}, redlines={},
-                           grade_rules={}, anchor_set={}, ahp_matrices={})
-    wc_block = eval_config['weight_construction']
-    try:
-        fn(grid=wc_block['alpha_grid'], window=wc_block['window'],
-           inputs=None, config=app)
-    except TypeError as exc:
-        pytest.fail('P-13: weights_calibrate.calibrate rejects the '
-                    'cli-frozen marshal (grid/window/inputs/config): '
-                    + str(exc))
-    assert app.eval_config == before      # [L1437] governance values intact
+# ---------------------------------------------------------------------------
+# P-13 [L1437] governance budgets untouchable -- CALIBRATION half, EFIX-1 (E4b).
+# The gated body written against the expected signature (inputs=None +
+# window={'periods': [...]} + TypeError-only capture) is replaced with the
+# REAL dsm.weights_calibrate contract (A3, 2de42db): a V-14 compliant
+# implementation raises CalibrateError for inputs=None and WindowError for a
+# mapping window -- never TypeError -- so the old shape could only be passed
+# by breaking V-14 / R-12. Module-local versions: tests/test_methods_
+# calibrate.py::test_p13_* and ::test_t_cal_04_p13_*; THIS is the cross-module
+# global version (config.AppConfig + weights_calibrate + the real
+# weights_combine entropy-snapshot path, ORCH-03).
+#
+# R-2 synthetic inputs, built here (fixtures/** frozen). Hand arithmetic,
+# all test-owned SYN numbers -- the K-15~K-20 business values stay
+# PLACEHOLDER in the signed config until sign-off (no number guessing):
+#   AHP  W = (D1 0.6, D2 0.4); w(D1) = (M1 0.4, M2 0.4, M3 0.2); w(D2) = 1.
+#   P1 (2026-01): M1 (2,6,9), M2 (9,2,6) are proportional permutations -> the
+#     [L542] d_j are equal and [L544] normalises the pair entropy to
+#     (1/2, 1/2); M3 (4,4,4), M4 (8,8,8) zero variation -> d = 0, and [L584]
+#     keeps their AHP weights verbatim (INACTIVE fallbacks).
+#   P2 (2026-02): M1 (6,2,9), M2 (2,9,6), M3 (9,6,2) are three permutations of
+#     the SAME multiset -> entropy (1/3, 1/3, 1/3); M4 (5,5,5) fallback 1.
+#   Both periods: D2 has no varying metric -> entropy dimension (1, 0), so
+#     W_D1 = 1 - 0.4a, W_D2 = 0.4a in BOTH periods -> level-1 drift = 0; the
+#     effective W_d*w_j layer ([L619] takes the larger of the two layers):
+#       P1:  a=0.50 -> (0.32, 0.32, 0.16, 0.20);  a=0.75 -> (0.28, 0.28, 0.14, 0.30)
+#       P2:  a=0.50 -> (22/75, 22/75, 16/75, 15/75); a=0.75 -> (16.1/60, 16.1/60, 9.8/60, 0.30)
+#       a=1.00: pure AHP in both periods ([L632]) -> drift = 0 EXACTLY.
+#     drift(0.50) = 8/75 = 0.10666... -> bracketed in (0.10, 0.11);
+#     drift(0.75) = 7/150 = 0.04666... -> bracketed in (0.04, 0.05).
+#     (Brackets, not equalities, because weights_combine chains q12 rounding;
+#     the decision margins 0.0033..0.0067 are far larger than any 1e-12
+#     accumulation, so the golden table below is rounding-proof.)
+#   With drift_budget = k/100 the ONLY binding constraint:
+#     k >= 11 -> alpha* = 0.50 | 5 <= k <= 10 -> alpha* = 0.75 | k <= 4 -> 1.00
+#   Every other constraint is hand-set loose: composites sit 0.05..0.14 away
+#   from every attainment_floor (epsilon 0.02 -> boundary hits 0 of 3, ratio
+#   0 <= 0.70); OAT 0.03 <= stable_max 0.10; mean rho (0.88+0.92)/2 = 0.90
+#   >= 0.70; H-5 effective L1 shift <= 0.46 <= 0.60; min dim weight on the
+#   band is 0.4*0.5 = 0.20 >= 0.05. alpha_grid carries 0.20 BELOW
+#   alpha_floor 0.30: it is excluded WITHOUT evaluation ([L609] key 1), the
+#   floor itself (0.30, auto-injected per [L609]) IS evaluated and stays
+#   drift-infeasible for EVERY drawn budget: drift(0.30) = 308/1875 =
+#   0.16426..., while k is drawn from 0..16 -- so the floor row never
+#   wins either, and the golden table below is exhaustive.
+# ---------------------------------------------------------------------------
+CAL_GRID = ('0.20', '0.50', '0.75', '1.00')
+CAL_PERIODS = ('2026-01', '2026-02')
+CAL_SIDS = ('S-1', 'S-2', 'S-3')
+CAL_DIMS = {'D1': '0.6', 'D2': '0.4'}
+CAL_METRICS = {'D1': {'M1': '0.4', 'M2': '0.4', 'M3': '0.2'},
+               'D2': {'M4': '1'}}
+CAL_SPEC = {'M1': 'D1', 'M2': 'D1', 'M3': 'D1', 'M4': 'D2'}
+CAL_COLS = {'2026-01': {'M1': ['2', '6', '9'], 'M2': ['9', '2', '6'],
+                        'M3': ['4', '4', '4'], 'M4': ['8', '8', '8']},
+            '2026-02': {'M1': ['6', '2', '9'], 'M2': ['2', '9', '6'],
+                        'M3': ['9', '6', '2'], 'M4': ['5', '5', '5']}}
+CAL_BUDGET = {'alpha_floor': '0.30', 'drift_budget': '0.30',
+              'boundary_budget': '0.70', 'boundary_epsilon': '0.02',
+              'stable_max': '0.10', 'divergence_threshold': '0.70',
+              'min_dim_weight': '0.05', 'max_shift_from_ahp': '0.60'}
+CAL_FLOORS = {'L1': '0.80', 'L2': '0.60', 'L3': '0.40', 'L4': '0.00'}
+CAL_COMPOSITE = {'2026-01': ('0.85', '0.72', '0.94'),
+                 '2026-02': ('0.86', '0.75', '0.90')}
+CAL_OAT = '0.03'
+CAL_RHO = {'2026-01': '0.88', '2026-02': '0.92'}
+CAL_SHIFT = D('0.000001')      # [L540] technical epsilon: an input, no digest value
+CAL_SEED = 20260101
+
+
+def _cal_rules():
+    return grading.GradeRuleSet(
+        rows=tuple(GradeRuleRow(
+            grade_code=c, grade_label=c, attainment_floor=D(CAL_FLOORS[c]),
+            evidence_class_min='D', redline_pass_required=True,
+            promotion_streak=0, max_grade_if_no_target='L4')
+            for c in ('L1', 'L2', 'L3', 'L4')),
+        min_coverage_for_absolute_track=D('0.5'))
+
+
+def _cal_context(period):
+    '''Step 1-4 frames the injected pipeline would reuse ([L1016], RK-6). The
+    fake pipeline below reads only case.period, so the frames stay empty (R-2).'''
+    return ScoringContext(
+        period=period, run_at=dt.datetime(2026, 1, 1, 9, 0, 0), run_id='run-e4b',
+        seed=CAL_SEED, weight_version_id='WV-T-E4B', evidence_mode='GATE_ONLY',
+        cel_enabled=False, input_fingerprints={},
+        attainment=AttainmentFrame(rows=(), attainment_coverage={}),
+        normalized=NormalizedFrame(rows=()), evidence=EvidenceFrame(rows=()),
+        redline=RedlineFrame(rows=()), score=ScoreFrame(rows=()),
+        grade=GradeFrame(rows=()), pool=PoolFrame(rows=()),
+        pool_stats=PoolStats(rows=(), evidence_structure={'A': 0, 'B': 0, 'C': 0,
+                                                          'D': 0},
+                             not_assessed_count=0, not_assessed_reasons={}))
+
+
+def _cal_case(period):
+    cols = CAL_COLS[period]
+    facts = {m: {s: cols[m][i] for i, s in enumerate(CAL_SIDS)}
+             for m in sorted(cols)}
+    return wcal.PeriodCase(period=period, facts=facts,
+                           context=_cal_context(period), rules=_cal_rules())
+
+
+def _cal_pipeline():
+    '''Test-owned Step 5-7 stub ([L615] slot, the injection the module itself
+    documents): the four indicators read only hand-set numbers (R-14), so no
+    golden below is an implementation echo. The REAL entropy snapshot path
+    (weights_combine -> dsm.entropy, ORCH-03) still runs for every period.'''
+    def run(case, combined, alpha):
+        return wcal.PeriodRun(
+            period=case.period,
+            composite_absolute={(s, VER, case.period): D(v) for s, v in
+                                zip(CAL_SIDS, CAL_COMPOSITE[case.period])},
+            oat_flip_rate=D(CAL_OAT), mean_rho=D(CAL_RHO[case.period]))
+    return run
+
+
+def _cal_hooks():
+    '''ORCH-29 ruling 3: the four L0a capabilities weights_calibrate used to
+    import are keyword-only REQUIRED injections on CalibrationInputs -- the
+    sanctioned caller hands in the same bindings the production cli will.
+    Detected via HOOK_NAMES so the body stays valid against the pre-ruling
+    contract too (a TypeError here would mask the real guard).'''
+    if not getattr(wcal, 'HOOK_NAMES', ()):
+        return {}
+    return dict(combine_fn=wc.combine, options_fn=wc.CombineOptions,
+                entropy_window_fn=wc.calibrate_entropy_window,
+                insufficient_sample_error=wc.EntropyInsufficientSample)
+
+
+def _cal_inputs(pipeline=None):
+    return wcal.CalibrationInputs(
+        hierarchy=ahp_snapshot(CAL_DIMS, CAL_METRICS),
+        metric_dict=metric_rows(CAL_SPEC), shift=CAL_SHIFT,
+        period_cases={p: _cal_case(p) for p in CAL_PERIODS},
+        run_id='cal-e4b-1', seed=CAL_SEED, draft_header=HDR13,
+        pipeline=pipeline if pipeline is not None else _cal_pipeline(),
+        option_overrides={'entropy_min_strategies': 3},
+        **_cal_hooks())
+
+
+def _cal_app(**over):
+    block = dict(CAL_BUDGET)
+    block.update(over)
+    return config.AppConfig(eval_config={'weight_construction': block},
+                            weights={}, redlines={}, grade_rules={},
+                            anchor_set={}, ahp_matrices={})
+
+
+def _cal_run(app, pipeline=None):
+    '''The cli-frozen marshal, kept as KEYWORD arguments (dsm/cli.py
+    cmd_calibrate): calibrate(grid=..., window=..., inputs=..., config=...).
+    window is the SEQUENCE of period ids the real contract demands, not the
+    {'periods': [...]} mapping the expected-signature body guessed.'''
+    return wcal.calibrate(grid=list(CAL_GRID), window=list(CAL_PERIODS),
+                          inputs=_cal_inputs(pipeline=pipeline), config=app)
+
+
+def _cal_expected_alpha(k):
+    '''Hand table above: alpha* as a function of drift_budget = k/100.'''
+    if k >= 11:
+        return q12(D('0.50'))
+    if k >= 5:
+        return q12(D('0.75'))
+    return q12(ONE)
+
+
+@st.composite
+def _p13b_pair(draw):
+    k1 = draw(st.integers(0, 16))          # ceiling: drift(0.30) = 0.16426...
+    return k1, draw(st.integers(k1, 16))
+
+
+@MAXEX
+@given(_p13b_pair())
+def test_p13b_calibration_run_never_mutates_governance_budgets(pair):
+    '''P-13 [L1437] (calibration half): "calibrate / combine 的运行不得修改
+    alpha_floor、drift_budget、boundary_budget、boundary_epsilon、
+    min_dim_weight、max_shift_from_ahp 的取值" -- extended to all EIGHT
+    governance keys weights_calibrate actually reads (K-11 stable_max and
+    divergence_threshold included: guarding 6 of 8 keys is a hole).
+    [L638] 标定不得自行放宽这些预算来凑出更小的 α. Module-local versions:
+    tests/test_methods_calibrate.py::test_p13_* / ::test_t_cal_04_p13_*;
+    this is the cross-module GLOBAL version driving the real
+    CalibrationInputs / PeriodCase / GovernanceBudget containers. Guards:
+    1 the signed config is byte-identical across a full run (both budgets);
+    2 the report echoes the entered budget key for key, optional stays None;
+    3 alpha* moves ONLY when the signed drift budget moves (hand table);
+    4 monotone in tightening: k1 <= k2 -> alpha*(k1) >= alpha*(k2);
+    5 [L609] key-1 governance: the below-floor candidate is excluded
+      WITHOUT evaluation; every band candidate is evaluated; the drift
+      values match the hand brackets 8/75 and 7/150, drift(1.00) = 0 exact;
+    6 inputs=None raises the V-14 business exception, never a TypeError
+      swallowed by the old gated body (that is what no-number-guessing
+      looks like from the test side);
+    7 every missing or PLACEHOLDER governance key is refused outright
+      (MissingBudgetError, 8 keys x 2 variants) and the config is untouched;
+    8 a budget widened mid-run trips GovernanceBudgetTamperError; an
+      all-infeasible budget raises instead of relaxing, config untouched.'''
+    k1, k2 = pair
+    b1, b2 = str(Decimal(k1) / 100), str(Decimal(k2) / 100)
+    app1 = _cal_app(drift_budget=b1)
+    dump1 = app1.model_dump()
+    r1 = _cal_run(app1)
+    assert app1.model_dump() == dump1                        # guard 1
+    app2 = _cal_app(drift_budget=b2)
+    dump2 = app2.model_dump()
+    r2 = _cal_run(app2)
+    assert app2.model_dump() == dump2                        # guard 1
+    for report, budget in ((r1, b1), (r2, b2)):              # guard 2
+        signed = dict(CAL_BUDGET, drift_budget=budget)
+        for key, signed_value in signed.items():
+            assert eq_tol(D(getattr(report.budget, key)), D(signed_value), TOL)
+        assert report.budget.min_metric_weight is None
+    assert r1.alpha_star == _cal_expected_alpha(k1)          # guard 3
+    assert r2.alpha_star == _cal_expected_alpha(k2)
+    assert D(r1.alpha_star) >= D(r2.alpha_star)              # guard 4
+    assert len(r1.rows) == 5                                 # guard 5
+    floor_row = r1.row(D('0.30'))
+    assert floor_row.evaluated is True and floor_row.alpha_floor_ok is True
+    assert floor_row.feasible is False                        # never wins
+    below = r1.row(D('0.20'))
+    assert below.evaluated is False and below.alpha_floor_ok is False
+    assert (r1.excluded_alphas[q12(D('0.20'))]
+            == RC.ALPHA_FLOOR_INFEASIBLE.value)
+    assert all(row.evaluated for row in r1.rows if D(row.alpha) >= D('0.30'))
+    assert D(r1.alpha_star) >= D(CAL_BUDGET['alpha_floor'])
+    assert D('0.10') < D(r1.row(D('0.50')).weight_drift) < D('0.11')   # 8/75
+    assert D('0.04') < D(r1.row(D('0.75')).weight_drift) < D('0.05')   # 7/150
+    assert eq_tol(D(r1.row(ONE).weight_drift), ZERO, TOL)              # pure AHP
+    with pytest.raises(wcal.CalibrateError) as none_inputs:            # guard 6
+        wcal.calibrate(grid=list(CAL_GRID), window=list(CAL_PERIODS),
+                       inputs=None, config=app1)
+    assert not isinstance(none_inputs.value, TypeError)
+    assert app1.model_dump() == dump1
+    for key in wcal.BUDGET_KEYS:                                     # guard 7
+        gone = {k: v for k, v in CAL_BUDGET.items() if k != key}
+        with pytest.raises(wcal.MissingBudgetError):
+            wcal.calibrate(grid=list(CAL_GRID), window=list(CAL_PERIODS),
+                           inputs=_cal_inputs(),
+                           config={'eval_config': {'weight_construction': gone}})
+        slot = dict(CAL_BUDGET)
+        slot[key] = 'PLACEHOLDER'
+        with pytest.raises(wcal.MissingBudgetError):
+            wcal.calibrate(grid=list(CAL_GRID), window=list(CAL_PERIODS),
+                           inputs=_cal_inputs(),
+                           config={'eval_config': {'weight_construction': slot}})
+    widened = {'eval_config': {'weight_construction':
+                               dict(CAL_BUDGET, drift_budget='0.05')}}   # guard 8
+    hits = []
+
+    def tamper(case, combined, alpha):
+        hits.append(str(alpha))
+        if len(hits) == 1:
+            (widened['eval_config']['weight_construction']
+             ['drift_budget']) = '0.99'      # RK-12 attack behind calibrate's back
+        return _cal_pipeline()(case, combined, alpha)
+
+    with pytest.raises(wcal.GovernanceBudgetTamperError) as moved:
+        _cal_run(widened, pipeline=tamper)
+    assert 'drift_budget' in str(moved.value)
+    tight = _cal_app(stable_max='0.01')               # every OAT 0.03 > 0.01
+    dump_t = tight.model_dump()
+    with pytest.raises(wcal.CalibrateError) as bad:
+        _cal_run(tight)
+    assert 'widen' in str(bad.value)                  # refuses, never relaxes
+    assert tight.model_dump() == dump_t
 
 
 # ---------------------------------------------------------------------------
@@ -974,7 +1225,7 @@ def test_p14_published_weight_version_doc_is_normalised_and_consumable(case):
                              min_dim_weight=ZERO, entropy_min_strategies=3,
                              max_shift_from_ahp=D('5'))
     snap = window(columns, spec, SIDS12, opts)
-    combined = wc.combine(hierarchy(dim_w, met_w), snap, opts)
+    combined = wc.combine(ahp_snapshot(dim_w, met_w), snap, opts)
     doc = wc.step6_draft(combined, HDR13)
     assert eq_tol(sum((D(doc.level1_weights[d])
                        for d in sorted(doc.level1_weights)), ZERO), ONE, TOL)
@@ -1015,7 +1266,7 @@ def test_p15_fallback_metric_keeps_its_ahp_weight_in_the_published_doc(rnd):
                              max_shift_from_ahp=D('5'))
     snap = window(columns, SPEC12, SIDS12, opts)
     assert snap is not None
-    combined = wc.combine(hierarchy(dim_w, met_w), snap, opts)
+    combined = wc.combine(ahp_snapshot(dim_w, met_w), snap, opts)
     assert 'M2' in combined.inactive_fallback_metrics  # zero-variation column
     doc = wc.step6_draft(combined, HDR13)
     for metric_id in combined.inactive_fallback_metrics:
