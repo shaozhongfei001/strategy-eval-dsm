@@ -189,9 +189,16 @@ def read_table(path):
     if suffix != '.parquet':
         raise CoercionError('MISSING_FILE', 'unsupported file type ' + suffix)
     try:
-        frame = pandas.read_parquet(path, dtype=str)
+        # D-C1-01: dtype is not a read_parquet parameter - pandas 3.1.1 forwards
+        # it to pyarrow read_table, which rejects it (TypeError: read_table() got
+        # an unexpected keyword argument 'dtype'). It was also the wrong shape:
+        # dtype=str would stringify a float column and smuggle it past the H-4
+        # guard. Cells stay native and cell_to_text flattens each one to the
+        # text a CSV cell carries, so both branches share the one coerce path.
+        frame = pandas.read_parquet(path)
     except ImportError as exc:
-        raise CoercionError('MISSING_FILE', 'no parquet engine for ' + str(path)) from exc
+        raise CoercionError('MISSING_FILE', 'no parquet engine for ' + str(path)
+                            + ': pyarrow is required, install the parquet extra') from exc
     header = tuple(str(name) for name in frame.columns)
     rows = tuple(tuple(cell_to_text(cell) for cell in record)
                  for record in frame.itertuples(index=False, name=None))

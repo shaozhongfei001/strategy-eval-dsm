@@ -294,6 +294,34 @@ def test_parquet_dispatch_and_float_guard(tmp_path):
     assert type(rows_out[0].target_value) is int and rows_out[0].is_redline is True
     assert fingerprint.row_count == 1 and not issues
 
+    # D-C1-01 float guard at the file level, not only at cell_to_text: a real
+    # parquet float column must be refused as FLOAT_IN_SOURCE, never stringified.
+    floaty = tmp_path / 'floaty.parquet'
+    pandas.DataFrame({'metric_id': ['M_ONE'], 'target_value': [0.5]}).to_parquet(floaty)
+    with pytest.raises(CoercionError) as caught:
+        L.read_table(floaty)
+    assert caught.value.kind == 'FLOAT_IN_SOURCE'
+
+
+def test_parquet_and_csv_branches_type_identically(tmp_path):
+    # D-C1-01 regression (V-9): both reader branches feed the one coerce path,
+    # so identical cells produce identical typed rows, value and type per field.
+    import pandas
+    frame = pandas.DataFrame([dict(zip(DICT_HEADER, row)) for row in DICT_ROWS])
+    pq = tmp_path / 'metric_dict.parquet'
+    frame.to_parquet(pq)
+    csv_rows, _, _, csv_issues = load_table(_write(tmp_path / 'c' / 'metric_dict.csv',
+                                                   DICT_HEADER, DICT_ROWS), 'metric_dict')
+    pq_rows, _, _, pq_issues = load_table(pq, 'metric_dict')
+    assert not csv_issues and not pq_issues
+    assert len(csv_rows) == len(pq_rows) == len(DICT_ROWS)
+    for left, right in zip(csv_rows, pq_rows):
+        assert left == right
+        for field in type(left).model_fields:
+            a, b = getattr(left, field), getattr(right, field)
+            assert type(a) is type(b), (field, type(a), type(b))
+            assert a == b, field
+
 
 def test_unit_lookup_gap_leaves_the_row_to_preflight(tmp_path):
     data, conf = _root(tmp_path, facts=(('S9', 'V1', '2026Q1', 'M_GONE', '5', '', '5', 'OK',

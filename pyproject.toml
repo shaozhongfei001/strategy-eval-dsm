@@ -18,6 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ['pytest>=8.0', 'hypothesis>=6.90']
+parquet = ['pyarrow']
 
 [tool.setuptools.packages.find]
 include = ['dsm*']
