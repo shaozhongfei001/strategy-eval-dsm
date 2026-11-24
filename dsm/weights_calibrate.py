@@ -21,10 +21,17 @@ boundary_ratio = window max of the share of assessed strategies whose composite_
 lies within +- boundary_epsilon K-18 of ANY attainment_floor, <= K-17; oat_flip_rate =
 window max of sensitivity's OAT_10 overall_flip_rate ([L621] ±10%), <= stable_max K-11;
 mean_spearman = MEAN over the periods of triangulation's mean_rho ([L622]), >=
-divergence_threshold; hard_constraints = H-1~H-5 of [L593]-[L599] via weights_combine, EVERY
-period. Nothing another module owns is recomputed here (R-7): weights_combine.combine,
-aggregate.compose, grading.assign, sensitivity.run and triangulation.run are called, wired
-by default_pipeline(), which a caller may replace with its own pipeline of the same shape.
+divergence_threshold; hard_constraints = H-1~H-5 of [L593]-[L599] through the INJECTED
+combine capability, EVERY period. Nothing another module owns is recomputed here (R-7): the
+injected combine_fn, aggregate.compose, grading.assign, sensitivity.run and triangulation.run
+are called, the last four wired by default_pipeline(), which a caller may replace with its own
+pipeline of the same shape. [L294] lets L0b import L1-L5 and nothing else, so the L0a combine
+capability is a keyword-only REQUIRED injection on CalibrationInputs (combine_fn, options_fn,
+entropy_window_fn, insufficient_sample_error) that the caller hands in -- ORCH-29 ruling 3.
+No import and no duck typing stands in for it, and a missing one raises HookRequiredError
+rather than degrading into a locally re-implemented combine (V-14). This is what [L282] means
+by L0b needing the full Step 1-7 pipeline: every step of that pipeline lives in L1-L5, and the
+weight-combination CAPABILITY the backtest needs on top of it arrives by injection.
 
 边界情形, all four non-silent ([L627]-[L634]): empty feasible set -> AlphaInfeasibleError
 with the per-alpha x per-constraint violation matrix ([L631]), exit 7 in cli.py; alpha* = 1
@@ -47,11 +54,13 @@ byte-identical reports (T-CAL-03). INV-2: returns a report, writes nothing.
 to edit; declared for the orchestrator, and repeated in the A3 lane report):
   1. CalibrationReport lives HERE on purpose -- models.py reserves the name for this module
      -- and to_alpha_basis() is the [L636] write into provenance.alpha_basis.
-  2. Card 4 makes A2 a prerequisite to CALL, while dsm/__init__.py spells L0b as "may import
-     L1-L5" and E5's INV-1 scan reads that as never importing L0a. Both cannot hold: the one
-     unavoidable L0a import (weights_combine) stays and weights_ahp is duck typed.
-     weights_combine.py is already flagged by the same scan for importing weights_ahp, so the
-     conflict predates this package and needs an ORCH-03-style ruling.
+  2. RESOLVED by ORCH-29 ruling 3 (A3b): [L294] reads L0b -> L1-L5 verbatim, so the one
+     weights_combine import the A3 draft kept (D-A3-01) is gone and the capability is injected
+     instead. `hierarchy` is no longer duck typed either -- it is the
+     weights_combine.AhpHierarchySnapshot DATA the same caller injects (ruling 1). The public
+     marshal calibrate(grid, window, inputs, config) is untouched, so dsm/cli.py cmd_calibrate
+     and the test_integration_spine signature guard keep their shape; only the construction of
+     CalibrationInputs gains four required keyword arguments, which P2 wires in cli.py.
   3. aggregate.compose gates on FROZEN ([L1190]) and weights_combine may only emit DRAFT
      ([L600]); a candidate is neither, so candidate_doc() builds an IN-MEMORY doc for the
      historical re-run, never returned or persisted (INV-2). boundary_ratio needs the
@@ -71,7 +80,6 @@ from typing import Any, Callable, Mapping, Sequence
 from pydantic import BaseModel, ConfigDict
 
 from dsm import aggregate, grading, numeric, sensitivity, triangulation
-from dsm import weights_combine as wc      # L0a sibling: the A2 prerequisite (card 4)
 from dsm.config import is_placeholder_value
 from dsm.models import (AlphaBasisSegment, GradeFrame, Ratio, ScoringContext, ScoreFrame,
                         StrictInt, WeightVersionDoc)
@@ -81,7 +89,8 @@ from dsm.reason_codes import RC
 __all__ = ['AlphaFloorInfeasibleError', 'AlphaInfeasibleError', 'BOUNDARY',
            'CalibrateError', 'CalibrationInputs', 'CalibrationReport', 'DRIFT',
            'GovernanceBudget', 'GovernanceBudgetTamperError', 'GridError', 'HARD',
-           'HookRequiredError', 'INDICATORS', 'IndicatorRow', 'MissingBudgetError',
+           'HOOK_NAMES', 'HookRequiredError', 'INDICATORS', 'IndicatorRow',
+           'MissingBudgetError',
            'OAT', 'PeriodCase', 'PeriodRun', 'SPEARMAN', 'WindowError', 'alpha_grid',
            'calibrate', 'calibration_window', 'candidate_doc', 'default_grid',
            'default_pipeline', 'governance_budget']
@@ -104,6 +113,9 @@ BUDGET_KEYS = ('alpha_floor', 'drift_budget', 'boundary_budget', 'boundary_epsil
                'stable_max', 'divergence_threshold', 'min_dim_weight',
                'max_shift_from_ahp')
 OPTIONAL_BUDGET_KEYS = ('min_metric_weight',)
+# The four L0a capabilities, injected by the caller (ORCH-29 ruling 3): [L294] allows
+# L0b -> L1-L5 only, so nothing here imports weights_combine and nothing defaults to one.
+HOOK_NAMES = ('combine_fn', 'options_fn', 'entropy_window_fn', 'insufficient_sample_error')
 # Where a governance key may live: K-15~K-20 in weight_construction ([L1752]-[L1757]),
 # K-11 in sensitivity, divergence_threshold in triangulation; a flat config is accepted
 # too. First hit wins, nothing is invented.
@@ -231,22 +243,39 @@ class PeriodCase:
 @dataclass(frozen=True)
 class CalibrationInputs:
     '''The `inputs` argument of [L1072]. Everything the digest leaves without a value is
-    required here: shift ([L540]), the per-period cases, the AHP hierarchy, the metric
+    required here: shift ([L540]), the per-period cases, the AHP snapshot, the metric
     dictionary and the run identity. pipeline defaults to default_pipeline();
-    option_overrides forwards the two technical CombineOptions keys whose digest defaults
-    already live in weights_combine ([L566]-[L567]), so they are not restated here.'''
+    option_overrides forwards the two technical option keys whose digest defaults already
+    live in the injected L0a tool ([L566]-[L567]), so they are not restated here.
 
-    hierarchy: Any        # weights_ahp.AhpHierarchy, duck typed (see the gap note)
+    The four L0a capabilities are keyword-only REQUIRED injections (ORCH-29 ruling 3), one
+    per L0a symbol this backtest used to reach for:
+      combine_fn                 the [L558] combination of one candidate alpha, per period
+      options_fn                 builds that candidate's option set from the signed budget
+      entropy_window_fn          Step 2 of [L574]-[L580] over one window period
+      insufficient_sample_error  the [L577] / [L634] degrade signal Step 2 raises, so the
+                                 "which exception means degrade" policy stays here instead
+                                 of being re-decided by every caller
+    They live on CalibrationInputs, beside the pipeline callable that was already injected
+    there, so calibrate(grid, window, inputs, config) keeps its frozen marshal. None of the
+    four has a default: calibrate() raises HookRequiredError rather than importing one
+    (V-14).'''
+
+    hierarchy: Any        # weights_combine.AhpHierarchySnapshot: AHP snapshot DATA (ruling 1)
     metric_dict: Any
     shift: Any
     period_cases: Mapping
     run_id: str
     seed: int | None = None
-    draft_header: wc.DraftHeader | None = None
+    draft_header: Any = None        # weights_combine.DraftHeader, injected DATA (H-8: no clock)
     pipeline: Callable | None = None
     directions: Mapping | None = None
     oat_scheme: str = OAT_SCHEME
     option_overrides: Mapping = field(default_factory=dict)
+    combine_fn: Callable = field(kw_only=True)
+    options_fn: Callable = field(kw_only=True)
+    entropy_window_fn: Callable = field(kw_only=True)
+    insufficient_sample_error: type[BaseException] = field(kw_only=True)
 
 
 class IndicatorRow(_Frozen):
@@ -337,6 +366,7 @@ class CalibrationReport(_Frozen):
             window_periods=[str(item) for item in self.window_periods],
             run_id=str(self.run_id),
             seed=(None if self.seed is None else int(self.seed)))
+
 
 def _dec(value):
     '''str / int / Decimal in; a float only enters through numeric.from_float, so no
@@ -439,12 +469,13 @@ def _lex_key(alpha, alpha_floor):
 
 
 def _options(alpha, budget: GovernanceBudget, inputs: CalibrationInputs):
-    '''CombineOptions for one candidate. Only governance values already frozen in the budget
-    and the caller's technical overrides are forwarded; nothing is defaulted here.'''
+    '''The option set of one candidate, built by the INJECTED options_fn. Only governance
+    values already frozen in the budget and the caller's technical overrides are forwarded;
+    nothing is defaulted here and no option type is imported here ([L294], ORCH-29 r3).'''
     kwargs = dict(inputs.option_overrides or {})
     if budget.min_metric_weight is not None:
         kwargs.setdefault('min_metric_weight', budget.min_metric_weight)
-    return wc.CombineOptions(alpha=q12(D(alpha)), alpha_floor=q12(D(budget.alpha_floor)),
+    return inputs.options_fn(alpha=q12(D(alpha)), alpha_floor=q12(D(budget.alpha_floor)),
                              min_dim_weight=q12(D(budget.min_dim_weight)),
                              max_shift_from_ahp=q12(D(budget.max_shift_from_ahp)), **kwargs)
 
@@ -506,14 +537,18 @@ def _window_boundary(runs, periods, floors_by_period, epsilon):
     return q12(max(ratios.values())), hits, assessed
 
 
-def candidate_doc(combined, case: PeriodCase, header: wc.DraftHeader) -> WeightVersionDoc:
+def candidate_doc(combined, case: PeriodCase, header) -> WeightVersionDoc:
     '''The in-memory weight document one candidate alpha is scored with. aggregate.compose
-    refuses anything but FROZEN ([L1190]) and weights_combine may only emit DRAFT ([L600]);
-    a candidate is neither, so this doc lives for one pipeline call and is never returned,
-    persisted or handed to the reports tree (INV-2). Declared as a contract gap above.'''
+    refuses anything but FROZEN ([L1190]) and the L0a combine side may only emit DRAFT
+    ([L600]); a candidate is neither, so this doc lives for one pipeline call and is never
+    returned, persisted or handed to the reports tree (INV-2). Declared as a contract gap
+    above. `header` is the injected weights_combine.DraftHeader DATA -- its type is not
+    imported here ([L294], ORCH-29 r3) and its absence raises instead of being filled from
+    a clock (H-8, V-14).'''
     if header is None:
-        raise HookRequiredError('candidate_doc needs a weights_combine.DraftHeader; H-8 '
-                                'forbids reading any of its dates from a clock')
+        raise HookRequiredError('candidate_doc needs the injected weights_combine.DraftHeader '
+                                '(CalibrationInputs.draft_header); H-8 forbids reading any of '
+                                'its dates from a clock')
     return WeightVersionDoc(
         weight_version_id=str(header.weight_version_id), status=_HARNESS,
         effective_from=header.effective_from, effective_to=header.effective_to,
@@ -574,21 +609,23 @@ def _grade(frame, case: PeriodCase):
 
 
 def _entropy_snapshots(inputs, periods, budget):
-    '''Step 2 of [L574]-[L580] once per window period, through weights_combine (never
-    re-implemented here, INV-3 / ORCH-03). Each period is calibrated on ITS OWN facts, the
-    [L619] \u5404\u671f\u7528\u81ea\u5df1\u7684\u71b5\u6743\u7ec4\u5408\uff08\u4e0d\u51bb\u7ed3\uff09; a period with no usable sample yields None and combine()
-    degrades it to alpha = 1 ([L577]). The probe CombineOptions carries alpha = alpha_floor
-    because Step 2 reads only entropy_min_strategies and inactive_threshold from it, and
-    alpha_floor is a signed governance value rather than a number picked here.'''
+    '''Step 2 of [L574]-[L580] once per window period, through the INJECTED
+    entropy_window_fn (never re-implemented here: INV-3 / ORCH-03 / R-7). Each period is
+    calibrated on ITS OWN facts, the
+    [L619] 各期用自己的熵权组合（不冻结）; a period with no usable sample yields None and
+    the injected combine_fn degrades it to alpha = 1 ([L577]). The probe option set carries
+    alpha = alpha_floor because Step 2 reads only entropy_min_strategies and
+    inactive_threshold from it, and alpha_floor is a signed governance value rather than a
+    number picked here.'''
     probe = _options(budget.alpha_floor, budget, inputs)
     snapshots = {}
     for period in periods:
         facts = {period: {m: dict(v) for m, v in sorted(inputs.period_cases[period].facts.items())}}
         try:
-            snapshots[period] = wc.calibrate_entropy_window(facts, inputs.metric_dict, probe,
-                                                            inputs.shift)
-        except wc.EntropyInsufficientSample:
-            snapshots[period] = None
+            snapshots[period] = inputs.entropy_window_fn(facts, inputs.metric_dict, probe,
+                                                         inputs.shift)
+        except inputs.insufficient_sample_error:
+            snapshots[period] = None        # the [L577] degrade: a label, never a zero
     return snapshots
 
 
@@ -601,8 +638,9 @@ def _evaluate(alpha, budget, periods, snapshots, inputs, pipeline, floors_by_per
         # Key 1 of the lexicographic order: below the governance band, never evaluated and
         # never traded against a better indicator value ([L609], K-15).
         return IndicatorRow(alpha=base['alpha'], evaluated=False, alpha_floor_ok=False)
-    combined = {p: wc.combine(inputs.hierarchy, snapshots[p],
-                              _options(alpha, budget, inputs), CALIBRATED) for p in periods}
+    combined = {p: inputs.combine_fn(inputs.hierarchy, snapshots[p],
+                                     _options(alpha, budget, inputs), CALIBRATED)
+                for p in periods}
     drift, drift_l1, drift_eff = _window_drift(combined, periods)
     base.update(weight_drift=drift, weight_drift_level1=drift_l1,
                 weight_drift_effective=drift_eff)
@@ -671,6 +709,14 @@ def calibrate(grid, window, inputs, config) -> CalibrationReport:
         raise CalibrateError('shift (the [L540] epsilon) is required; no value is invented (R-12)')
     if not inputs.run_id:
         raise CalibrateError('run_id is required for the [L636] audit chain')
+    for name in HOOK_NAMES:
+        hook = getattr(inputs, name, None)
+        if not callable(hook):
+            raise HookRequiredError(
+                name + ' is a required injection on CalibrationInputs: [L294] lets L0b '
+                'import L1-L5 only, so the L0a combine capability is handed in by the caller '
+                '(ORCH-29 ruling 3); got ' + type(hook).__name__ + '. Nothing is imported '
+                'here to fill the hole and no indicator is silently skipped (V-14).')
     periods = calibration_window(window, inputs)
     candidates = list(alpha_grid(grid))
     floor = q12(D(budget.alpha_floor))

@@ -82,9 +82,21 @@ def matrix(weights):
     return {i: {j: str((w[i] / w[j]).quantize(Q20)) for j in keys} for i in keys}
 
 
+def snapshot(result):
+    '''The AHP product carried as the DATA weights_combine consumes (ORCH-29 ruling 1:
+    the 消费 L0a of [L278] is the L0a PRODUCT, [L286] forbids importing the module).
+    Crossing that boundary is the CALLER's job: in production dsm/cli.py, here the test.'''
+    return wc.AhpHierarchySnapshot(
+        dimension=wc.AhpLevelSnapshot.from_payload(result.dimension.segment_payload(),
+                                                   result.dimension.findings),
+        metrics_by_dim={dim: wc.AhpLevelSnapshot.from_payload(level.segment_payload(),
+                                                              level.findings)
+                        for dim, level in sorted(result.metrics_by_dim.items())})
+
+
 def hierarchy():
-    return weights_ahp.elicit_hierarchy({'E1': matrix(DIMS)},
-                                        {d: {'E1': matrix(MW[d])} for d in sorted(MW)})
+    return snapshot(weights_ahp.elicit_hierarchy(
+        {'E1': matrix(DIMS)}, {d: {'E1': matrix(MW[d])} for d in sorted(MW)}))
 
 
 def metric_rows():
@@ -162,12 +174,21 @@ def fake_pipeline(composite=None, oat=None, rho=None, seen=None):
     return pipeline
 
 
+# ORCH-29 ruling 3: [L294] lets L0b import L1-L5 only, so weights_calibrate no longer
+# imports weights_combine -- the four capabilities it needs are keyword-only REQUIRED
+# injections on CalibrationInputs, wired here exactly the way dsm/cli.py wires them.
+HOOKS = {'combine_fn': wc.combine, 'options_fn': wc.CombineOptions,
+         'entropy_window_fn': wc.calibrate_entropy_window,
+         'insufficient_sample_error': wc.EntropyInsufficientSample}
+
+
 def inputs(pipeline=None, **over):
     kwargs = {'hierarchy': hierarchy(), 'metric_dict': metric_rows(), 'shift': SHIFT,
               'period_cases': {p: case(p, FACTS1 if p == 'P1' else FACTS2) for p in PERIODS},
               'run_id': 'cal-a3-1', 'seed': SEED, 'draft_header': header(),
               'pipeline': pipeline or fake_pipeline(),
               'option_overrides': {'entropy_min_strategies': 3}}
+    kwargs.update(HOOKS)
     kwargs.update(over)
     return wcal.CalibrationInputs(**kwargs)
 
