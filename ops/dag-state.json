@@ -445,6 +445,27 @@
     "13) 哈希纪律：P2-wire 重登记 A1c 后重测值，并保留旧值 8083efc9 与 4de4b8cb 供 P3a 披露，严禁修回旧值。",
     "14) MODELS-DEFERRED 4 项本 RUN 全不做；G14FIX 若发现 PoolStats 缺 flags 载体，不得擅改 dsm/models.py（MODELS-1 独占），须上报主控。"
    ]
+  },
+  "ORCH-37": {
+   "at_epoch": 1795562408.23,
+   "clock": "T+6.04h",
+   "title": "A1CPREP §9.3 十项裁决 + A1c/ATT-1/EVID-1 三包并发编排 + R-14 对 A1c 的硬边界",
+   "adr": "docs/adr/RUN-ORCH-37-a1c-ten-rulings.md",
+   "rulings_summary": [
+    "1 追认 §4.4（missing_rule 同维对调 + 洞迁 S-008/v1/M_SATISFY_SCORE），授权改 metric_dict；ORCH-29 第5条前提证伪属主控自我纠错；g09 变红即回滚 R5",
+    "2 D-A1-05 拆为 A1d 且降级为条件执行；A1c 须实测回答「是否有红测试专门因 JSONL 而红」，无则作为已披露遗留缺口交 P3a",
+    "3 双口径同时入册：主体级 A3B3C4D2 + 行级 A3B4C4D2",
+    "4 只补 alt_method_note，不补 interpretation_limit（B 类无该义务，evidence.py:248-249 + L1172/L1293）",
+    "5 补 whatif_run_id 必须同时补 ahp 段，取值沿用 SYNTH 合成命名约定并标注待签认，不得伪造业务真值",
+    "6 占比双报分母裁为 11（读法甲）；与 ORCH-36 第2条独立结论一致 -> 双来源交叉印证",
+    "7 G-14 分子维持 ORCH-36 的「C 类占比」，不采 C+D；reason_codes.py:86 的 message 属实现侧自撰，以其为据属循环引证；记 ERRATUM-07 归 P2-wire 更正",
+    "8 IMPUTE_MEDIAN 参考集取 anchor_set（失效回退当期池 + ANCHOR_SET_STALE），依据等级 derived:（L1134 零字规定）-> ERRATUM-08；落地新立 ATT-1",
+    "9 13 vs 12 归实现侧，新立 D-EVID-01 / 包 EVID-1；不补事实不删卡（保 G-08）",
+    "10 D-A1-08 落地新立 ATT-1，不并入 MODELS-1（写集零交集，MODELS-1 已饱和）"
+   ],
+   "concurrency": "A1c(fixtures) / ATT-1(attainment) / EVID-1(evidence) / MODELS-1(models+normalize+spine) / P2-cli(cli) 五包写集两两不相交，6 槽满并发；G14FIX 待 MODELS-1 落地后派（pooling 写集相撞）",
+   "serial_tail": "A1c+ATT-1+EVID-1+MODELS-1+G14FIX -> E2b -> E3b -> P2-wire -> P3a/P3b/P3c 并行 -> 主控统一 push + tag v1.1.0",
+   "r14_boundary": "A1c 只允许改 golden_map 的载体指纹类字段；expects/hand/probes[].e 的任何数值改动（含 D-A1-06 的 1.9->1.81 与 1.5346->1.5076）一律留 E2b/E3b 独立手算，A1c 只在 ADR 登记结论与依据"
   }
  },
  "pkg_id_remap_from_5lane": {
@@ -1791,15 +1812,15 @@
    "lane": "adhoc",
    "module": "受控解冻 fixtures：D-A1-02（分布须为 A3B3C4D2）+ D-A1-03（补 2026-Q3 缺失事实格含 HARD 红线指标）+ D-A1-04（FROZEN 权重补合成 whatif_run_id）+ D-A1-05（design_card 格式归属二选一）→ 重生成 + sha256 对账 + 重新冻结 + 重算 golden 手算值",
    "cx": "C3",
-   "model": "max",
-   "status": "blocked_on_inflight",
+   "model": "qwen3.8-max",
+   "status": "running",
    "deps": [
     "A1",
     "B1b",
     "SEAM-1",
     "E3"
    ],
-   "budget_min": 45,
+   "budget_min": 60,
    "prod_max": 60,
    "tf_max": 10,
    "ev": {
@@ -1814,13 +1835,22 @@
     "escalated_from": null
    },
    "model_id": "qwen3.8-max",
-   "effort": "high",
+   "effort": "xhigh",
    "token_budget_k": 50,
    "adhoc": true,
    "plan_scope": false,
    "ruling": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md 第三节",
    "priority": "HIGHEST",
-   "first_priority_defect": "D-A1-04（FROZEN 权重缺 whatif_run_id，主流程唯一 blocks_run=True 源）"
+   "first_priority_defect": "D-A1-04（FROZEN 权重缺 whatif_run_id，主流程唯一 blocks_run=True 源）",
+   "agent": "Rawls",
+   "agent_id": "01a20fd8-47a3-7633-b3c9-e135f0acdb96",
+   "spawned_at_epoch": 1795562408.23,
+   "writeset": [
+    "dsm/fixtures_gen.py",
+    "fixtures/**",
+    "docs/adr/RUN-A1c-fixtures-controlled-thaw.md"
+   ],
+   "scope": "按 A1C-EXEC-SPEC.md §8 Step0-10 受控解冻：D-A1-04(最高优先,补 whatif_run_id + ahp 段)/D-A1-03(§4.4 missing_rule 同维对调+洞迁)/D-A1-02(只补 alt_method_note)/D-A1-06(只登记不代填)/双口径入册/重新冻结+sha256 对账。R-14 硬边界：只改 golden_map 载体指纹类字段，expects/hand/probes[].e 数值一律留 E2b/E3b"
   },
   "E2b": {
    "lane": "adhoc",
@@ -2033,7 +2063,7 @@
    "ruling": "ORCH-29 第 5 条"
   },
   "A1CPREP": {
-   "status": "running",
+   "status": "done",
    "agent": "Huygens",
    "agent_id": "01a20fac-5e85-79c0-b067-10349477622b",
    "model": "qwen3.8-max",
@@ -2041,7 +2071,11 @@
    "spawned_at_epoch": 1795559486.19,
    "budget_min": 35,
    "readonly": true,
-   "scope": "A1c ???????BEFORE ??? / A1b ?????? / D-A1-02..05 ????(????+??) / design_card ?????? / golden ????? / A1c ???? / ? MODELS-1 ????"
+   "scope": "A1c ???????BEFORE ??? / A1b ?????? / D-A1-02..05 ????(????+??) / design_card ?????? / golden ????? / A1c ???? / ? MODELS-1 ????",
+   "closed_at_epoch": 1795562408.23,
+   "minutes": 47,
+   "commit": null,
+   "result": "dsm_stage/A1CPREP/A1C-EXEC-SPEC.md（1208 行/143439B，§1-§9 + §6-A/B/C + 附录A）。probe_regen byte-identical 17/17（fixtures 零写入，工装幂等可信）；D-A1-05 唯一推荐 (a) CSV 化但建议拆 A1d；A1c 不必等 MODELS-1 应先行（写集零交集）；§4 推翻 ORCH-29 第5条前提（4 洞是 G-09 刻意构造，两个 BLOCK 规则指标全是 HARD 红线，与 redline.py:330 数学上不可能共存）；§5 只需补 alt_method_note -> 主体级恰 A3B3C4D2 / 行级 A3B4C4D2；§6-A D-A1-06 改 golden hand 不改变体（1.9 出自 L1405 G-03，L1407 G-05 无数值，L1460 强制零变异恒 10000；CONTRIB=1.81、Δcomposite=0.027）；§6-B D-A1-07 三分母 12/11 各就位、13 是实现侧缺陷；§6-C D-A1-08 锚定集无缺陷（E3 假设被 15 指标覆盖矩阵证伪），真根因是 IMPUTE_MEDIAN 取当期池中位数，fixtures 侧四条修法全部证伪；附录A 36 行文档码名->注册名对照；§8 Step0-10 剧本含 R0-R5 回滚点；GAPS=9 + 10 项待裁"
   },
   "R15B2": {
    "status": "done",
@@ -2143,6 +2177,42 @@
     "tests/test_pooling.py"
    ],
    "scope": "ORCH-36 第一部分：分子改 C 类占比(L1416 唯一明文)、分母与 share_* 同源且依 L1004 剔 NOT_ASSESSED、阈值保持 TOL 工程默认并登记新 K-21 PLACEHOLDER、GAP-06 把 mix_quality_verdict 接入 reports.py+cli.py、并入 CONSUMPTION-TODO 第 6 条 PRIMARY_POOL_REJECTED_GRADE。禁改 tests/test_golden_b.py 的 g14 期望（应自然转绿），禁改 dsm/models.py（MODELS-1 独占）"
+  },
+  "P3b-prep": {
+   "status": "done",
+   "agent": "Erdos",
+   "commit": "d228edd",
+   "closed_at_epoch": 1795562408.23,
+   "minutes": 34,
+   "result": "tools/repro_offline.sh（249 行）+ docs/deliverables/P3b-REPRO-HARNESS.md（203 行）。隔离级别 L3-strong：全新本地 clone(--no-hardlinks, commit-exact) + unshare -rn 真断网 netns（实测 ip link 只剩 lo DOWN、socket 报 gaierror、pip download 报 name resolution failure）+ 独立 venv 无 system site-packages + 仅 26 个本地 wheel(37MB) --no-index 离线安装 + 同 seed 连跑两次比对 + PASS/FAIL 以 exit 0/1 表达 + mktemp -d/trap 自清理（实测残留 0/0）。实跑 6 轮：4x L3-strong PASS(18/16/17/22s)、1x 弱隔离降级 PASS、1x --strict-isolation 按设计判 FAIL。查清哈希产出路径 = dsm/audit.py:242（载荷:231/schema:43/规范化:113），载体 dsm/models.py:1227，当前真值只由 tests/test_integration_spine.py:146 _run_chain（:480 调用）以测试内合成 GOVERNANCE 驱动九步真跑产出，非 CLI（cli.py:199 仍 PLACEHOLDER）；依赖 seed 20260101 / 期次 2026-Q2 / fixtures / 冻结权重版本 id，run_at+run_id 注入但不入哈希。实测哈希 4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7 @82d5a6a 两连跑相等，与 P3a-prep 一致。PLACEHOLDER 6 项（wheelhouse 首次预下载需联网且 dsm_stage 不入库 / 基座 Python>=3.11 自备 / 未做异机第二人复跑（V-3 另一半仍缺）/ CLI 端到端未覆盖 / pytest tmp_path 残留 / netns 不切断宿主其他进程）"
+  },
+  "ATT-1": {
+   "status": "running",
+   "agent": "Beauvoir",
+   "agent_id": "01a20fd9-1be6-7570-a2a6-5617c25de1c2",
+   "model": "qwen3.8-max",
+   "effort": "high",
+   "spawned_at_epoch": 1795562408.23,
+   "budget_min": 30,
+   "writeset": [
+    "dsm/attainment.py",
+    "tests/test_attainment.py"
+   ],
+   "scope": "D-A1-08 / ORCH-37 第8条：IMPUTE_MEDIAN 中位数参考集改为 anchor_set 优先、失效回退当期池 + ANCHOR_SET_STALE（与 L941 同口径，依据等级 derived: 因 L1134 零字规定 -> ERRATUM-08）。核心验收 = G-05 不变性单元级复现（追加极端策略后存量填补值/attainment/norm Decimal 精确不变）"
+  },
+  "EVID-1": {
+   "status": "running",
+   "agent": "Fermat",
+   "agent_id": "01a20fd9-cb78-70f3-9b3f-e3e739655f68",
+   "model": "qwen3.8-max",
+   "effort": "high",
+   "spawned_at_epoch": 1795562408.23,
+   "budget_min": 25,
+   "writeset": [
+    "dsm/evidence.py",
+    "tests/test_evidence.py"
+   ],
+   "scope": "D-EVID-01 / ORCH-37 第9条：_universe 按评价期过滤设计卡使出桥 13 -> 12。硬约束：不得给 S-005/v1 补本期事实（违 L1121/L1123/L1117 且毁 G-08）、不得删卡（G-08 的 GR_VERSION_BREAK 依赖它）；被过滤的卡必须有披露（V-14）"
   }
  },
  "legacy_tasks": [
@@ -2269,15 +2339,14 @@
   "plan_scope_complete": true
  },
  "next_dispatch": {
-  "immediate": "等 A1CPREP(Huygens) 交付 A1C-EXEC-SPEC.md -> 立刻派 A1c（max/xhigh，最高优先 D-A1-04）",
+  "immediate": "等 MODELS-1 落地 -> 派 G14FIX（pooling+reports，含 CONSUMPTION-TODO 第6条 + ORCH-36 第1~5条）；有空槽则派 ADJ-G07（LOO 影响力度量取证，解 D-D2-01 与 g07 红）",
   "then": [
-   "MODELS-1 落地 -> 派 G14FIX（pooling+reports，含 CONSUMPTION-TODO 第6条）",
-   "A1c 落地 -> E2b -> E3b 串行（E3b 须吸收 ORCH-35 的 g10 改名+新增 >=2 维 BLOCK 测试）",
-   "A1c + MODELS-1 + G14FIX + P2-cli 全落地 -> 派 P2-wire（全量 0 failed 判定 + 接线 + ratchet 收缩 + 编码校验 + 哈希重登记）",
-   "P2-wire 转绿 -> P3a / P3b / P3c 并行收口 -> 主控统一 git push + tag v1.1.0"
+   "A1c+ATT-1+EVID-1+MODELS-1+G14FIX 全落地 -> E2b(golden_a expects) -> E3b(golden_b expects + ORCH-35 的 g10 改名与新增 >=2 维 BLOCK 测试)",
+   "-> P2-wire（接线 + preflight:209-211 + ratchet 32->28 + 编码校验门禁收窄 + 全量 0 failed + 哈希重登记）",
+   "-> P3a/P3b/P3c 并行 -> 主控统一 push + tag v1.1.0"
   ],
-  "slot_policy": "6 槽硬上限（实测含已完成未关闭者），收到交付先 close_agent 再补派",
-  "note": "T+5.90h；关键路径 = A1c -> E3b -> P2-wire -> P3a/b/c；G14FIX 与 P2-cli 为并行旁路"
+  "slot_policy": "6 槽硬上限（含已完成未关闭者），收到交付先 close_agent 再补派",
+  "note": "T+6.04h"
  },
  "session_log": [
   {
@@ -2928,15 +2997,6 @@
   "D-6_min_honesty": "上报行 MIN 必须是从收到任务到 commit 的墙钟分钟，并明示主控会用 git 时间戳独立核实。依据：F1 探针实测 agent 自报 15min vs 独立核实 21min，自报偏乐观 29%"
  },
  "active_agents": {
-  "A1CPREP": {
-   "agent_id": "01a20fac-5e85-79c0-b067-10349477622b",
-   "nickname": "Huygens",
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "adhoc": true,
-   "spawned_at_epoch": 1795559486.19,
-   "readonly": true
-  },
   "MODELS-1": {
    "agent_id": "01a20fbc-0a6c-7181-90b6-2520168fc916",
    "nickname": "Harvey",
@@ -2944,14 +3004,6 @@
    "effort": "high",
    "adhoc": true,
    "spawned_at_epoch": 1795560556.36
-  },
-  "P3b-prep": {
-   "agent_id": "01a20fc1-7c2b-7f52-89c2-3256c26d983c",
-   "nickname": "Erdos",
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "adhoc": true,
-   "spawned_at_epoch": 1795560796.63
   },
   "P2-cli": {
    "agent_id": "01a20fd0-9657-7691-a4c0-085efa15f4ba",
@@ -2968,6 +3020,30 @@
    "effort": "high",
    "adhoc": true,
    "spawned_at_epoch": 1795561887.78
+  },
+  "A1c": {
+   "agent_id": "01a20fd8-47a3-7633-b3c9-e135f0acdb96",
+   "nickname": "Rawls",
+   "model_id": "qwen3.8-max",
+   "effort": "xhigh",
+   "adhoc": true,
+   "spawned_at_epoch": 1795562408.23
+  },
+  "ATT-1": {
+   "agent_id": "01a20fd9-1be6-7570-a2a6-5617c25de1c2",
+   "nickname": "Beauvoir",
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "adhoc": true,
+   "spawned_at_epoch": 1795562408.23
+  },
+  "EVID-1": {
+   "agent_id": "01a20fd9-cb78-70f3-9b3f-e3e739655f68",
+   "nickname": "Fermat",
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "adhoc": true,
+   "spawned_at_epoch": 1795562408.23
   }
  },
  "self_check_T0": {
@@ -3720,8 +3796,9 @@
    "file": "fixtures（事实表）",
    "symptom": "主评价期 2026-Q3 缺 4 格，含 S-008/v1/M_COMPLAINT_RATE（HARD 红线指标）→ redline.evaluate 按 V-14 抛错，Step4-9 在主评价期整链断；违 M34 L1460『刻意构造 1 个高贡献+红线违反（G-03）』",
    "status": "OPEN",
-   "fix_package": "A1c",
-   "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+   "fix_package": "A1c（按 A1C-EXEC-SPEC §4.4：M_COMPLAINT_RATE <-> M_SATISFY_SCORE 的 missing_rule 同维对调 + 洞迁到 S-008/v1/M_SATISFY_SCORE）",
+   "ruling": "ORCH-37 第1条（主控对 ORCH-29 的自我纠错）",
+   "premise_corrected": "ORCH-29 第5条「补 2026-Q3 缺失事实格」的前提已被证伪：那 4 个缺格是 dsm/fixtures_gen.py:136-141 MISSING_CELLS 的刻意 G-09 四分支构造（B1b 996e1c3 靠它转绿），且两个 BLOCK 规则指标全是 HARD 红线指标，与 dsm/redline.py:330 数学上不可能共存"
   },
   {
    "id": "D-A1-04",
@@ -3742,8 +3819,9 @@
    "file": "fixtures 或 dsm/io_loaders.py",
    "symptom": "design_card 为 JSONL 而 io_loaders 只认 CSV/Parquet 且 ''→None，T4 永远加载不出（DataLoadError MODEL_ROW_REJECTED）；违 M29 L1330『io_loaders → 8 表』",
    "status": "OPEN",
-   "fix_package": "A1c 或 C1c（格式归属按 M21/M18 原文二选一）",
-   "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+   "fix_package": "A1d（条件执行）",
+   "ruling": "ORCH-37 第2条",
+   "note": "CSV 化还牵连 dsm/io_loaders.py:274-279 的 data/<period>/ 目录布局（L888），远超换后缀；A1c 须实测回答「是否有红测试专门因 JSONL 而红」，无则作为已披露遗留缺口交 P3a，不阻塞交付"
   },
   {
    "id": "D-A1-06",
@@ -3763,7 +3841,7 @@
    "file": "fixtures/input/design_card.jsonl + metric_fact.jsonl + golden_map.json",
    "symptom": "evidence.classify 按设计卡出桥 13 行，评价期事实只有 12 个 (strategy,version) pair（S-005/v1 无本期事实），pooling 侧证据结构口径为 11（实测 A3 B0 C3 D5），golden 记 4/12；13/12/11 三分母互不相等",
    "fix_package": "A1c（须先依原文确定「证据结构占比」的分母定义，并与 D-A1-02 的 A3B3C4D2 一起验算）",
-   "ruling": "ORCH-33 第2条"
+   "ruling": "ORCH-37 第6/9条：证据结构计数分母=12（本期评价范围 pair，L1003/L1063⑥/L1459）；占比双报分母=11（L1346 NOT_ASSESSED 单列 + ORCH-29 第3条；ORCH-36 第2条独立同结论）；13 是实现侧缺陷 -> D-EVID-01/EVID-1。A1c 不改 fixtures（不补事实、不删卡），golden_map 的 G-14 分母 12->11 修正属 E3b 的 expects 更新"
   },
   {
    "id": "D-A1-08",
@@ -3772,8 +3850,9 @@
    "found_by": "E3（commit 35a6635，G-05 红）",
    "file": "fixtures/input/anchor_set.jsonl（AS-SYNTH-2026）",
    "symptom": "G-05 要求追加极端策略后存量策略 norm/composite/grade 完全不变（ORCH-28 对 M43 L941 的裁决），实测 S-011/v1 的 M_ROI norm 0.500000000000->0.541666666667、composite 0.967705891652->0.968545891652；SEAM-1 已修锚定尺不按池裁剪，故残余根因疑为 anchor_set 对 M_ROI 等指标覆盖不足或取值退化，被迫回退池内尺度",
-   "fix_package": "A1c（须产出 anchor_set 对全部 15 指标的覆盖矩阵后定补法）",
-   "ruling": "ORCH-33 第2条"
+   "fix_package": "ATT-1",
+   "ruling": "ORCH-37 第8/10条",
+   "root_cause_corrected": "不是 anchor_set 覆盖不足（E3 的假设经 A1CPREP 的 15 指标覆盖矩阵实测证伪）；真根因是 IMPUTE_MEDIAN 的中位数取自当期池，S-011（锚定成员）的 M_ROI 洞使填补值随追加 S-901 而变（池 median 0.100 -> 0.1015）"
   },
   {
    "id": "D-D2-01",
@@ -3825,6 +3904,17 @@
    "symptom": "MIX_QUALITY_DEGRADED 的分子用 C+D（LOW_EVIDENCE_CLASSES）零原文依据，唯一明文 SDD L1416 写「C 类占比」；分母用四类合计且不剔 NOT_ASSESSED，与同模块两列 share_* 的 domain_count/len(assessed)(:424/:425) 不同源",
    "fix_package": "G14FIX",
    "ruling": "ORCH-36 第1/2条"
+  },
+  {
+   "id": "D-EVID-01",
+   "status": "OPEN",
+   "found_at": "T+6.04h",
+   "found_by": "A1CPREP §6-B（A1C-EXEC-SPEC.md）",
+   "file": "dsm/evidence.py（_universe）",
+   "symptom": "出桥范围未按评价期过滤设计卡：evidence.classify 出桥 13 行，而主评价期 2026-Q3 只有 12 个 (strategy_id,version_id) pair；多出的是 S-005/v1（RETIRED，offline_date=2026-06-30，本期以 v2 出值）",
+   "fix_package": "EVID-1",
+   "ruling": "ORCH-37 第9条",
+   "hard_constraints": "不得给 S-005/v1 补本期事实（违 L1121/L1123/L1117 且毁 G-08）；不得从 fixtures 删卡（G-08 的 GR_VERSION_BREAK 依赖该卡存在）；被过滤的卡必须有披露（V-14）"
   }
  ],
  "environment_changes": [
@@ -4034,9 +4124,9 @@
   }
  },
  "clock_now": {
-  "epoch": 1795561887.78,
-  "t_hours": 5.897,
-  "remaining_hours": 4.103
+  "epoch": 1795562408.23,
+  "t_hours": 6.042,
+  "remaining_hours": 3.958
  },
  "gap_adjudications_SP2": {
   "new_gaps_reported_wave1_2": {
@@ -4129,7 +4219,16 @@
   ],
   "p3b_criterion": "最终判据 = A1c 与 MODELS-1 均落地后重测的哈希，在全新 clone + 断网单机 + 同 seed 下两连跑精确相等；不是与 8083efc9 相等",
   "current_hash": "4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7",
-  "current_hash_asof": "358b4ea"
+  "current_hash_asof": "358b4ea",
+  "harness": {
+   "script": "tools/repro_offline.sh",
+   "doc": "docs/deliverables/P3b-REPRO-HARNESS.md",
+   "commit": "d228edd",
+   "isolation_level": "L3-strong（全新本地 clone --no-hardlinks + unshare -rn 真断网 netns + 独立 venv 无 system site-packages + 26 个本地 wheel --no-index 离线安装）",
+   "measured": "6 轮实跑：4x L3-strong PASS(18/16/17/22s)、1x 弱隔离降级 PASS、1x --strict-isolation 按设计判 FAIL；幂等自清理实测残留 0/0",
+   "hash_source": "dsm/audit.py:242（载荷:231/schema:43/规范化:113），载体 dsm/models.py:1227；当前真值只由 tests/test_integration_spine.py:146 _run_chain（:480）以测试内合成 GOVERNANCE 驱动九步真跑产出，非 CLI 真实运行（dsm/cli.py:199 仍 PLACEHOLDER，config/ 0 文件）",
+   "inputs": "seed 20260101 / period 2026-Q2 / fixtures/input+golden / 冻结权重版本 id；run_at 与 run_id 注入但不入哈希"
+  }
  },
  "r15_batch_2": {
   "status": "done",
@@ -4252,6 +4351,30 @@
    "issue": "LOW_EVIDENCE_CLASSES 常量注释自引 SDD L1854 作为依据，但 ADJ-G14 实测该行无「C+D」字样，L1854 只给承载与防作弊目的、不给分子",
    "disposition": "注释锚失效属可辩护性缺陷；G14FIX 改分子为 C 类占比后须同步更正注释锚为 L1416，并在 P3a 披露原注释锚不成立",
    "owner": "G14FIX + P3a 披露"
+  },
+  {
+   "id": "ERRATUM-07",
+   "at": "T+6.04h",
+   "where": "dsm/reason_codes.py:86 的 message 文本",
+   "issue": "写「低证据等级占比上升」，与 ORCH-36 第1条裁定的分子口径（SDD L1416「C 类占比」）不符；该 message 是实现侧自撰文本，曾被 A1CPREP 误引为 C+D 口径的依据（循环引证）",
+   "disposition": "更正为「C 类证据占比上升」，归 P2-wire（reason_codes.py 单写者）；ADJ-3 不改码名",
+   "owner": "P2-wire"
+  },
+  {
+   "id": "ERRATUM-08",
+   "at": "T+6.04h",
+   "where": "SDD L1134（missing_rule 枚举）",
+   "issue": "只枚举 ZERO / SKIP / IMPUTE_MEDIAN / BLOCK 四种规则名，对 IMPUTE_MEDIAN 的「中位数取自哪个参考集」零字规定 -> 原文缺口。实现取当期池，导致 G-05 不变性（L1407 + L1428 P-4 + L1500 V-7）在结构上不可能满足",
+   "disposition": "ORCH-37 第8条按 derived: 裁为取自 anchor_set（失效回退当期池 + ANCHOR_SET_STALE），与 L941 同口径；ATT-1 落地；须走 SDD 勘误 + 业务签认",
+   "owner": "ATT-1 + P3a 披露 + 业务签认"
+  },
+  {
+   "id": "ERRATUM-09",
+   "at": "T+6.04h",
+   "where": "SDD L982",
+   "issue": "写 EVIDENCE_DOWNGRADED_PARTIAL，而注册名是 EVIDENCE_CARD_PARTIAL（dsm/reason_codes.py:69）",
+   "disposition": "按 ADJ-3 以注册名为准，文档须更正；A1CPREP 附录A 已给 36 行「文档码名 -> 注册名」对照表",
+   "owner": "P3a 披露"
   }
  ]
 }
