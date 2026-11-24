@@ -19,17 +19,59 @@ numeric.q12, so R6 stays a single implementation point. A metric without a
 target keeps attainment null: A-2 forbids substituting a pool mean or a
 historical mean, and the absence is disclosed by NO_TARGET_VALUE instead.
 
-The [L930] boundary line:
+The boundary line, and the TWO triggers of the [L1134] missing_rule closed
+set. A metric can be absent in two ways and the original text names both, so
+both are dispatched -- answering only one of them is what made the four
+branches collapse into each other (G-09 [L1411]):
 
   * target missing -- or, for INTERVAL, bounds missing -- gives null,
-    has_target False and NO_TARGET_VALUE
-  * actual < 0 gives NEGATIVE_ACTUAL and then the metric's own missing_rule
-    decides: ZERO -> 0, SKIP -> null, IMPUTE_MEDIAN -> median of the clean
-    actuals of the same (version, period, metric), BLOCK -> raise
+    has_target False and NO_TARGET_VALUE. This outranks both triggers below:
+    [L451] keeps a metric without a target out of the absolute track, so no
+    missing_rule is consulted for it and not even a BLOCK sinks the strategy.
+  * TRIGGER_NEGATIVE, [L930]: a negative actual is recorded as
+    NEGATIVE_ACTUAL and then handled per missing_rule. The row exists, so it
+    stays and discloses
+    NEGATIVE_ACTUAL. ZERO -> attainment 0; SKIP -> attainment null;
+    IMPUTE_MEDIAN -> the formula run on the imputed median; BLOCK -> raise
+    AttainmentBlockedError and stop the run.
+  * TRIGGER_ROW_MISSING, [L1156] verbatim: the long table shows a missing
+    metric as an absent row, not as an empty column. ZERO -> a row whose
+    attainment is 0 (ji ru 0, [L1411]); SKIP -> no row, the metric drops out
+    and [L954] renormalises inside its dimension; IMPUTE_MEDIAN -> a row from
+    the imputed median; BLOCK -> the whole (strategy, version, period) yields no
+    row at all, because [L1411] says BLOCK leaves that strategy without a score
+    and aggregate.compose builds one ScoreRow per key it finds in this frame.
+    The suppression is not silent: it leaves the module as a [L1051] item-13
+    DowngradeAction on AttainmentResult.downgrades carrying the registered
+    NOT_ASSESSED code.
   * a zero denominator gives whatever the caller declared as on_zero, or null
     when on_zero is None. reason_code stays null on that path: the registry of
     3.3.2 carries no code for "quotient undefined" and spelling a literal here
-    is forbidden (H-7)
+    is forbidden (H-7). The same holds for a synthesized ZERO / IMPUTE_MEDIAN
+    row: 3.3.2 carries no code for a missing fact row handled by missing_rule
+    either, and borrowing MISSING_RATE_WARN would claim a missing-rate threshold
+    this module never evaluates, so their reason_code stays null and the
+    registry gap is reported instead of papered over.
+
+ZERO means "the attainment counts as 0" on BOTH triggers, never "the actual
+counts as 0": on a direction -1 metric the latter runs target / 0, which lands
+on on_zero or on null, and a null is indistinguishable from SKIP -- exactly the
+collapse G-09 forbids.
+
+The IMPUTE_MEDIAN sample. [L1134] names the rule and states no sample scope, so
+the scope is an explicit input (impute_scope) rather than a guess (V-14).
+ALL_ROWS takes every non-negative actual of the same (version_id, period,
+metric_id) -- the reading G-09's hand computation pins: 10 values in the v1
+bucket, the v2 row of the same metric outside it. SIGNED_OFF_ONLY drops the
+metrics whose signoff_status is not in signed_off_statuses ([L1141]), which for
+a single-metric sample means an unsigned metric has no sample and cannot be
+imputed. Negative actuals never enter the sample on either scope: a negative is
+the very thing being replaced. The median is Decimal end to end (V-9,
+numeric.median), never a float mean.
+
+A synthesized cell is not an observation, so it never widens
+attainment_coverage: [L928] counts what the strategy reported with a target
+over the signed-off metrics.
 
 reason_code precedence when several apply: NO_TARGET_VALUE > NEGATIVE_ACTUAL >
 ATTAINMENT_CAPPED. capped_flag is independent of the precedence and means
@@ -51,14 +93,14 @@ missing target rather than guessed.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Iterable, Mapping, Sequence
+from typing import Iterable, Mapping, NamedTuple, Sequence
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from dsm import numeric
 from dsm.config import AppConfig
-from dsm.models import (AttainmentFrame, AttainmentRow, MetricDictRow,
-                        MetricFactRow, Ratio)
+from dsm.models import (AttainmentFrame, AttainmentRow, DowngradeAction,
+                        MetricDictRow, MetricFactRow, Ratio)
 from dsm.numeric import D, ONE, ZERO, q12
 from dsm.reason_codes import RC
 
@@ -83,8 +125,40 @@ RULE_ZERO = 'ZERO'
 RULE_SKIP = 'SKIP'
 RULE_IMPUTE = 'IMPUTE_MEDIAN'
 RULE_BLOCK = 'BLOCK'
+RULES = (RULE_ZERO, RULE_SKIP, RULE_IMPUTE, RULE_BLOCK)
+
+# The two ways a metric can be absent, both of them original text: [L930] for a
+# negative actual, [L1156] for a row the long table does not carry at all.
+# The value of TRIGGER_NEGATIVE is deliberately NOT spelled like the registered
+# reason_code NEGATIVE_ACTUAL: P-8 forbids a bare literal equal to a registry
+# code outside a reason_code position, and this is a dispatch tag, not a code.
+TRIGGER_NEGATIVE = 'ACTUAL_IS_NEGATIVE'
+TRIGGER_ROW_MISSING = 'ROW_MISSING'
+TRIGGERS = (TRIGGER_NEGATIVE, TRIGGER_ROW_MISSING)
+
+# What a rule decided. One flat set of actions, so the dispatch table inside
+# _apply_missing_rule is the single place a rule name turns into behaviour.
+ACT_ZERO = 'ZERO_ATTAINMENT'           # the metric counts as attainment 0
+ACT_NULL_ROW = 'NULL_ROW'              # the row stays, its attainment is null
+ACT_DROP_ROW = 'DROP_ROW'              # no row at all, [L954] renormalises
+ACT_IMPUTE = 'IMPUTE_ACTUAL'           # the formula runs on the imputed median
+ACT_BLOCK_STRATEGY = 'BLOCK_STRATEGY'  # this strategy yields no score ([L1411])
+
+# IMPUTE_MEDIAN sample scope. [L1134] names the rule but no scope, so it is an
+# input, never a default (V-14); see the module docstring.
+IMPUTE_SCOPE_ALL = 'ALL_ROWS'
+IMPUTE_SCOPE_SIGNED = 'SIGNED_OFF_ONLY'
+IMPUTE_SCOPES = (IMPUTE_SCOPE_ALL, IMPUTE_SCOPE_SIGNED)
 
 TWO = D(2)
+
+
+class MissingRuleOutcome(NamedTuple):
+    '''The decision of _apply_missing_rule: one ACT_* action plus, for
+    ACT_IMPUTE, the Decimal median the formula has to run on.'''
+
+    action: str
+    actual: Decimal | None = None
 
 
 class AttainmentError(ValueError):
@@ -97,6 +171,14 @@ class AttainmentConfigError(AttainmentError):
 
 class AttainmentBlockedError(AttainmentError):
     '''missing_rule BLOCK: a negative actual must stop the run, not be scored.'''
+
+
+class AttainmentImputeError(AttainmentError):
+    '''IMPUTE_MEDIAN with no clean sample to impute from.
+
+    Falling back to SKIP would be a silent degradation (V-14), and 3.3.2
+    registers no code an empty imputation could be disclosed on, so a missing
+    row refuses to produce a number at all.'''
 
 
 class AttainmentParams(BaseModel):
@@ -150,6 +232,26 @@ def params_from_config(config: AppConfig) -> AttainmentParams:
         signed_off_statuses=tuple(str(s) for s in statuses))
 
 
+class AttainmentResult(AttainmentFrame):
+    '''The [L928] frame plus the disclosure a BLOCK suppression needs.
+
+    AttainmentFrame carries rows and coverage only, and a blocked strategy has
+    no rows at all ([L1411]: BLOCK leaves that strategy without a score), so the
+    frame on its own cannot say why a strategy vanished. That would be a silent
+    degradation (V-14), and H-6 refuses to let a removal go unrecorded.
+    DowngradeAction is the [L1051] item-13 landing point built for exactly that,
+    so the notices ride here.
+
+    This IS an AttainmentFrame -- no field of the frozen contract is touched,
+    renamed or reinterpreted, and every consumer that types its input as
+    AttainmentFrame (normalize, aggregate, grading, whatif, reports) keeps
+    working unchanged. Whether the field belongs on AttainmentFrame itself is a
+    contract question under R-15 and is registered as a gap, not decided here.
+    '''
+
+    downgrades: tuple[DowngradeAction, ...] = ()
+
+
 # ---------------------------------------------------------------------------
 # Index builders. Pure: no clock, no I/O, no global state (H-8).
 # ---------------------------------------------------------------------------
@@ -189,18 +291,31 @@ def _index_intervals(intervals) -> dict:
     return out
 
 
-def _clean_medians(facts, dictionary) -> dict:
+def _clean_medians(facts, dictionary, scope=IMPUTE_SCOPE_ALL, signed=()) -> dict:
     '''(version_id, period, metric_id) -> median of the non-negative actuals.
 
     Only built for metrics whose missing_rule is IMPUTE_MEDIAN, and only from
     the clean rows: a negative actual is the very thing being replaced, so it
     must not pull the median down with it. The map is computed before any row is
-    evaluated, which keeps the result independent of the fact order.
+    evaluated, which keeps the result independent of the fact order, and every
+    step of it is Decimal (numeric.median, V-9): a float mean of two Decimals
+    does not survive a 1e-12 comparison.
+
+    scope is the [L1134] gap made explicit instead of guessed. ALL_ROWS samples
+    every non-negative actual of that metric; SIGNED_OFF_ONLY samples only the
+    metrics signed off per [L1141], which for a single-metric sample leaves an
+    unsigned metric with no sample at all. Rows of a strategy a BLOCK later
+    suppresses stay in the sample on both scopes: the sample is a property of
+    the metric and the period, and G-09's hand computation counts them.
     '''
+    if scope not in IMPUTE_SCOPES:
+        raise AttainmentError('unknown impute_scope: ' + str(scope))
     buckets = {}
     for fact in facts:
         metric = dictionary.get(fact.metric_id)
         if metric is None or metric.missing_rule != RULE_IMPUTE:
+            continue
+        if scope == IMPUTE_SCOPE_SIGNED and metric.signoff_status not in signed:
             continue
         value = D(fact.value)
         if value < ZERO:
@@ -260,30 +375,69 @@ def _formula(metric, actual, target, bounds, params) -> Decimal | None:
     raise AttainmentError('unknown attainment_formula: ' + str(kind))
 
 
-def _apply_missing_rule(fact, metric, medians) -> Decimal | None:
-    '''The [L930] treatment of a negative actual, per the metric's own rule.'''
-    rule = metric.missing_rule
+def _apply_missing_rule(rule, trigger, locator, medians) -> MissingRuleOutcome:
+    '''The [L1134] closed set, dispatched for BOTH ways a metric can be absent.
+
+    rule is the metric's own missing_rule, trigger one of TRIGGERS and locator
+    the [L1149] key (strategy_id, version_id, period, metric_id) the rule is
+    applied to. Two triggers x four rules, decided in this one table and nowhere
+    else -- that is what keeps the four branches from collapsing into one
+    another (G-09 [L1411]). A rule name outside the closed set raises: falling
+    back to SKIP would be a silent degradation (V-14).
+    '''
+    if trigger not in TRIGGERS:
+        raise AttainmentError('unknown missing_rule trigger: ' + str(trigger))
+    if rule not in RULES:
+        raise AttainmentError('unknown missing_rule: ' + str(rule))
+    strategy_id, version_id, period, metric_id = locator
+
     if rule == RULE_ZERO:
-        return ZERO
+        # Counted as 0: the ATTAINMENT is 0. Substituting 0 for the actual
+        # instead would run target / 0 on a direction -1 metric and land on
+        # on_zero or on null -- and null is indistinguishable from SKIP.
+        return MissingRuleOutcome(ACT_ZERO)
+
     if rule == RULE_SKIP:
-        return None
+        # A negative actual sits on a row that exists and discloses
+        # NEGATIVE_ACTUAL, so the row stays with a null attainment. A missing
+        # row has nothing to disclose on: it stays missing, the metric drops out
+        # and [L954] renormalises the weights inside its dimension.
+        return MissingRuleOutcome(ACT_NULL_ROW if trigger == TRIGGER_NEGATIVE
+                                  else ACT_DROP_ROW)
+
     if rule == RULE_IMPUTE:
-        return medians.get((fact.version_id, fact.period, fact.metric_id))
-    if rule == RULE_BLOCK:
+        median = medians.get((version_id, period, metric_id))
+        if median is not None:
+            return MissingRuleOutcome(ACT_IMPUTE, median)
+        if trigger == TRIGGER_NEGATIVE:
+            # The row is still there and still says NEGATIVE_ACTUAL, so the
+            # failed imputation stays disclosed instead of being swallowed.
+            return MissingRuleOutcome(ACT_NULL_ROW)
+        raise AttainmentImputeError(
+            'metric ' + metric_id + ' has no clean sample in (' + version_id
+            + ', ' + period + ') to impute the missing row of strategy '
+            + strategy_id + ' from, and IMPUTE_MEDIAN may not degrade to SKIP')
+
+    if trigger == TRIGGER_NEGATIVE:
         raise AttainmentBlockedError(
-            'metric ' + metric.metric_id + ' has a negative actual for strategy '
-            + fact.strategy_id + ' and missing_rule BLOCK')
-    raise AttainmentError('unknown missing_rule: ' + str(rule))
+            'metric ' + metric_id + ' has a negative actual for strategy '
+            + strategy_id + ' and missing_rule BLOCK')
+    # [L1411]: the caller drops every row of this (strategy, version, period)
+    # and records NOT_ASSESSED on the way out.
+    return MissingRuleOutcome(ACT_BLOCK_STRATEGY)
 
 
-def _row(fact, metric, value, has_target, capped_flag, reason_code) -> AttainmentRow:
+def _row(locator, metric, value, has_target, capped_flag, reason_code) -> AttainmentRow:
     '''One [L928] row. direction and target_source are copied from T2 so the
-    output stays traceable to the signed dictionary ([L1139] target_basis).'''
+    output stays traceable to the signed dictionary ([L1139] target_basis). The
+    locator is the [L1149] key rather than a MetricFactRow, because a cell the
+    long table never carried has no fact row to read those four from.'''
+    strategy_id, version_id, period, metric_id = locator
     return AttainmentRow(
-        strategy_id=fact.strategy_id,
-        version_id=fact.version_id,
-        period=fact.period,
-        metric_id=fact.metric_id,
+        strategy_id=strategy_id,
+        version_id=version_id,
+        period=period,
+        metric_id=metric_id,
         attainment=value,
         direction=metric.direction,
         target_source=metric.target_basis,
@@ -292,33 +446,41 @@ def _row(fact, metric, value, has_target, capped_flag, reason_code) -> Attainmen
         reason_code=reason_code)
 
 
-def _evaluate(fact, metric, params, iv_index, medians):
-    '''(AttainmentRow, counted_towards_coverage) for one fact row.'''
+def _target(metric, iv_index):
+    '''(bounds, has_target) per [L451]: an INTERVAL metric is targeted by its
+    bounds, every other formula by MetricDictRow.target_value.'''
     if metric.attainment_formula == FORMULA_INTERVAL:
         bounds = iv_index.get(metric.metric_id)
-        has_target = bounds is not None
-    else:
-        bounds = None
-        has_target = metric.target_value is not None
+        return bounds, bounds is not None
+    return None, metric.target_value is not None
+
+
+def _evaluate_fact(fact, metric, params, iv_index, medians):
+    '''(AttainmentRow, counted_towards_coverage) for one fact row.'''
+    locator = _locator(fact)
+    bounds, has_target = _target(metric, iv_index)
     if not has_target:
         # A-2: null, never a substituted mean. This branch wins over a negative
         # actual, because with no target there is no attainment to speak of.
-        return _row(fact, metric, None, False, False, RC.NO_TARGET_VALUE), False
+        return _row(locator, metric, None, False, False, RC.NO_TARGET_VALUE), False
 
     actual = D(fact.value)
     negative = actual < ZERO
     if negative:
-        replaced = _apply_missing_rule(fact, metric, medians)
-        if replaced is None:
-            return _row(fact, metric, None, True, False, RC.NEGATIVE_ACTUAL), True
-        actual = replaced
+        outcome = _apply_missing_rule(metric.missing_rule, TRIGGER_NEGATIVE,
+                                      locator, medians)
+        if outcome.action == ACT_ZERO:
+            return _row(locator, metric, ZERO, True, False, RC.NEGATIVE_ACTUAL), True
+        if outcome.action == ACT_NULL_ROW:
+            return _row(locator, metric, None, True, False, RC.NEGATIVE_ACTUAL), True
+        actual = outcome.actual
 
     raw = _formula(metric, actual, metric.target_value, bounds, params)
     if raw is None:
         # A zero denominator with on_zero=None: the quotient is undefined, and
         # the registry of 3.3.2 carries no code for it, so none is claimed.
         code = RC.NEGATIVE_ACTUAL if negative else None
-        return _row(fact, metric, None, True, False, code), True
+        return _row(locator, metric, None, True, False, code), True
 
     capped = raw > params.attainment_cap
     value = numeric.clip(raw, ZERO, params.attainment_cap)
@@ -328,7 +490,46 @@ def _evaluate(fact, metric, params, iv_index, medians):
         code = RC.ATTAINMENT_CAPPED
     else:
         code = None
-    return _row(fact, metric, value, True, capped, code), True
+    return _row(locator, metric, value, True, capped, code), True
+
+
+def _evaluate_missing(locator, metric, params, iv_index, medians):
+    '''(AttainmentRow or None, blocked) for a cell the long table never carried.
+
+    counted_towards_coverage is deliberately not part of the answer: a
+    synthesized cell is not an observation, so it never widens the [L928]
+    coverage numerator -- coverage stays "what the strategy reported with a
+    target over the signed-off metrics".
+    '''
+    bounds, has_target = _target(metric, iv_index)
+    if not has_target:
+        # A-2 / [L451] outrank the missing_rule here for the same reason as on
+        # the fact path: with no target there is no attainment to speak of, so
+        # not even a BLOCK may sink the strategy over this cell.
+        return _row(locator, metric, None, False, False, RC.NO_TARGET_VALUE), False
+
+    outcome = _apply_missing_rule(metric.missing_rule, TRIGGER_ROW_MISSING,
+                                  locator, medians)
+    if outcome.action == ACT_BLOCK_STRATEGY:
+        return None, True
+    if outcome.action == ACT_DROP_ROW:
+        # SKIP: no row, so the metric drops out of its dimension and [L954]
+        # renormalises the remaining w_j -- the observable G-09 asks for.
+        return None, False
+    if outcome.action == ACT_ZERO:
+        # reason_code stays null: 3.3.2 carries no code for a missing row
+        # counted as zero and spelling a literal here is forbidden (H-7). The
+        # registry gap is reported; the zero itself is not -- G-09 needs both
+        # the row and the 0 on it.
+        return _row(locator, metric, ZERO, True, False, None), False
+
+    raw = _formula(metric, outcome.actual, metric.target_value, bounds, params)
+    if raw is None:
+        return _row(locator, metric, None, True, False, None), False
+    capped = raw > params.attainment_cap
+    value = numeric.clip(raw, ZERO, params.attainment_cap)
+    code = RC.ATTAINMENT_CAPPED if capped else None
+    return _row(locator, metric, value, True, capped, code), False
 
 
 def _locator(row):
@@ -341,17 +542,30 @@ def compute(facts: Sequence[MetricFactRow],
             config: AppConfig | None = None,
             *,
             params: AttainmentParams | None = None,
-            intervals: Mapping[str, Sequence] | None = None) -> AttainmentFrame:
+            intervals: Mapping[str, Sequence] | None = None,
+            impute_scope: str = IMPUTE_SCOPE_ALL) -> AttainmentResult:
     '''Step 1 of the scoring flow: the absolute attainment track ([L927]).
 
     Exactly one of config / params must be given: config is resolved through
     params_from_config, params is used as is. Asking for neither would mean
     inventing a cap, asking for both would leave two readings of the same run.
 
+    The grid is the [L1149] locator crossed with the dictionary over every
+    (strategy_id, version_id, period) the fact table actually carries, so a cell
+    with no row is the missing metric [L1156] describes and goes through
+    _apply_missing_rule exactly like a negative actual does. Nothing is invented
+    the other way round: a strategy, version or period the table does not carry
+    stays absent from the output.
+
+    impute_scope picks the IMPUTE_MEDIAN sample (module docstring); it is an
+    input because [L1134] states no scope and guessing one is forbidden (V-14).
+
     Complexity is O(strategies x metrics), one pass over the long fact table.
     '''
     if (config is None) == (params is None):
         raise AttainmentError('pass exactly one of config or params')
+    if impute_scope not in IMPUTE_SCOPES:
+        raise AttainmentError('unknown impute_scope: ' + str(impute_scope))
     resolved = params if params is not None else params_from_config(config)
 
     dictionary = _index_metric_dict(metric_dict)
@@ -361,11 +575,15 @@ def compute(facts: Sequence[MetricFactRow],
         if not isinstance(fact, MetricFactRow):
             raise AttainmentError(
                 'facts entries must be MetricFactRow, got ' + type(fact).__name__)
-    medians = _clean_medians(fact_rows, dictionary)
+    medians = _clean_medians(fact_rows, dictionary, impute_scope,
+                             resolved.signed_off_statuses)
 
     signed = resolved.signed_off_statuses
     rows = []
-    numerator = {}
+    numerator = {}       # (strategy, version, period) -> counted metrics
+    seen = set()         # the locator keys the fact table carries
+    blocked = {}         # (strategy, version, period) -> the metric_ids that blocked
+    downgrades = []
     for fact in fact_rows:
         metric = dictionary.get(fact.metric_id)
         if metric is None:
@@ -374,15 +592,47 @@ def compute(facts: Sequence[MetricFactRow],
             raise AttainmentError(
                 'metric_facts references a metric outside metric_dict: '
                 + fact.metric_id)
-        row, counted = _evaluate(fact, metric, resolved, iv_index, medians)
+        locator = _locator(fact)
+        seen.add(locator)
+        row, counted = _evaluate_fact(fact, metric, resolved, iv_index, medians)
         rows.append(row)
         if counted and metric.signoff_status in signed:
-            numerator[fact.strategy_id] = numerator.get(fact.strategy_id, 0) + 1
+            key = locator[:3]
+            numerator[key] = numerator.get(key, 0) + 1
+
+    for key in sorted({locator[:3] for locator in seen}):
+        for metric_id in sorted(dictionary):
+            locator = key + (metric_id,)
+            if locator in seen:
+                continue
+            row, is_blocked = _evaluate_missing(locator, dictionary[metric_id],
+                                                resolved, iv_index, medians)
+            if is_blocked:
+                blocked.setdefault(key, []).append(metric_id)
+                downgrades.append(DowngradeAction(
+                    reason_code=RC.NOT_ASSESSED,
+                    action='missing_rule BLOCK: ' + metric_id
+                           + ' 的事实行缺失，该策略本期不可评价、不产出分数（[L1411]）',
+                    subject='|'.join(key)))
+                continue
+            if row is not None:
+                rows.append(row)
+
+    if blocked:
+        # [L1411]: a blocked strategy produces no score, so it produces no
+        # attainment row either -- aggregate.compose builds one ScoreRow per key
+        # it finds in this frame, and one leftover row would score it.
+        rows = [row for row in rows
+                if (row.strategy_id, row.version_id, row.period) not in blocked]
+        numerator = {k: v for k, v in numerator.items() if k not in blocked}
 
     rows.sort(key=_locator)
     denominator = sum(1 for m in dictionary.values() if m.signoff_status in signed)
     coverage = {}
-    for strategy_id in sorted(numerator.keys() | {f.strategy_id for f in fact_rows}):
-        coverage[strategy_id] = numeric.safe_div(
-            numerator.get(strategy_id, 0), denominator, on_zero=ZERO)
-    return AttainmentFrame(rows=tuple(rows), attainment_coverage=coverage)
+    strategies = {key[0] for key in numerator} | {f.strategy_id for f in fact_rows}
+    for strategy_id in sorted(strategies):
+        total = sum(value for key, value in numerator.items()
+                    if key[0] == strategy_id)
+        coverage[strategy_id] = numeric.safe_div(total, denominator, on_zero=ZERO)
+    return AttainmentResult(rows=tuple(rows), attainment_coverage=coverage,
+                            downgrades=tuple(downgrades))

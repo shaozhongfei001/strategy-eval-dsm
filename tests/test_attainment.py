@@ -21,9 +21,9 @@ from pydantic import ValidationError
 from dsm import attainment, numeric
 from dsm.attainment import (
     AttainmentBlockedError, AttainmentConfigError, AttainmentError,
-    AttainmentParams)
+    AttainmentImputeError, AttainmentParams)
 from dsm.config import AppConfig
-from dsm.models import MetricDictRow, MetricFactRow
+from dsm.models import AttainmentFrame, MetricDictRow, MetricFactRow
 from dsm.numeric import D, ZERO, eq_tol
 from dsm.reason_codes import RC
 
@@ -290,3 +290,247 @@ def test_g04_params_from_config_rejects_an_incomplete_block():
                        anchor_set={}, ahp_matrices={})
     with pytest.raises(AttainmentConfigError):
         attainment.params_from_config(absent)
+
+
+# ---------------------------------------------------------------------------
+# G-09 -- the second trigger of the [L1134] closed set: a row the long table
+# never carried ([L1156] shows a missing metric as an absent row, not as an
+# empty column). Each of the four branches gets its own test, and one test pins
+# that the four observables are pairwise different, which is what G-09 [L1411]
+# asks for.
+# ---------------------------------------------------------------------------
+def test_g09_missing_row_zero_is_a_scored_zero_not_a_dropped_row():
+    '''ZERO on a missing row: one attainment row carrying 0, not a hole.'''
+    m_zero = _metric('m_zero', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'),
+                     missing_rule='ZERO')
+    m_peer = _metric('m_peer', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    facts = [_fact('S1', 'm_peer', D('0.10')),          # S1 misses the m_zero cell
+             _fact('S2', 'm_zero', D('0.10')), _fact('S2', 'm_peer', D('0.10'))]
+    fr = _compute(facts, [m_zero, m_peer])
+    rows = [r for r in fr.rows if r.metric_id == 'm_zero']
+    assert len(rows) == 2 and {r.strategy_id for r in rows} == {'S1', 'S2'}
+    made = _row(fr, 'S1', 'm_zero')
+    assert made.attainment == ZERO and made.has_target is True
+    assert made.capped_flag is False
+    # 3.3.2 registers no code for a missing row counted as zero, and spelling a
+    # literal is H-7 territory, so the row stays uncovered and the gap is filed.
+    assert made.reason_code is None
+    assert made.direction == 1 and made.target_source == 'budget'
+    assert fr.downgrades == ()
+
+
+def test_g09_missing_row_zero_on_an_inverse_metric_is_zero_not_null():
+    '''ZERO counts the ATTAINMENT as 0. Substituting a zero actual instead would
+    run target / 0 here and land on on_zero None -> null, which is the SKIP
+    observable and would collapse two of the four branches.'''
+    m = _metric('m_cost', 'INVERSE_RATIO', -1, 'MONEY_MINOR', 100000,
+                missing_rule='ZERO')
+    keep = _metric('m_keep', 'INVERSE_RATIO', -1, 'MONEY_MINOR', 100000)
+    facts = [_fact('S1', 'm_keep', 80000),
+             _fact('S2', 'm_cost', 80000), _fact('S2', 'm_keep', 80000)]
+    fr = _compute(facts, [m, keep], params=_params(cap=D('2'), on_zero=None))
+    assert _row(fr, 'S1', 'm_cost').attainment == ZERO
+    assert eq_tol(_row(fr, 'S2', 'm_cost').attainment, D('1.25'))
+
+
+def test_g09_missing_row_skip_drops_the_row_and_leaves_the_peers_alone():
+    '''SKIP on a missing row: no row at all, so [L954] renormalises inside the
+    dimension, and the coverage numerator does not widen -- [L928] counts what
+    the strategy reported with a target, not what was invented for it.'''
+    m_skip = _metric('m_skip', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'),
+                     missing_rule='SKIP')
+    m_other = _metric('m_other', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    facts = [_fact('S1', 'm_other', D('0.10')),
+             _fact('S2', 'm_skip', D('0.10')), _fact('S2', 'm_other', D('0.10'))]
+    fr = _compute(facts, [m_skip, m_other])
+    assert [r for r in fr.rows
+            if (r.strategy_id, r.metric_id) == ('S1', 'm_skip')] == []
+    assert eq_tol(_row(fr, 'S1', 'm_other').attainment, D('0.5'))
+    assert eq_tol(fr.attainment_coverage['S1'], D('0.5'))     # 1 of 2 signed
+    assert eq_tol(fr.attainment_coverage['S2'], numeric.ONE)  # 2 of 2 signed
+    assert fr.downgrades == ()
+
+
+def test_g09_missing_row_impute_median_is_decimal_and_stays_in_its_bucket():
+    '''IMPUTE_MEDIAN on a missing row: median of the non-negative actuals of the
+    same (version_id, period, metric_id), Decimal end to end (V-9).
+
+    10000000000.1 and 10000000000.3 are not representable in binary floating
+    point, so a float mean of them carries a 7.6e-7 tail that survives q12; the
+    Decimal median is exactly 10000000000.2. The negative actual and the v2 row
+    are both outside the sample: the negative is the very thing being replaced,
+    the v2 row is another [L1149] bucket.
+    '''
+    m = _metric('m_roi', 'RATIO_DIRECT', 1, 'RATIO', D('1'),
+                missing_rule='IMPUTE_MEDIAN')
+    anchor = _metric('m_anchor', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    facts = [_fact('S1', 'm_roi', D('10000000000.1')),
+             _fact('S2', 'm_roi', D('10000000000.3')),
+             _fact('S3', 'm_roi', D('-5')),
+             _fact('S4', 'm_roi', D('99'), version_id='V2'),
+             _fact('S5', 'm_anchor', D('0.10'))]        # S5 misses the m_roi cell
+    fr = _compute(facts, [m, anchor], params=_params(cap=D('100000000000')))
+    made = _row(fr, 'S5', 'm_roi')
+    assert isinstance(made.attainment, Decimal)
+    assert made.attainment == D('10000000000.200000000000')
+    assert made.has_target is True and made.capped_flag is False
+
+
+def test_g09_missing_row_block_suppresses_the_strategy_and_records_not_assessed():
+    '''BLOCK on a missing row: [L1411] says the strategy produces no score, so
+    the whole (strategy, version, period) leaves the frame -- aggregate.compose
+    builds one ScoreRow per key it finds here, and a single leftover row would
+    score it. The removal is disclosed as a [L1051] item-13 DowngradeAction with
+    the registered NOT_ASSESSED code, never silently (V-14 / H-6).'''
+    blocked = _metric('m_red', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'),
+                      missing_rule='BLOCK')
+    other = _metric('m_other', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    facts = [_fact('S1', 'm_other', D('0.10')),          # S1 misses the BLOCK cell
+             _fact('S2', 'm_red', D('0.10')), _fact('S2', 'm_other', D('0.10'))]
+    fr = _compute(facts, [blocked, other])
+    assert [r for r in fr.rows if r.strategy_id == 'S1'] == []
+    assert len([r for r in fr.rows if r.strategy_id == 'S2']) == 2
+    assert isinstance(fr, AttainmentFrame)          # the contract type still holds
+    assert len(fr.downgrades) == 1
+    assert fr.downgrades[0].reason_code == RC.NOT_ASSESSED
+    assert fr.downgrades[0].subject == 'S1|V1|2026-01'
+    assert 'm_red' in fr.downgrades[0].action
+    assert fr.attainment_coverage['S1'] == ZERO      # nothing of S1 was scored
+
+
+def test_g09_missing_row_four_branches_are_pairwise_different():
+    '''G-09 [L1411]: four carriers, identical formula / direction / target, one
+    missing cell each -> four observables, no two alike.'''
+    tags = ('zero', 'skip', 'impute', 'block')
+    rules = {'zero': 'ZERO', 'skip': 'SKIP', 'impute': 'IMPUTE_MEDIAN',
+             'block': 'BLOCK'}
+    metrics = [_metric('m_' + tag, 'RATIO_DIRECT', 1, 'RATIO', D('0.20'),
+                       missing_rule=rules[tag]) for tag in tags]
+    anchor = _metric('m_anchor', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    facts = []
+    for tag in tags:
+        facts.append(_fact('S_' + tag, 'm_anchor', D('0.10')))
+        for other in tags:
+            if other != tag:
+                facts.append(_fact('S_' + tag, 'm_' + other, D('0.10')))
+    # P1 is a complete peer: a peer with holes of its own would drag the other
+    # three branches into this test.
+    facts.append(_fact('P1', 'm_impute', D('0.30')))
+    facts.append(_fact('P1', 'm_anchor', D('0.10')))
+    for tag in tags:
+        if tag != 'impute':
+            facts.append(_fact('P1', 'm_' + tag, D('0.10')))
+    fr = _compute(facts, metrics + [anchor])
+
+    def cells(sid, mid):
+        return [r for r in fr.rows if (r.strategy_id, r.metric_id) == (sid, mid)]
+
+    zero = cells('S_zero', 'm_zero')
+    skip = cells('S_skip', 'm_skip')
+    imp = cells('S_impute', 'm_impute')
+    observable = {
+        'ZERO': (len(zero), zero[0].attainment),
+        'SKIP': (len(skip), 'no row, dimension renormalised'),
+        # sample = [0.10, 0.10, 0.10, 0.30] -> median 0.10 -> 0.10 / 0.20 = 0.5
+        'IMPUTE_MEDIAN': (len(imp), imp[0].attainment),
+        'BLOCK': (len([r for r in fr.rows if r.strategy_id == 'S_block']),
+                  'the strategy produced no row at all'),
+    }
+    assert observable['ZERO'] == (1, ZERO)
+    assert observable['SKIP'] == (0, 'no row, dimension renormalised')
+    assert observable['IMPUTE_MEDIAN'] == (1, D('0.500000000000'))
+    assert observable['BLOCK'][0] == 0
+    assert len(set(observable.values())) == 4, observable
+    assert [d.subject for d in fr.downgrades] == ['S_block|V1|2026-01']
+
+
+def test_g09_missing_target_outranks_the_missing_rule_even_for_block():
+    '''[L451] / A-2 first: a metric with no target is out of the absolute track,
+    so there is no attainment for any missing_rule to dispose of -- not even a
+    BLOCK may sink a strategy over it.'''
+    m = _metric('m_nt', 'RATIO_DIRECT', 1, 'RATIO', None, missing_rule='BLOCK')
+    other = _metric('m_other', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    facts = [_fact('S1', 'm_other', D('0.10')),
+             _fact('S2', 'm_nt', D('0.10')), _fact('S2', 'm_other', D('0.10'))]
+    fr = _compute(facts, [m, other])
+    made = _row(fr, 'S1', 'm_nt')
+    assert made.attainment is None and made.has_target is False
+    assert made.reason_code == RC.NO_TARGET_VALUE
+    assert len([r for r in fr.rows if r.strategy_id == 'S1']) == 2
+    assert fr.downgrades == ()
+
+
+def test_g09_the_grid_invents_no_strategy_version_or_period():
+    '''The synthesized cells are the dictionary crossed with the (strategy,
+    version, period) keys the fact table carries -- nothing beyond that.'''
+    m = _metric('m_a', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'), missing_rule='ZERO')
+    n = _metric('m_b', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'), missing_rule='ZERO')
+    fr = _compute([_fact('S1', 'm_a', D('0.10'), period='2026-01')], [m, n])
+    assert {(r.strategy_id, r.version_id, r.period, r.metric_id)
+            for r in fr.rows} == {('S1', 'V1', '2026-01', 'm_a'),
+                                  ('S1', 'V1', '2026-01', 'm_b')}
+    assert tuple(fr.attainment_coverage) == ('S1',)
+
+
+def test_g09_unknown_missing_rule_raises_on_both_triggers():
+    '''V-14: a name outside the [L1134] closed set raises, on a missing row and
+    on a negative actual alike. Defaulting to SKIP is exactly the silent
+    degradation that let the four branches collapse.'''
+    m = _metric('m_x', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'), missing_rule='SKIP')
+    object.__setattr__(m, 'missing_rule', 'IMPUTE_MEAN')   # past the Literal gate
+    anchor = _metric('m_anchor', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    with pytest.raises(AttainmentError, match='unknown missing_rule'):
+        _compute([_fact('S1', 'm_anchor', D('0.10'))], [m, anchor])
+    with pytest.raises(AttainmentError, match='unknown missing_rule'):
+        _compute([_fact('S1', 'm_x', D('-1')), _fact('S1', 'm_anchor', D('0.10'))],
+                 [m, anchor])
+
+
+def test_g09_impute_without_a_clean_sample_refuses_to_degrade_to_skip():
+    '''A missing row with nothing to impute from raises instead of vanishing; a
+    negative actual with nothing to impute from keeps its row and its registered
+    NEGATIVE_ACTUAL, because there the disclosure channel exists.'''
+    m = _metric('m_roi', 'RATIO_DIRECT', 1, 'RATIO', D('0.10'),
+                missing_rule='IMPUTE_MEDIAN')
+    anchor = _metric('m_anchor', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    with pytest.raises(AttainmentImputeError):
+        _compute([_fact('S1', 'm_anchor', D('0.10'))], [m, anchor])
+    fr = _compute([_fact('S1', 'm_roi', D('-1')),
+                   _fact('S1', 'm_anchor', D('0.10'))], [m, anchor])
+    r = _row(fr, 'S1', 'm_roi')
+    assert r.attainment is None and r.reason_code == RC.NEGATIVE_ACTUAL
+
+
+def test_g09_impute_sample_scope_is_an_explicit_input_not_a_default():
+    '''[L1134] names IMPUTE_MEDIAN and states no sample scope, so the scope is an
+    input (V-14). ALL_ROWS samples every non-negative actual of the metric;
+    SIGNED_OFF_ONLY applies [L1141], which for a single-metric sample leaves an
+    unsigned metric with no sample at all -- and that refuses to impute rather
+    than quietly falling back.'''
+    signed = _metric('m_roi', 'RATIO_DIRECT', 1, 'RATIO', D('0.10'),
+                     missing_rule='IMPUTE_MEDIAN')
+    pending = _metric('m_pending', 'RATIO_DIRECT', 1, 'RATIO', D('0.10'),
+                      missing_rule='IMPUTE_MEDIAN', signoff_status='PENDING')
+    anchor = _metric('m_anchor', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    facts = [_fact('P1', 'm_roi', D('0.30')), _fact('P1', 'm_pending', D('0.30')),
+             _fact('P1', 'm_anchor', D('0.10')),
+             _fact('S1', 'm_anchor', D('0.10'))]       # S1 misses both cells
+    wide = _compute(facts, [signed, pending, anchor], params=_params(cap=D('5')))
+    assert eq_tol(_row(wide, 'S1', 'm_pending').attainment, D('3'))
+    assert eq_tol(_row(wide, 'S1', 'm_roi').attainment, D('3'))
+    with pytest.raises(AttainmentImputeError):
+        _compute(facts, [signed, pending, anchor], params=_params(cap=D('5')),
+                 impute_scope=attainment.IMPUTE_SCOPE_SIGNED)
+    with pytest.raises(AttainmentError, match='impute_scope'):
+        _compute(facts, [signed, pending, anchor], impute_scope='MEDIAN_OF_THE_POOL')
+
+
+def test_g04_negative_actual_zero_counts_zero_on_an_inverse_metric_too():
+    '''The [L930] trigger obeys the same reading of ZERO as the missing-row one:
+    the attainment is 0. A zero actual here would be target / 0 -> on_zero None
+    -> null, i.e. the SKIP observable.'''
+    m = _metric('m_cost', 'INVERSE_RATIO', -1, 'MONEY_MINOR', 100000,
+                missing_rule='ZERO')
+    r = _row(_compute([_fact('S1', 'm_cost', -80000)], [m]), 'S1', 'm_cost')
+    assert r.attainment == ZERO and r.reason_code == RC.NEGATIVE_ACTUAL
+    assert r.has_target is True and r.capped_flag is False
