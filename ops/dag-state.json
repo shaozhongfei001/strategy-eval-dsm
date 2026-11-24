@@ -30,11 +30,15 @@
  ],
  "goal": {
   "scope": "S1→S9 全量，含 S7 方法层 + S8 权重构造链（档 2 不得砍）",
-  "wall_clock_plan_h": 8.17,
-  "buffer_h": 1.83,
-  "hard_stop_h": 10.0,
   "serial_equivalent_h": 21.8,
   "agent_workload_min": 1825,
+  "phase1_h": 5.5,
+  "phase2_h": 1.25,
+  "phase3_h": 1.0,
+  "planned_finish_h": 7.75,
+  "buffer_h": 2.25,
+  "hard_stop_h": 10.0,
+  "phase1_bound": "依赖约束（Lane A 的 fixtures→combine→calibrate→whatif 315min + combine 等 ahp/entropy），非资源约束；加 lane 无用",
   "non_negotiable": [
    "V-9 数值口径",
    "V-14 无静默降级",
@@ -42,13 +46,59 @@
    "G-02+P-6 证据门禁+分池禁混排"
   ]
  },
- "concurrency_planned": 5,
- "concurrency_actual": null,
+ "concurrency_probed": 6,
+ "concurrency_actual": 6,
+ "concurrency_probe": {
+  "date": "2026-11-24",
+  "method": "同时 spawn 8 个探针 agent，每个只跑 date +%s%N → sleep 45 → date +%s%N，回收后做区间重叠分析",
+  "spawn_limit": 6,
+  "rejection_message": "collab spawn failed: agent thread limit reached（第 7、8 个）",
+  "intervals_rel_s": {
+   "P1": [
+    0.0,
+    52.92
+   ],
+   "P2": [
+    5.14,
+    62.73
+   ],
+   "P3": [
+    8.14,
+    63.9
+   ],
+   "P4": [
+    9.44,
+    69.24
+   ],
+   "P6": [
+    15.09,
+    75.52
+   ],
+   "P5": [
+    43.91,
+    97.29
+   ]
+  },
+  "peak_overlap": 6,
+  "peak_overlap_window_s": [
+   43.91,
+   52.92
+  ],
+  "wall_s": 97.29,
+  "serial_sum_s": 339.87,
+  "speedup": 3.49,
+  "notes": [
+   "主控（父会话）不占这 6 个槽",
+   "已完成未 close 的 agent 仍占槽，必须及时 close_agent",
+   "各探针 START 相差 0~43.9s 属 bootstrap 抖动而非排队：P5 的 START 43.91s 早于 P1 的 END 52.92s",
+   "run 启动时必须重新实测，不得沿用本值"
+  ]
+ },
  "concurrency_fallback": {
-  "5": "8.2h 达标",
-  "4": "9.6h 勉强（C 并入 B）",
-  "3": "12.4h 超线，须回报",
-  "2-": "停机上报"
+  "6": "7.75h 达标，缓冲 2.25h",
+  "5": "8.6h 达标（F 的 4 包回填 D/C，entropy 移到 E 首位且仍与 ahp 同批）",
+  "4": "10.3h 撞线，砍 P3b 改期，不得砍 S7/S8",
+  "3-": "停机上报"
  },
  "t0_wall_clock": null,
  "phase_current": "P1",
@@ -59,7 +109,7 @@
  ],
  "lanes": {
   "A": {
-   "role": "权重链下游（关键路径）",
+   "role": "权重链下游（关键路径，依赖约束 5.50h）",
    "priority": 1,
    "queue": [
     "A1",
@@ -67,42 +117,42 @@
     "A3",
     "A4"
    ],
-   "planned_window_h": [
+   "window_h": [
     0.0,
-    5.92
-   ]
+    5.5
+   ],
+   "done": []
   },
   "B": {
    "role": "入分主干 + 契约收尾",
-   "priority": 3,
+   "priority": 4,
    "queue": [
     "B1",
     "B2",
     "B3",
-    "B4",
-    "B5",
-    "B6"
+    "B4"
    ],
-   "planned_window_h": [
+   "window_h": [
     0.0,
-    5.75
-   ]
+    4.25
+   ],
+   "done": []
   },
   "C": {
-   "role": "加载 + 门禁旁路 + 报告",
-   "priority": 5,
+   "role": "加载 + 门禁旁路",
+   "priority": 6,
    "queue": [
     "C1",
     "C2",
     "C3",
     "C4",
-    "C5",
-    "C6"
+    "C5"
    ],
-   "planned_window_h": [
+   "window_h": [
     0.0,
-    5.25
-   ]
+    4.5
+   ],
+   "done": []
   },
   "D": {
    "role": "权重链上游 + 方法旁路 + CLI",
@@ -112,17 +162,17 @@
     "D2",
     "D3",
     "D4",
-    "D5",
-    "D6"
+    "D5"
    ],
-   "planned_window_h": [
+   "window_h": [
     0.0,
-    5.67
-   ]
+    5.0
+   ],
+   "done": []
   },
   "E": {
    "role": "验证与交付（独立性 = 反作弊控制）",
-   "priority": 4,
+   "priority": 5,
    "queue": [
     "E1",
     "E2",
@@ -130,10 +180,27 @@
     "E4",
     "E5"
    ],
-   "planned_window_h": [
+   "window_h": [
     0.0,
     5.25
-   ]
+   ],
+   "done": []
+  },
+  "F": {
+   "role": "机动：熵权 + 横切模块 + R4 复核 + 超时吸收",
+   "priority": 3,
+   "queue": [
+    "F1",
+    "F2",
+    "F3",
+    "F4"
+   ],
+   "window_h": [
+    0.0,
+    2.92
+   ],
+   "done": [],
+   "float_after_F4": "F5 机动槽（非工作包）：承接同步点 R4 复核 agent、吸收任一 lane 超时包、Phase 2 缺陷第一顺位；复核 agent 用完必须立即 close 释放槽位"
   }
  },
  "sync_points": {
@@ -141,47 +208,61 @@
    "at_h": 1.0,
    "done": false,
    "must": [
-    "A1 fixtures 冻结",
-    "D1 ahp 确认",
-    "执行 ORCH-03：__init__.py 的 L1 行加 entropy",
+    "A1 fixtures 冻结（fixtures/** 此后只读）",
+    "D1 ahp 与 F1 entropy 双交付确认（ORCH-07 要求同批，缺一个则 A2 不得起跑）",
+    "执行 ORCH-03：dsm/__init__.py 的 L1 行加 entropy",
     "E1 首轮 skip 清单入账"
    ]
   },
   "SP-2": {
-   "at_h": 2.5,
+   "at_h": 2.75,
    "done": false,
    "must": [
-    "B1/B2/B3 与 D2/D3 确认",
-    "判定 A3 calibrate 能否 T+3.17 起跑，否则优先补该 lane 其余挂起",
-    "抽查 B4 commit message 的 211 RED triage 逐条理由（RK-P5）"
+    "【本 run 最关键放行点】B3 grading + D2 sensitivity + E1 骨架三者全绿才放行 A3 calibrate；任一未绿则优先补该 lane 并把 F 机动槽压上去，其余 lane 挂起",
+    "抽查 B4 commit message 是否逐条列出 211 RED 的删改理由（RK-P5）",
+    "若 Lane A 已落后 ≥0.5h，读 docs/digest/M10-whatif.md 复核 Step 8 是否可选，成立则启用 ORCH-07b（whatif ∥ calibrate，省 1.25h）"
    ]
   },
   "SP-3": {
-   "at_h": 4.0,
+   "at_h": 4.25,
    "done": false,
    "must": [
-    "C3/C4/C5 与 D4/D5 确认",
+    "A3 calibrate 完成确认",
+    "C4/C5 与 D3/D4 交付确认",
     "E2/E3 golden 首轮结果入账",
     "契约缺口批量裁决 #2"
    ]
   },
   "SP-4": {
-   "at_h": 5.92,
+   "at_h": 5.5,
    "done": false,
    "must": [
     "Phase 1 收口全量 pytest 统计",
-    "决定 Phase 2 缺陷切片分派"
+    "决定 Phase 2 缺陷切片分派（F 为第一顺位）"
    ]
   }
  },
  "decisions": {
   "ORCH-01": "fixtures_gen 从 SDD §3.17.2 step 8 提前到 Phase 1 首包（只改顺序不改口径）",
   "ORCH-02": "CEL-0 预留按 7 字段（interpretation_limit 是 T4 正式字段，SDD 行 1172）",
-  "ORCH-03": "新增 dsm/entropy.py 于 L1，模块数 23→24；依据 INV-1 禁 L5 import L0a，而 §2.4.2 行 537 要求两个计算者共用同一实现",
-  "ORCH-04": "高档占比护栏：ORCH-v1.0 实例写「≤40%」、模板与实测「≤45%」；本 run 按卡片表逐包打分的实测值 = 17/31 = 55%（Phase 1 的 27 包中 15 包为 C3）。C3 集中在权重链 4 包 + 入分主干 2 包 + 契约收尾 1 包 + 门禁旁路 2 包 + 方法 2 包 + 验证 4 包 + Phase2/3 两包，全部落在四条不可砍底线或档 2 全保范围上；降档等于把底线交给 flash 模型，违反 v2.0 §0「正确性 > 进度 > 成本」。→ 本 run 护栏改为 ≤60%，同步点末核算实际占比写进对账单。成本超支时的降级候选顺序：E3→C2、B5 audit→C1、C6 reports→C1、D6 cli→C1、P3c→C1（全降可压到 12/31 = 39%），降级后该包的守护测试编号不得减少。",
-  "ORCH-05": "串行 DAG 改为 5 lane 波次并行；ORCH §6 阶段门禁不变，仍在 Phase 2/3 逐条核",
-  "ORCH-06": "全量 pytest 只在 4 个同步点 + Phase 2 跑；lane 内只跑本包测试（tests/ 已 9,963 行）"
+  "ORCH-03": "新增 dsm/entropy.py 于 L1，模块数 23→24。依据 SDD 行 537「熵权六步两个计算者共用同一实现」，而 INV-1 禁止 L5(diagnostics) import L0a(weights_combine)，只有放 L1 同时满足两者。不塞进 numeric.py（它是唯一数值口径实现点，且会让 6 lane 抢同一写集）。不改任何算法步骤与口径",
+  "ORCH-04": "高档占比护栏由 ≤40%/≤45% 改为本 run 专属 ≤60%（实测 C3 = 17/31 = 55%）。15 个 Phase 1 C3 包全落在四条不可砍底线上，降档等于把底线交给 flash，违反 v2.0 §0。降级候选顺序：E3→C2、F2 audit→C1、F4 reports→C1、D5 cli→C1、P3c→C1（全降可压到 39%），降级后守护测试编号不得减少",
+  "ORCH-05": "串行 DAG 改为 6 lane 并行；ORCH §6 阶段门禁不变，仍在 Phase 2/3 逐条核",
+  "ORCH-06": "全量 pytest 只在 4 个同步点 + Phase 2 跑（tests/ 已 9963 行，每包跑全量会吃掉并行收益）",
+  "ORCH-07": "并发槽位实测 = 6（真并行，非多槽单跑）→ 排程由 5 lane 改为 6 lane（新增机动 lane F）。entropy.py(F1) 与 weights_ahp.py(D1) 同批 T+0 起跑，依据 §2.4.3 的 combine(ahp, entropy, opts) 签名证明二者是并列输入；combine 起跑点 T+1.67→T+1.00，Phase 1 由 5.92h 降到 5.50h。audit/diagnostics/reports 由 B、C 移入 F",
+  "ORCH-07b": "【条件触发，未启用】whatif ∥ calibrate。M42 行 1073「重跑 Step 1–7（可选 Step 8）」支持此读法，可再省 1.25h（Phase 1→4.25h）。未采纳原因：ORCH §5.9 明令 S8 严格串行且注明 whatif 复用两者。触发条件：SP-2 时 Lane A 落后计划 ≥0.5h，且主控读 M10 digest 确认 Step 8 可选"
  },
+ "pkg_id_remap_from_5lane": {
+  "B5 audit": "F2",
+  "B6 diagnostics": "F3",
+  "C6 reports": "F4",
+  "D2 entropy": "F1",
+  "D3 sensitivity": "D2",
+  "D4 normalize": "D3",
+  "D5 triangulation": "D4",
+  "D6 cli": "D5"
+ },
+ "cards_ref": "digests / writeset / guards / 时间窗全文见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §4（状态文件不重复存）",
  "work_packages": {
   "A1": {
    "lane": "A",
@@ -211,7 +292,7 @@
    "deps": [
     "A1",
     "D1",
-    "D2"
+    "F1"
    ],
    "budget_min": 90,
    "prod_max": 700,
@@ -235,7 +316,7 @@
     "A2",
     "E1",
     "B3",
-    "D3"
+    "D2"
    ],
    "budget_min": 90,
    "prod_max": 600,
@@ -333,7 +414,7 @@
   },
   "B4": {
    "lane": "B",
-   "module": "config.py 语义+权重版本校验（211 RED→绿）",
+   "module": "config.py 语义+权重版本校验（211 RED→绿，R-8 triage）",
    "cx": "C3",
    "model": "max",
    "status": "pending",
@@ -341,46 +422,6 @@
    "budget_min": 90,
    "prod_max": 400,
    "tf_max": 0,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null
-   }
-  },
-  "B5": {
-   "lane": "B",
-   "module": "audit.py",
-   "cx": "C2",
-   "model": "flash",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 45,
-   "prod_max": 300,
-   "tf_max": 15,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null
-   }
-  },
-  "B6": {
-   "lane": "B",
-   "module": "diagnostics.py",
-   "cx": "C2",
-   "model": "flash",
-   "status": "pending",
-   "deps": [
-    "D2"
-   ],
-   "budget_min": 45,
-   "prod_max": 350,
-   "tf_max": 18,
    "ev": {
     "min": null,
     "prod": null,
@@ -490,25 +531,6 @@
     "commit": null
    }
   },
-  "C6": {
-   "lane": "C",
-   "module": "reports.py",
-   "cx": "C2",
-   "model": "flash",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 45,
-   "prod_max": 400,
-   "tf_max": 18,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null
-   }
-  },
   "D1": {
    "lane": "D",
    "module": "weights_ahp.py",
@@ -530,27 +552,6 @@
   },
   "D2": {
    "lane": "D",
-   "module": "entropy.py（L1 新增，ORCH-03）",
-   "cx": "C2",
-   "model": "flash",
-   "status": "pending",
-   "deps": [
-    "D1"
-   ],
-   "budget_min": 40,
-   "prod_max": 200,
-   "tf_max": 14,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null
-   }
-  },
-  "D3": {
-   "lane": "D",
    "module": "sensitivity.py",
    "cx": "C3",
    "model": "max",
@@ -568,7 +569,7 @@
     "commit": null
    }
   },
-  "D4": {
+  "D3": {
    "lane": "D",
    "module": "normalize.py",
    "cx": "C2",
@@ -587,7 +588,7 @@
     "commit": null
    }
   },
-  "D5": {
+  "D4": {
    "lane": "D",
    "module": "triangulation.py",
    "cx": "C2",
@@ -606,14 +607,14 @@
     "commit": null
    }
   },
-  "D6": {
+  "D5": {
    "lane": "D",
    "module": "cli.py",
    "cx": "C2",
    "model": "flash",
    "status": "pending",
    "deps": [
-    "D5"
+    "D4"
    ],
    "budget_min": 60,
    "prod_max": 450,
@@ -732,6 +733,84 @@
     "commit": null
    }
   },
+  "F1": {
+   "lane": "F",
+   "module": "entropy.py（L1 新增，ORCH-03）",
+   "cx": "C2",
+   "model": "flash",
+   "status": "pending",
+   "deps": [],
+   "budget_min": 40,
+   "prod_max": 200,
+   "tf_max": 14,
+   "ev": {
+    "min": null,
+    "prod": null,
+    "tf": null,
+    "pass": null,
+    "fail": null,
+    "commit": null
+   }
+  },
+  "F2": {
+   "lane": "F",
+   "module": "audit.py",
+   "cx": "C2",
+   "model": "flash",
+   "status": "pending",
+   "deps": [],
+   "budget_min": 45,
+   "prod_max": 300,
+   "tf_max": 15,
+   "ev": {
+    "min": null,
+    "prod": null,
+    "tf": null,
+    "pass": null,
+    "fail": null,
+    "commit": null
+   }
+  },
+  "F3": {
+   "lane": "F",
+   "module": "diagnostics.py",
+   "cx": "C2",
+   "model": "flash",
+   "status": "pending",
+   "deps": [
+    "F1"
+   ],
+   "budget_min": 45,
+   "prod_max": 350,
+   "tf_max": 18,
+   "ev": {
+    "min": null,
+    "prod": null,
+    "tf": null,
+    "pass": null,
+    "fail": null,
+    "commit": null
+   }
+  },
+  "F4": {
+   "lane": "F",
+   "module": "reports.py",
+   "cx": "C2",
+   "model": "flash",
+   "status": "pending",
+   "deps": [],
+   "budget_min": 45,
+   "prod_max": 400,
+   "tf_max": 18,
+   "ev": {
+    "min": null,
+    "prod": null,
+    "tf": null,
+    "pass": null,
+    "fail": null,
+    "commit": null
+   }
+  },
   "P2": {
    "lane": "ALL",
    "module": "Phase 2 集成对齐 + 全量回归",
@@ -740,10 +819,11 @@
    "status": "pending",
    "deps": [
     "A4",
-    "B6",
-    "C6",
-    "D6",
-    "E5"
+    "B4",
+    "C5",
+    "D5",
+    "E5",
+    "F4"
    ],
    "budget_min": 75,
    "prod_max": 0,
@@ -800,7 +880,7 @@
    }
   },
   "P3c": {
-   "lane": "E",
+   "lane": "F",
    "module": "Phase 3 README + tag + 交付包",
    "cx": "C1",
    "model": "flash",
@@ -887,9 +967,21 @@
   "tests/test_config_placeholder.py",
   "docs/digest/"
  ],
+ "red_rescue_baseline": {
+  "failed": 211,
+  "files": {
+   "tests/test_config_semantic.py": 108,
+   "tests/test_config_weight_version.py": 96,
+   "tests/test_config_properties.py": 7
+  },
+  "note": "本 run 的 pytest 基线；基线不符须停机上报。由 B4 承接，R-8 triage 授权",
+  "verified_at_commit": "064fca2"
+ },
  "counters": {
   "flash_pkgs": 0,
   "max_pkgs": 0,
+  "c3_pkgs": 17,
+  "c3_ratio_pct": 55,
   "escalations": 0,
   "rework_rounds": 0,
   "quality_incidents": 0,
@@ -897,15 +989,16 @@
   "budget_violations": 0,
   "net_new_test_funcs": 0,
   "net_new_test_funcs_cap": 120,
-  "c3_pkgs": 17,
-  "c3_ratio_pct": 55
+  "slots_in_use": 0,
+  "slots_limit": 6
  },
  "next_dispatch": {
   "A": "A1",
   "B": "B1",
   "C": "C1",
   "D": "D1",
-  "E": "E1"
+  "E": "E1",
+  "F": "F1"
  },
  "session_log": [
   {
@@ -943,7 +1036,19 @@
     "重写 dag-state.json：52 串行任务 → 31 工作包 / 5 lane / 4 同步点"
    ],
    "next": "A1 B1 C1 D1 E1（T+0 同时派发）"
+  },
+  {
+   "seq": 4,
+   "date": "2026-11-24",
+   "session": "parent(交互)",
+   "did": [
+    "实测并发槽位：spawn 8 探针，第 7/8 被拒 agent thread limit reached → 上限 6",
+    "区间重叠分析证明 6 路真并行（峰值重叠 6，窗口 9.01s，加速比 3.49x），6 探针已全部 close 释放槽位",
+    "ORCH-07：5 lane → 6 lane（新增机动 lane F）；entropy 与 ahp 同批起跑；Phase 1 5.92h → 5.50h",
+    "重排包号并登记 5lane→6lane 映射；计划完成 8.17h → 7.75h，缓冲 1.83h → 2.25h",
+    "v3.0 文档更新到 457 行 / 50087 B；dag-state.json 重写为 6 lane / 31 包"
+   ],
+   "next": "A1 B1 C1 D1 E1 F1（T+0 同时派发，D1 与 F1 必须同批）"
   }
- ],
- "cards_ref": "digests / writeset / guards 全文见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §4 卡片表（状态文件不重复存）"
+ ]
 }
