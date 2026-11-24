@@ -149,8 +149,8 @@ Lane A 的链条 `fixtures(60) → combine(90) → calibrate(90) → whatif(75) 
 | 包 | 产物 | digest | 写集 | 档/模型 | 预算 | 守护测试编号 | 前置 | 时间窗 |
 |---|---|---|---|---|---|---|---|---|
 | C1 | `io_loaders.py`：CSV/Parquet 读取 + 类型强制 + **输入指纹（SHA256 / 行数）** + 上期数据 | M21 M18 | `dsm/io_loaders.py` `tests/test_io_loaders.py` | C2/flash | 45/300/15 | **G-12** | models | 0→0.75 |
-| C2 | `preflight.py`：**C-01~C-10** + BLOCK 时**只写审计包 / 退出码 2 / 不产 score_card** | M22 M28 | `dsm/preflight.py` `tests/test_preflight.py` | C2/flash | 60/400/20 | **G-10 G-11**、V-14 逐条 | C1 | 0.75→1.75 |
-| C3 | `evidence.py`：A/B/C/D 证据强度五步短路 + **默认 GATE_ONLY（不乘入分数）** + A 类保守性 + CEL-0 消费 | M23 M41 M40 | `dsm/evidence.py` `tests/test_evidence.py` | C2/flash | 45/300/18 | **G-02** | 构造输入 | 1.75→2.50 |
+| C2 | `preflight.py`：**C-01~C-10** + BLOCK 时**只写审计包 / 退出码 2 / 不产 score_card** | M22 M28 | `dsm/preflight.py` `tests/test_preflight.py` | **C3/max** | 60/400/20 | **G-10 G-11**、V-14 逐条 | C1 | 0.75→1.75 |
+| C3 | `evidence.py`：A/B/C/D 证据强度五步短路 + **默认 GATE_ONLY（不乘入分数）** + A 类保守性 + CEL-0 消费 | M23 M41 M40 | `dsm/evidence.py` `tests/test_evidence.py` | **C3/max** | 45/300/18 | **G-02** | 构造输入 | 1.75→2.50 |
 | C4 | `redline.py`：HARD/SOFT 旁路否决 + **红线不参与加权** + 恒 `forced_grade` + 豁免路径 | M04 | `dsm/redline.py` `tests/test_redline.py` | C3/max | 60/400/20 | **G-03 P-2 V-6** | 构造输入 | 2.50→3.50 |
 | C5 | `pooling.py`：**分池禁混排** + 一级库门禁（C 类禁入） + **占比双报** | M24 | `dsm/pooling.py` `tests/test_pooling.py` | C3/max | 60/400/20 | **G-02 P-6** | C3 C4 | 3.50→4.50 |
 
@@ -160,8 +160,8 @@ Lane A 的链条 `fixtures(60) → combine(90) → calibrate(90) → whatif(75) 
 |---|---|---|---|---|---|---|---|---|
 | D1 | `weights_ahp.py`：几何平均法 + 特征向量法**交叉验证 ≤1e-6** + 多专家几何聚合 + **CR ≥ 0.1 拒绝并列最不一致前 5 对** + `status` 只能 DRAFT（写 FROZEN 抛错） | M06 M42 | `dsm/weights_ahp.py` `tests/test_methods_ahp.py` | C3/max | 60/450/20 | **T-AHP-01~06** | models numeric | 0→1.00 |
 | D2 | `sensitivity.py`：OAT / MC（固定 seed）/ LOO / NORM_SWAP → **flip_rate** + 稳定性标签 + **否决权** | M13 | `dsm/sensitivity.py` `tests/test_sensitivity.py` | C3/max | 75/500/22 | **G-05 G-06**、T-SEN-01~03 | 构造输入 | 1.00→2.25 |
-| D3 | `normalize.py`：相对标准化轨三方法 + **锚定集** + **池内归一** + 只用于排名不用于门槛 | M43 | `dsm/normalize.py` `tests/test_normalize.py` | C2/flash | 45/350/18 | **G-05 P-4** | 构造输入 | 2.25→3.00 |
-| D4 | `triangulation.py`：TOPSIS / GRA / **三个 Spearman** / 否决权 / 可关开关（**不入分**） | M12 | `dsm/triangulation.py` `tests/test_triangulation.py` | C2/flash | 60/450/22 | **T-TOP-01~03、T-GRA-01~03、T-TRI-01** | 构造输入 | 3.00→4.00 |
+| D3 | `normalize.py`：相对标准化轨三方法 + **锚定集** + **池内归一** + 只用于排名不用于门槛 | M43 | `dsm/normalize.py` `tests/test_normalize.py` | **C3/max** | 45/350/18 | **G-05 P-4** | 构造输入 | 2.25→3.00 |
+| D4 | `triangulation.py`：TOPSIS / GRA / **三个 Spearman** / 否决权 / 可关开关（**不入分**） | M12 | `dsm/triangulation.py` `tests/test_triangulation.py` | **C3/max** | 60/450/22 | **T-TOP-01~03、T-GRA-01~03、T-TRI-01** | 构造输入 | 3.00→4.00 |
 | D5 | `cli.py`：**八子命令齐全** + 退出码（0/2 preflight BLOCK/3 ConfigPlaceholder/4 DataLoad/6 ConsistencyFailed/7 AlphaInfeasible）+ L0b 产物只写 `reports/calibrate/<run_id>/`、`reports/whatif/<run_id>/` | M27 M29 M30 | `dsm/cli.py` `tests/test_cli.py` | C2/flash | 60/450/16 | **V-10**、INV-2 | 延迟导入解耦 | 4.00→5.00 |
 
 ### Lane E — 验证与交付（独立性 = 反作弊控制，不得并入实现 lane；T+0 → T+5.25）
@@ -170,7 +170,7 @@ Lane A 的链条 `fixtures(60) → combine(90) → calibrate(90) → whatif(75) 
 |---|---|---|---|---|---|---|---|---|
 | E1 | **集成骨架** `tests/test_integration_spine.py`：按 M29 **主流程九步**串起 fixtures → io → preflight → attainment → normalize → aggregate → grading → evidence/redline/pooling → sensitivity → audit → reports；模块未落地处先 `pytest.skip` 并登记，每落一个去掉一个 skip | M29 M34 M26 | `tests/test_integration_spine.py` | C3/max | 60/0/≤12 | 九步全贯通；**每个同步点主控必须跑一次** | A1 | 0→1.00 |
 | E2 | golden **G-01~G-08**（期望值只能来自 A1 构造与手算，R-14 禁反填） | M31 M37 | `tests/test_golden_a.py` | C3/max | 75/0/≤20 | G-01 G-04 G-08 G-09 G-02 G-03 G-13 G-15 | E1 A1 | 1.00→2.25 |
-| E3 | golden **G-09~G-15** | M31 M37 | `tests/test_golden_b.py` | C3/max | 75/0/≤20 | G-05 G-06 G-07 G-10 G-11 G-12 G-14 | E2 | 2.25→3.50 |
+| E3 | golden **G-09~G-15** | M31 M37 | `tests/test_golden_b.py` | C2/flash | 75/0/≤20 | G-05 G-06 G-07 G-10 G-11 G-12 G-14 | E2 | 2.25→3.50 |
 | E4 | 属性 **P-1~P-15**（开发期 `max_examples=25`，500 例只在 Phase 3 的 V-2 门禁跑） | M32 | `tests/test_properties_all.py` | C2/flash | 65/0/15 条属性 | **V-2** | 各模块 | 3.50→4.58 |
 | E5 | `tests/test_architecture.py`：**INV-1/2/3** 分层断言 + **P-8 AST 扫描**（业务模块出现 reason_code 裸字面量即失败）+ **H-8 纯函数扫描**（禁 `time.time()` / `datetime.now()` / 无 seed 的 `random`）+ **ORCH-03 守护**（entropy 在 L1、L5 不 import L0a） | M00 M16 | `tests/test_architecture.py` | C3/max | 40/0/≤12 | 三条不变量机器守护 | 全部模块存在 | 4.58→5.25 |
 
@@ -178,9 +178,9 @@ Lane A 的链条 `fixtures(60) → combine(90) → calibrate(90) → whatif(75) 
 
 | 包 | 产物 | digest | 写集 | 档/模型 | 预算 | 守护测试编号 | 前置 | 时间窗 |
 |---|---|---|---|---|---|---|---|---|
-| F1 | **`dsm/entropy.py`（L1，裁决 ORCH-03）**：§2.4.2 **六步唯一实现**，离线（A2）与在线（F3）**共用**；平移消零；`Σd_j = 0` → **不输出熵权 + 全部 INACTIVE + 预警** | M07 M16 | `dsm/entropy.py` `tests/test_entropy.py` | C2/flash | 40/200/14 | **T-ENT-01~03** | numeric | 0→0.67 |
-| F2 | `audit.py`：manifest + 输入指纹 + **规范化序列化五规则** + `reproducibility_hash` + 复跑步骤 | M25 | `dsm/audit.py` `tests/test_audit.py` | C2/flash | 45/300/15 | **G-12 V-11** | 构造输入 | 0.67→1.42 |
-| F3 | `diagnostics.py`：在线熵权（**调用 F1 的 L1 共享实现**）/ CV / VIF（相关矩阵求逆对角元）/ 相关矩阵 / GRA 效度 + **工单闭环列**（`suggested_action` + `owner`） | M11 M07 | `dsm/diagnostics.py` `tests/test_diagnostics.py` | C2/flash | 45/350/18 | T-ENT-*、**G-07**、**INV-3**（输出对象不含任何可被 aggregate 消费的权重字段） | F1 | 1.42→2.17 |
+| F1 | **`dsm/entropy.py`（L1，裁决 ORCH-03）**：§2.4.2 **六步唯一实现**，离线（A2）与在线（F3）**共用**；平移消零；`Σd_j = 0` → **不输出熵权 + 全部 INACTIVE + 预警** | M07 M16 | `dsm/entropy.py` `tests/test_entropy.py` | **C3/max** | 40/200/14 | **T-ENT-01~03** | numeric | 0→0.67 |
+| F2 | `audit.py`：manifest + 输入指纹 + **规范化序列化五规则** + `reproducibility_hash` + 复跑步骤 | M25 | `dsm/audit.py` `tests/test_audit.py` | **C3/max** | 45/300/15 | **G-12 V-11** | 构造输入 | 0.67→1.42 |
+| F3 | `diagnostics.py`：在线熵权（**调用 F1 的 L1 共享实现**）/ CV / VIF（相关矩阵求逆对角元）/ 相关矩阵 / GRA 效度 + **工单闭环列**（`suggested_action` + `owner`） | M11 M07 | `dsm/diagnostics.py` `tests/test_diagnostics.py` | **C3/max** | 45/350/18 | T-ENT-*、**G-07**、**INV-3**（输出对象不含任何可被 aggregate 消费的权重字段） | F1 | 1.42→2.17 |
 | F4 | `reports.py`：`report.md` **十段** + score_card 各段 + grade_ledger（`recommended_action` 与 `decided_action` **分两列**）+ 稳健性/诊断报告 + 审计包 | M26 M37 | `dsm/reports.py` `tests/test_reports.py` | C2/flash | 45/400/18 | **G-14** | 构造输入 | 2.17→2.92 |
 | F5 | **机动**：① 承接各同步点的 R4 独立复核 agent（占 1 槽）② 吸收任一 lane 的超时包 ③ Phase 2 缺陷切片的第一顺位承接者 | — | 随任务 | C2/C3 | 视情况 | — | — | 2.92→5.50 |
 
@@ -188,12 +188,12 @@ Lane A 的链条 `fixtures(60) → combine(90) → calibrate(90) → whatif(75) 
 
 | 包 | 产物 | 档/模型 | 预算 | 判据 | 时间窗 |
 |---|---|---|---|---|---|
-| P2 | **集成对齐 + 全量回归**：去掉 E1 全部 skip；按缺陷切片把 6 lane 拆开并行修（缺陷按模块归属分派，**跨模块缺陷由主控裁决归属**） | 6×C2/C3 | 75 min | 全量 pytest **0 failed / 0 error / 0 新增 skip / 0 xfail**；编码校验通过 | 5.50→6.75 |
+| P2 | **集成对齐 + 全量回归**：去掉 E1 全部 skip；按缺陷切片把 6 lane 拆开并行修（缺陷按模块归属分派，**跨模块缺陷由主控裁决归属**） | 6×C2/C3（切片按所属模块档位路由，R-16；上限按 C3/max 计） | 75 min | 全量 pytest **0 failed / 0 error / 0 新增 skip / 0 xfail**；编码校验通过 | 5.50→6.75 |
 | P3a | **V-1~V-20 全量验收证据表**：逐条四列（判据 / 检验方式 / **实测证据** / 结论），**任何一条无实测证据一律记 ❌，不得推测** | C3/max（R4） | 60 min | Lane A 承接；证据表 ≤120 行 | 6.75→7.75 |
-| P3b | **第二人复跑**：全新 clone + 断网单机 + 同 seed → `reproducibility_hash` **精确相等** | C2/flash | 30 min | Lane E 承接；**V-3 G-12 V-10** | 6.75→7.25（与 P3a 并行） |
+| P3b | **第二人复跑**：全新 clone + 断网单机 + 同 seed → `reproducibility_hash` **精确相等** | C1/flash | 30 min | Lane E 承接；**V-3 G-12 V-10** | 6.75→7.25（与 P3a 并行） |
 | P3c | README（复现步骤 + 第二人复跑指引 + 依赖锁定 + **已知缺口**）+ `git tag v1.1.0` + 交付包（阶段对账单合集 + **待行方签认清单 K-01~K-20 + G5/G7 门禁**） | C1/flash | 30 min | Lane F 承接；§1.8 | 6.75→7.25（与 P3a 并行） |
 
-## 5. 铁律 R-1 ~ R-15（并行模式下新增或收紧，违反即事故）
+## 5. 铁律 R-1 ~ R-16（并行模式下新增或收紧，违反即事故）
 
 | 编号 | 铁律 | 违反后果 |
 |---|---|---|
@@ -212,6 +212,7 @@ Lane A 的链条 `fixtures(60) → combine(90) → calibrate(90) → whatif(75) 
 | **R-13** | **Git 纪律**：一工作包一提交、中文 message、首行含包号；`push` 前 `git ls-remote`；**禁 force push / rebase / reset / 切分支**；并行期间**只有主控能 push** | 断点续跑被破坏 |
 | **R-14** | **golden 不跟随实现（H-14）**：G-01~G-15 的期望值只能来自 `fixtures_gen` 的构造与手算，**严禁用实现输出反填 golden** | 验证失去意义 |
 | **R-15** | **契约变更单点化**：只有主控能在同步点改 `models.py` / `numeric.py` / `reason_codes.py` / `__init__.py`，改完**必须全量回归 + 记 ADR ≤60 行**，并广播给 6 lane | 写集互斥失效 |
+| **R-16** | **模型路由必须落到 spawn 调用**：`spawn_agent` 必须显式传 `model` 与 `reasoning_effort`，取值照 §5.4 配对表（C3→`qwen3.8-max`、C2/C1→`qwen3.8-flash`）。**禁止省略**——省略即继承父模型，高低搭配全部失效 | 成本护栏形同虚设（ORCH-08） |
 
 ### 5.1 裁决 ORCH-03（本 run 新增，记录在案）
 
@@ -225,14 +226,22 @@ Lane A 的链条 `fixtures(60) → combine(90) → calibrate(90) → whatif(75) 
 
 ### 5.2 裁决 ORCH-04（成本护栏口径统一，含实测算术）
 
-ORCH-v1.0 的**实例**写「高档任务 ≤40%」，其**模板**与 v1.0 实测均为 ≤45%。
-本 run 按 §4 卡片表逐包打分后的**实测值：C3/max = 17/31 = 55%**（Phase 1 的 27 包中 15 包为 C3）。
+ORCH-v1.0 的**实例**写「高档任务 ≤40%」，其**模板**与 v1.0 实测均为 ≤45%；ORCH §3.4 的成本护栏原文是「**flash 承担 ≥60% 的任务数，且 ≤35% 的 token；max 任务数 ≤40% 但允许占 65% token**」。
 
-**两个数字都对不上 45%，处置如下**：
+**按 ORCH §3.1 客观打分表逐包重算后的实测值：C3/max = 23/31 = 74%**（Phase 1 的 27 包中 21 包为 C3 = 78%），C2/flash = 6/31 = 19%，C1/flash = 2/31 = 6%。
 
-1. **不为凑护栏降档**。这 15 个 Phase 1 C3 包是：权重链 4 包（A1 fixtures / A2 combine / A3 calibrate / A4 whatif）、入分主干 2 包（B1 attainment / B3 grading）、契约收尾 1 包（B4 config 211 RED）、门禁旁路 2 包（C4 redline / C5 pooling）、方法 2 包（D1 ahp / D3 sensitivity）、验证 4 包（E1 骨架 / E2 G-01~08 / E3 G-09~15 / E5 架构）。**全部**落在四条不可砍底线（V-9 / V-14 / V-6+G-03+P-2 / G-02+P-6）或档 2 全保范围上。按 ORCH §3.1 客观打分表逐项打分即得 C3；降档等于把底线交给 flash 模型，违反 v2.0 §0「正确性 > 进度 > 成本」。
-2. **护栏改为本 run 专属的 ≤60%**，同步点末核算实际占比并写进对账单（§13）。
-3. **预置降级候选**（仅当成本超支时按此顺序降，降级后守护测试编号不得减少）：`E3 → C2`（与 E2 同模式，范式已由 E2 建立）、`B5 audit → C1`、`C6 reports → C1`、`D6 cli → C1`、`P3c → C1`。全部降完可把 C3 压到 **12/31 = 39%**。
+→ **结论：ORCH §3.1 的打分表与 §3.4 的占比护栏在本项目上不可同时满足。** 这是继承基线的内部矛盾，不是本 run 排程造成的：打分表里「推导数学公式/算法」与「跨模块契约或门禁裁决」各 +3，而 C3 门槛只要 ≥4 分——DSM 的模块几乎个个同时命中这两条（AHP 的 λmax/CI/CR、熵权六步、α 字典序可行集、TOPSIS 理想解、GRA 关联度、VIF 由相关矩阵求逆、滞回与版本断点、归因分解、INV-1/2/3、非补偿语义、证据×红线×分池交互）。
+
+**处置（三条，按优先级）**：
+
+1. **不为凑占比护栏降档**（v2.0 §0：正确性 > 进度 > 成本）。§3.1 明写「不得凭感觉，逐项打分求和」，打分结果是权威；§3.2 的「典型任务」列表示例性质，与打分冲突时**以打分为准**（据此 `pooling`、`golden` 由 §3.2 示例的 C2 上调为 C3）。
+2. **占比护栏作废，改用 token 硬上限护栏**。占比不反映真实成本，token 才反映。按 ORCH §3.2 的单任务 token 预算（C3 ≤90k / C2 ≤40k / C1 ≤15k）核算本 run 上限：
+   `23 × 90k + 6 × 40k + 2 × 15k = 2,070k + 240k + 30k =` **2,340k token（lane 侧）**，另留主控对账/裁决/同步点 **≤660k**，**全 run 硬上限 3.0M token**。同步点末核算实际消耗，超支即触发第 3 条。
+3. **`reasoning_effort` 作为第二旋钮**（比换模型更细、更可控，见 §5.4）。只有 3 个包给 `xhigh`，其余 C3 给 `high`——同为 qwen3.8-max，effort 差一档的成本差远小于 max↔flash 的差。
+
+**超支时的降级候选顺序**（按打分与 §3.2 示例的距离排序，越靠前越安全；降级后**守护测试编号不得减少**）：
+`E2 golden-a → C2`（§3.2 明列 golden 为 C2，打分 5 分属边界）→ `F4 reports → C1`（打分 −1）→ `D5 cli → C1`（打分 0）→ `C1 io_loaders → C1`（打分 −2）→ `B2 aggregate → C1`（打分 1）。
+全降完 max = 18/31 = **58%**，token 上限降到 1,890k。**仍高于 §3.4 的 40%，这是打分表的必然结果，不再作为违规处理，只在对账单里如实登记。**
 
 ### 5.3 裁决 ORCH-07（并发实测 + 熵权与 AHP 同批起跑）
 
@@ -246,6 +255,34 @@ ORCH-v1.0 的**实例**写「高档任务 ≤40%」，其**模板**与 v1.0 实�
 3. **`audit` / `diagnostics` / `reports` 从 B、C lane 移到 F lane**，使 Lane B 从 5.75 h 降到 4.25 h、Lane C 从 5.25 h 降到 4.50 h。这三个模块都只依赖 models 契约（`diagnostics` 另依赖 F1），移到 F 不产生任何新依赖。
 
 **未采纳的进一步加速（登记备查，不在本 run 执行）**：`whatif`（A4）与 `weights_calibrate`（A3）并行。M42 行 1073 原文「重跑 Step 1–7（**可选** Step 8）」支持「whatif 不强依赖 calibrate」的读法，若成立可再省 1.25 h（Phase 1 → 4.25 h）。**不采纳的理由**：ORCH §5.9 明令 S8 的 T01→T02→T03 **严格串行**，且注明「whatif 复用两者」；在没有读到 M10 原文确认 Step 8 可选的确切语义前，不得为省 1.25 h 而违反已冻结的串行裁决（v2.0 §0：正确性 > 进度）。**若 SP-2 时 Lane A 已落后计划 ≥0.5 h，主控可读 `docs/digest/M10-whatif.md` 复核此点，确认后可启用该加速并在此登记为 ORCH-07b。**
+
+### 5.4 裁决 ORCH-08（模型路由必须落到 spawn 调用上，否则等于没有）
+
+**问题（审计发现的执行断层）**：v3.0 初版全文**一次都没有出现 `qwen3.8-max` / `qwen3.8-flash` 这两个字符串**，§8 派工模板与 §12 启动指令也**没有要求 `spawn_agent` 显式传 `model`**。而 `spawn_agent` 的默认行为是「**继承父模型**，省略 `model` 就用默认」。
+→ 后果：新主控照初版执行，31 个包会**全部跑在父模型上**，卡片表里的「C3/max」「C2/flash」只是文档装饰，**高低搭配一分钱都省不下来**。这是本 run 最贵的一处疏漏，现予修补。
+
+**R-16（新增铁律）：`spawn_agent` 必须显式传 `model` 与 `reasoning_effort`，取值由卡片表的档位决定，禁止省略。** 省略 = 继承父模型 = 违反 ORCH-08。主控在派工后必须核对返回的 agent 是否按预期模型启动。
+
+**模型与 effort 配对表（本 run 权威，31 包全覆盖）**：
+
+| effort | 模型 | 包 | 数量 | 依据 |
+|---|---|---|---|---|
+| **xhigh** | `qwen3.8-max` | A2 weights_combine、A3 weights_calibrate、A4 whatif | 3 | 全 run 最深的三处推导：档 2 六步 + INACTIVE 回退不稀释 + H-1~H-5；α **字典序可行集**（非加权目标函数）+ 全网格最小可行 α + 非单调空洞；归因精确性 ≤1e-12 + 两段交叉项分离 + INV-2 只读自证 |
+| **high** | `qwen3.8-max` | A1、B1、B3、B4、C2、C3、C4、C5、D1、D2、D3、D4、E1、E2、E5、F1、F2、F3、P2、P3a | 20 | 打分 ≥4 的推导/门禁裁决型（含 AHP 的 λmax/CI/CR 与双算法对拍、滞回与版本断点、非补偿语义、证据×分池交互、VIF 由相关矩阵求逆、INV 的 AST 守护、V-1~V-20 验收裁决） |
+| **medium** | `qwen3.8-flash` | B2 aggregate、C1 io_loaders、D5 cli、E3 golden-b、E4 properties、F4 reports | 6 | 打分 1~3 的契约集成型：规格已逐字给出、属字段搬运或范式复制（E3 复用 E2 已建立的范式，打分 3） |
+| **low** | `qwen3.8-flash` | P3b 第二人复跑、P3c README+tag+交付包 | 2 | 打分 ≤0 的机械型：clone → 跑 → 比 hash；纯文档/格式化 |
+
+**升降级在并行模式下的执行语义**（ORCH §3.3 是串行单任务语义，此处补齐并行语义）：
+
+| 规则 | 并行模式下的执行 |
+|---|---|
+| **升级**（flash → max） | 触发条件沿用 §3.3.1：**同一包、同一错误签名、连续 2 次未过门禁**。执行 = 主控 `close_agent` 关掉原 agent → 用 `qwen3.8-max` + `high` **重派同一个包**（新 agent），并把两次失败日志原文附进新 prompt。**重派占用 F 机动槽**；F 已满则挂起该 lane 的后续包，不得挤掉 Lane A |
+| **降级**（max → flash） | max 完成的包若被 R4 判定「规格逐字搬运、无推导成分」→ **由主控在同步点统一裁决**同族后续包降 flash，**lane 内不得自行降级**（并行下 lane 看不到同族其他包） |
+| **禁止** | 沿用 §3.3.3：**不得为省 token 把 C3 包先派给 flash「先试试」**。C3 的第一次派工就必须是 max——返工比升级更贵 |
+| **预算超限** | 沿用 §3.3.4：任一包实际 token 超 §5.2 单包预算的 150% → 冻结该包，回报主控重新拆分（通常是粒度过粗） |
+| **flash 首试通过率** | 沿用 §3.4：某同步点内 flash 首试通过率 <50% → **下一个波次先修拆分粒度或 digest 质量再继续**。并行模式下 6 路同时暴露，这个信号比串行时更早、更准，主控必须在每个同步点核算并写进对账单 |
+
+**成本核算（每个同步点末必须写进对账单，§13 已加行）**：按模型分别统计 `包数 / 实际 token / 首试通过率 / 升级次数 / 降级次数`；全 run 硬上限 **3.0M token**（lane 侧 2.34M + 主控侧 0.66M）。
 
 ## 6. 单工作包循环（5 步，替代 v1.0 的 7 步 6 角色）
 
@@ -282,10 +319,15 @@ PKG=<包号> STATUS=<done|blocked|partial> COMMIT=<sha7> MIN=<实际墙钟> PROD
 4. 批量复核（R-10）：C3 包各 ≤80 行档案，每 lane 合计 ≤120 行；**复核 agent 用 F 的空闲槽，用完立即 `close_agent`**（已完成未 close 仍占槽）
 5. `git add -A && git commit && git ls-remote && git push`（**只有主控 push**，R-13）
 
-## 8. 派工 prompt 模板（v3.0 并行版，5 段，自包含）
+## 8. 派工 prompt 模板（v3.0 并行版，6 段，自包含）
+
+> **spawn 调用本身必须带模型参数（R-16 / ORCH-08）**，不是写在 prompt 正文里就够：
+> `spawn_agent(message=<下面 6 段>, model=<qwen3.8-max 或 qwen3.8-flash>, reasoning_effort=<xhigh|high|medium|low>)`
+> 取值照 §5.4 配对表。**省略 model = 继承父模型 = 高低搭配失效。**
 
 ```
 【角色】你是 strategy-eval-dsm 的实现工程师，负责单个工作包 <包号>。仓库 /home/szf/dev/strategy-eval-dsm，venv /home/szf/venvs/dsm/bin/python。
+【模型】你被派为 <qwen3.8-max|qwen3.8-flash> + effort <xhigh|high|medium|low>，档位 <C3|C2|C1>。token 预算 <90k|40k|15k>；超 150% 即冻结本包并回报主控重新拆分（ORCH §3.3.4）。
 【唯一事实来源】只读 docs/digest/<digest 列表>（≤131 行/份）。禁止读 SDD 原文、禁止通读 ORCHESTRATION-v1.0.md、禁止读其他 lane 的实现文件。
 【环境事实】先读 docs/CONTEXT-BRIEF-v1.0.md（环境/写文件管线/已建成 API/5 条陷阱/规模校准）。写文件管线：PowerShell Set-Content -Encoding UTF8 写 C:\Users\szf\AppData\Local\Temp\dsm_stage\ → rsync -a 进仓库 → python3 tools/normalize.py → venv python 跑 pytest。命令里禁止出现 $ 与反引号。
 【任务】<卡片表的「产物」列原文> 。写集只有：<卡片表「写集」列>。守护测试编号：<卡片表编号列>。预算：<墙钟 min / 生产代码行 / 测试函数数>。
@@ -293,7 +335,7 @@ PKG=<包号> STATUS=<done|blocked|partial> COMMIT=<sha7> MIN=<实际墙钟> PROD
 【交付】最终答复**只给一行** PKG=... STATUS=... COMMIT=... MIN=... PROD=... TF=... PASS=... FAIL=... GAPS=... NOTES=...（≤5 行事实与数字）。
 ```
 
-## 9. 状态持久化（`ops/dag-state.json` schema v3）
+## 9. 状态持久化（`ops/dag-state.json` schema v3，实测 30,839 B）
 
 ```json
 {
@@ -333,7 +375,7 @@ PKG=<包号> STATUS=<done|blocked|partial> COMMIT=<sha7> MIN=<实际墙钟> PROD
 }
 ```
 
-**断点续跑规则**（照 ORCH §8）：新会话启动先读本文件 §3/§4 + `ops/dag-state.json` + `ops/blockers.md`，从 `lanes[*].queue` 的第一个 `pending` 包继续；**不重跑已 done 的包**；`ev` 字段只存数字（v2.0 §6）；整份状态文件 ≤25 KB。
+**断点续跑规则**（照 ORCH §8）：新会话启动先读本文件 §3/§4 + `ops/dag-state.json` + `ops/blockers.md`，从 `lanes[*].queue` 的第一个 `pending` 包继续；**不重跑已 done 的包**；`ev` 字段只存数字（v2.0 §6）；整份状态文件 ≤32 KB（实测 30,839 B，理由见 §13）。
 
 ## 10. 风险登记（并行模式特有，RK-P1 ~ RK-P5 共 5 条 + 缓解）
 
@@ -382,11 +424,17 @@ PKG=<包号> STATUS=<done|blocked|partial> COMMIT=<sha7> MIN=<实际墙钟> PROD
 
 【第 2 步 · 排程】
 按 §4 卡片表建立 6 条 lane 队列（A/B/C/D/E/F），lane 优先级 A > D > F > B > E > C。
-T+0 同时派发 6 个首包：
-  A1 fixtures_gen ｜ B1 attainment ｜ C1 io_loaders ｜ D1 weights_ahp ｜ E1 集成骨架 ｜ F1 entropy.py
+T+0 同时派发 6 个首包（**括号内是必须显式传给 spawn_agent 的 model + reasoning_effort，R-16**）：
+  A1 fixtures_gen (qwen3.8-max, high)      ｜ B1 attainment (qwen3.8-max, high)
+  C1 io_loaders   (qwen3.8-flash, medium)  ｜ D1 weights_ahp (qwen3.8-max, high)
+  E1 集成骨架      (qwen3.8-max, high)      ｜ F1 entropy.py (qwen3.8-max, high)
 **ORCH-07 硬要求：D1 weights_ahp 与 F1 entropy.py 必须同批 T+0 起跑，不得串行**——
 A2 weights_combine 的起跑点取决于二者中较晚的那个，串行会把关键路径推后 0.67h。
-派工一律用 §8 模板，5 段自包含，digest 只给卡片表列出的那几份。
+**ORCH-08 硬要求：每次 spawn_agent 都必须显式传 model 与 reasoning_effort，取值照 §5.4 配对表**
+（xhigh 3 包 = A2/A3/A4；high 20 包；medium 6 包 = B2/C1/D5/E3/E4/F4；low 2 包 = P3b/P3c）。
+**省略 model 参数 = 子 agent 继承父模型 = 31 个包全跑在 max 上 = 成本护栏形同虚设。**
+派工一律用 §8 模板（6 段自包含），digest 只给卡片表列出的那几份。
+flash 包若同一错误签名连续 2 次未过门禁 → 立即 close 原 agent，用 qwen3.8-max + high 重派同一包（占 F 机动槽）。
 
 【第 3 步 · 连续推进，直到交付包产出】
 - lane 内串行、lane 间并行；某 lane 空闲即从自己队列取下一包，**不跨 lane 抢包**（写集互斥，R-1）
@@ -410,7 +458,7 @@ T+10.0 到点：立即停止新派工，close 全部 agent，产出交付包（�
 输出最终对账单（≤40 行，七段），tag 打在实际完成度上（未全绿则打 v1.1.0-rc1 并写明差距）。
 
 【报告纪律】只在同步点末与 Phase 结束时汇报，每次 ≤15 行，只给数字与事实：
-墙钟 / 完成包数 / 全量 pytest 统计 / 生产代码行 / 净新增测试函数（上限 120）/ 预算违规数 / contract-gaps 数 / 占用槽位数 / 下一批派工。
+墙钟 / 完成包数 / 全量 pytest 统计 / 生产代码行 / 净新增测试函数（上限 120）/ 预算违规数 / contract-gaps 数 / 占用槽位数 / **按模型分别统计：包数 + 实际 token + flash 首试通过率 + 升级次数**（累计 token 上限 3.0M）/ 下一批派工。
 禁止形容词，禁止粘贴代码或 pytest 全量输出。
 ```
 
@@ -421,9 +469,12 @@ T+10.0 到点：立即停止新派工，close 全部 agent，产出交付包（�
 | 墙钟 vs 计划（§3） | 偏差 ≤ +0.5 h | 超则砍 Phase 3 的 P3b 改期，**不得砍 S7/S8** |
 | 净新增测试函数（累计） | ≤120（R-9） | 超则冻结后续包的新增测试，只允许实现 |
 | 生产代码 : 非生产物 | ≥ 1 : 3（v1.0 是 1 : 31） | 超则下一包降档为 C1 仪式 |
-| C3/max 包占比 | ≤60%（ORCH-04；实测 55%） | 超则按 §5.2 降级候选顺序降档，守护测试编号不得减少 |
+| C3/max 包占比（**信息项，非护栏**） | 实测 23/31 = 74%（ORCH-04 已认定 §3.4 的 ≤40% 占比护栏与 §3.1 打分表不可同时满足，护栏作废） | 只登记不处置；成本治理一律看上一行的 token 累计值，超支才按 §5.2 降级候选降档 |
 | `ops/evidence/` 入库体积 | **0 B**（已 gitignore） | 发现即 `git rm --cached` |
-| `ops/dag-state.json` 体积 | ≤25 KB（v2.0 §6 口径；瘦身后实测 **18,569 B**，卡片全文只在 §4 不重复存） | 超则把 session_log 归档到 `ops/session-log-archive.md` |
+| `ops/dag-state.json` 体积 | **≤32 KB**（v2.0 §6 原定 ≤25 KB，ORCH-08 后每包新增 `model_id`/`effort`/`token_budget_k`/`ev.token_k`/`ev.first_pass`/`ev.escalated_from` 六个路由字段，31 包实测 30,839 B；已把 `sync_points.must` 与档位复核论证外移到 §7 / §5.2 / 附 B 以免重复。**v2.0 §6 的实质要求是「evidence 字段只存数字、不塞文本块」，此项仍严格满足**） | 超则把 session_log 归档到 `ops/session-log-archive.md` |
+| **全 run 累计 token** | **≤3.0M**（lane 侧 2.34M + 主控侧 0.66M，§5.2） | 超支 → 按 §5.2 降级候选顺序降档（E2→C2、F4→C1、D5→C1、C1→C1、B2→C1），守护测试编号不得减少 |
+| **flash 首试通过率** | ≥50%（ORCH §3.4） | 低于 50% → 下一波次**先修拆分粒度或 digest 质量**再继续，不得硬推 |
+| **spawn 是否显式带 model/effort** | **100%（R-16）** | 发现省略 → 该包作废重派，计入 `budget_violations` |
 | 四条不可砍底线的守护测试 | 全绿 | 任一红 → **停机上报，不得进入 Phase 3** |
 
 ---
@@ -451,7 +502,8 @@ T+10.0 到点：立即停止新派工，close 全部 agent，产出交付包（�
 | ORCH-01（沿用） | `fixtures_gen` 从 SDD §3.17.2 step 8 提前到 Phase 1 首包 | G-01~G-15 与 calibrate 的 ≥4 期历史都要用它；不改口径只改顺序 |
 | ORCH-02（沿用） | CEL-0 预留按 **7 字段**（非 §5.8.1 表格的 8 个） | `interpretation_limit` 是 T4 正式字段（SDD 行 1172） |
 | **ORCH-03（本 run 新增）** | 新增 `dsm/entropy.py` 于 **L1**，模块数 23 → 24 | §5.1：INV-1 禁止 L5 import L0a，而 §2.4.2 行 537 要求「两个计算者共用同一实现」 |
-| **ORCH-04（本 run 新增）** | 高档（C3/max）任务占比统一取 **≤45%**（ORCH 实例原写 ≤40%） | §5.2：本 run C3 包 15/31 = 48%，卡 40% 会把四条不可砍底线的落点降档 |
+| **ORCH-04（本 run 新增，ORCH-08 后修订）** | 高档占比护栏：ORCH §3.4 原文「flash ≥60% 任务数 / max ≤40%」。按 §3.1 打分表**逐包复核**后实测 **C3/max = 23/31 = 74%**（初版误标为 17/31 = 55%，见 ORCH-08）。认定 §3.1 打分表与 §3.4 占比护栏在 DSM 上**不可同时满足**（「推导算法」与「跨模块门禁裁决」各 +3，而 C3 门槛仅 ≥4 分，DSM 模块几乎个个同时命中两条）→ **占比护栏作废**，改用 **token 硬上限 3.0M**（lane 2,340k + 主控 660k）治理成本，并以 `reasoning_effort` 作第二旋钮（xhigh 3 / high 20 / medium 6 / low 2）。超支降级候选：E2→C2、F4→C1、D5→C1、C1 io_loaders→C1、B2→C1（全降后 max 18/31 = 58%、上限 1,890k，仍高于 40%，不再视为违规） | §5.2 逐包打分 + v2.0 §0 正确性 > 成本 |
 | **ORCH-05（本 run 新增）** | 串行 DAG（ORCH §5 的 S1→S9 阶段序）改为 **lane 波次并行**（初版设计 5 lane，ORCH-07 实测并发后定为 6 lane）；阶段门禁（ORCH §6）**不变**，仍在 Phase 2/3 逐条核 | §2.2：契约冻结后模块间只耦合类型不耦合实现 |
 | **ORCH-06（本 run 新增）** | 全量 pytest 由「每任务跑」改为「**只在 4 个同步点 + Phase 2 跑**」，lane 内只跑本包测试 | 当前 tests/ 已 9,963 行，每包跑全量的成本会吃掉并行收益 |
 | **ORCH-07（本 run 新增）** | ① 并发槽位由「待用户确认」改为**实测 = 6**（spawn 8 探针，第 7/8 被拒 `agent thread limit reached`；6 路区间重叠 9.01 s，加速比 3.49×）；排程由 5 lane 改为 **6 lane**（新增机动 lane F）。② `entropy.py`（F1）与 `weights_ahp.py`（D1）**同批 T+0 起跑**，不串行——依据 SDD §2.4.3 的 `combine(ahp, entropy, opts)` 签名证明二者是并列输入而非先后步骤；combine 起跑点由 T+1.67 提到 T+1.00，**Phase 1 由 5.92 h 降到 5.50 h**。③ `audit`/`diagnostics`/`reports` 由 B、C lane 移入 F lane。④ whatif ∥ calibrate 的进一步加速**未采纳**（ORCH §5.9 明令 S8 严格串行），登记为条件触发的 ORCH-07b | §3.1 实测数据 + §5.3 |
+| **ORCH-08（本 run 新增）** | ① **模型路由落到 spawn 调用**：新增铁律 **R-16**，`spawn_agent` 必须显式传 `model` + `reasoning_effort`；初版 v3.0 全文未出现 `qwen3.8-max`/`qwen3.8-flash`，照初版执行会导致 31 包全部继承父模型、高低搭配完全失效。② 按 ORCH §3.1 打分表**逐包复核档位，修正 8 处标低**：preflight / evidence / normalize / triangulation / entropy / audit / diagnostics 由 C2 上调 C3，P3b 由 C2 下调 C1，E3 golden-b 由 C3 下调 C2。C3 由 17 → **23/31 = 74%**。③ 认定 **ORCH §3.1 打分表与 §3.4 占比护栏（max ≤40%）在本项目不可同时满足**，属继承基线的内部矛盾；**作废占比护栏，改用 token 硬上限 3.0M** 作为成本治理手段。④ 引入 `reasoning_effort` 作为第二旋钮：xhigh 3 包（A2/A3/A4）、high 20 包、medium 6 包、low 2 包。⑤ 补齐升降级的**并行语义**（升级=close 原 agent + max 重派同一包 + 占 F 机动槽；降级由主控在同步点统一裁决，lane 内不得自行降级） | §3.1 打分表逐包复核 + spawn_agent 默认继承父模型的行为 |

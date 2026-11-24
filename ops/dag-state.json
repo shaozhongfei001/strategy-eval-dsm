@@ -208,28 +208,28 @@
    "at_h": 1.0,
    "done": false,
    "must": [
-    "A1 fixtures 冻结（fixtures/** 此后只读）",
-    "D1 ahp 与 F1 entropy 双交付确认（ORCH-07 要求同批，缺一个则 A2 不得起跑）",
-    "执行 ORCH-03：dsm/__init__.py 的 L1 行加 entropy",
-    "E1 首轮 skip 清单入账"
+    "fixtures 冻结",
+    "D1+F1 双确认（ORCH-07）",
+    "执行 ORCH-03",
+    "E1 skip 清单入账"
    ]
   },
   "SP-2": {
    "at_h": 2.75,
    "done": false,
    "must": [
-    "【本 run 最关键放行点】B3 grading + D2 sensitivity + E1 骨架三者全绿才放行 A3 calibrate；任一未绿则优先补该 lane 并把 F 机动槽压上去，其余 lane 挂起",
-    "抽查 B4 commit message 是否逐条列出 211 RED 的删改理由（RK-P5）",
-    "若 Lane A 已落后 ≥0.5h，读 docs/digest/M10-whatif.md 复核 Step 8 是否可选，成立则启用 ORCH-07b（whatif ∥ calibrate，省 1.25h）"
+    "【关键放行点】B3+D2+E1 全绿才放行 A3",
+    "抽查 B4 的 211 RED triage 理由（RK-P5）",
+    "若 Lane A 落后≥0.5h 则读 M10 评估 ORCH-07b"
    ]
   },
   "SP-3": {
    "at_h": 4.25,
    "done": false,
    "must": [
-    "A3 calibrate 完成确认",
-    "C4/C5 与 D3/D4 交付确认",
-    "E2/E3 golden 首轮结果入账",
+    "A3 完成确认",
+    "C4/C5/D3/D4 确认",
+    "E2/E3 golden 首轮入账",
     "契约缺口批量裁决 #2"
    ]
   },
@@ -237,8 +237,8 @@
    "at_h": 5.5,
    "done": false,
    "must": [
-    "Phase 1 收口全量 pytest 统计",
-    "决定 Phase 2 缺陷切片分派（F 为第一顺位）"
+    "Phase 1 收口全量 pytest",
+    "Phase 2 缺陷切片分派（F 第一顺位）"
    ]
   }
  },
@@ -246,11 +246,12 @@
   "ORCH-01": "fixtures_gen 从 SDD §3.17.2 step 8 提前到 Phase 1 首包（只改顺序不改口径）",
   "ORCH-02": "CEL-0 预留按 7 字段（interpretation_limit 是 T4 正式字段，SDD 行 1172）",
   "ORCH-03": "新增 dsm/entropy.py 于 L1，模块数 23→24。依据 SDD 行 537「熵权六步两个计算者共用同一实现」，而 INV-1 禁止 L5(diagnostics) import L0a(weights_combine)，只有放 L1 同时满足两者。不塞进 numeric.py（它是唯一数值口径实现点，且会让 6 lane 抢同一写集）。不改任何算法步骤与口径",
-  "ORCH-04": "高档占比护栏由 ≤40%/≤45% 改为本 run 专属 ≤60%（实测 C3 = 17/31 = 55%）。15 个 Phase 1 C3 包全落在四条不可砍底线上，降档等于把底线交给 flash，违反 v2.0 §0。降级候选顺序：E3→C2、F2 audit→C1、F4 reports→C1、D5 cli→C1、P3c→C1（全降可压到 39%），降级后守护测试编号不得减少",
+  "ORCH-04": "成本护栏：实测 C3/max = 23/31 = 74%（Phase 1 21/27 = 78%）。认定 ORCH §3.1 打分表与 §3.4 占比护栏（flash ≥60% 任务数 / max ≤40%）在 DSM 上不可同时满足 → 占比护栏作废，改用 token 硬上限（lane 2,340k + 主控 660k = 3,000k）；effort 作第二旋钮（xhigh 3 / high 20 / medium 6 / low 2）。超支降级候选 E2→C2、F4→C1、D5→C1、C1→C1、B2→C1（全降后 max 58%、上限 1,890k）。详见 §5.2",
   "ORCH-05": "串行 DAG 改为 6 lane 并行；ORCH §6 阶段门禁不变，仍在 Phase 2/3 逐条核",
   "ORCH-06": "全量 pytest 只在 4 个同步点 + Phase 2 跑（tests/ 已 9963 行，每包跑全量会吃掉并行收益）",
   "ORCH-07": "并发槽位实测 = 6（真并行，非多槽单跑）→ 排程由 5 lane 改为 6 lane（新增机动 lane F）。entropy.py(F1) 与 weights_ahp.py(D1) 同批 T+0 起跑，依据 §2.4.3 的 combine(ahp, entropy, opts) 签名证明二者是并列输入；combine 起跑点 T+1.67→T+1.00，Phase 1 由 5.92h 降到 5.50h。audit/diagnostics/reports 由 B、C 移入 F",
-  "ORCH-07b": "【条件触发，未启用】whatif ∥ calibrate。M42 行 1073「重跑 Step 1–7（可选 Step 8）」支持此读法，可再省 1.25h（Phase 1→4.25h）。未采纳原因：ORCH §5.9 明令 S8 严格串行且注明 whatif 复用两者。触发条件：SP-2 时 Lane A 落后计划 ≥0.5h，且主控读 M10 digest 确认 Step 8 可选"
+  "ORCH-07b": "【条件触发，未启用】whatif ∥ calibrate。M42 行 1073「重跑 Step 1–7（可选 Step 8）」支持此读法，可再省 1.25h（Phase 1→4.25h）。未采纳原因：ORCH §5.9 明令 S8 严格串行且注明 whatif 复用两者。触发条件：SP-2 时 Lane A 落后计划 ≥0.5h，且主控读 M10 digest 确认 Step 8 可选",
+  "ORCH-08": "模型路由落地绑定：v3.0 初版 0 处出现 qwen3.8-max/flash、§8 与 §12 未要求 spawn 传 model，而 spawn_agent 默认继承父模型 → 照初版执行会使 31 包全跑父模型、档位标注沦为装饰。修补 = 新增 R-16 + §5.4 配对表 + §8【模型】段 + §12 逐包标注 + §13 三行对账 + 升降级并行语义；并按 §3.1 打分表修正 8 处档位标低（7 升 C3、E3 降 C2、P3b 降 C1），C3 由 17→23。详见 §5.4 与附 B"
  },
  "pkg_id_remap_from_5lane": {
   "B5 audit": "F2",
@@ -280,8 +281,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "A2": {
    "lane": "A",
@@ -303,8 +310,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "xhigh",
+   "token_budget_k": 90
   },
   "A3": {
    "lane": "A",
@@ -327,8 +340,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "xhigh",
+   "token_budget_k": 90
   },
   "A4": {
    "lane": "A",
@@ -348,8 +367,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "xhigh",
+   "token_budget_k": 90
   },
   "B1": {
    "lane": "B",
@@ -367,8 +392,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "B2": {
    "lane": "B",
@@ -388,8 +419,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-flash",
+   "effort": "medium",
+   "token_budget_k": 40
   },
   "B3": {
    "lane": "B",
@@ -409,8 +446,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "B4": {
    "lane": "B",
@@ -428,8 +471,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "C1": {
    "lane": "C",
@@ -447,13 +496,19 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-flash",
+   "effort": "medium",
+   "token_budget_k": 40
   },
   "C2": {
    "lane": "C",
    "module": "preflight.py",
-   "cx": "C2",
+   "cx": "C3",
    "model": "flash",
    "status": "pending",
    "deps": [
@@ -468,13 +523,19 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "C3": {
    "lane": "C",
    "module": "evidence.py",
-   "cx": "C2",
+   "cx": "C3",
    "model": "flash",
    "status": "pending",
    "deps": [],
@@ -487,8 +548,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "C4": {
    "lane": "C",
@@ -506,8 +573,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "C5": {
    "lane": "C",
@@ -528,8 +601,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "D1": {
    "lane": "D",
@@ -547,8 +626,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "D2": {
    "lane": "D",
@@ -566,13 +651,19 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "D3": {
    "lane": "D",
    "module": "normalize.py",
-   "cx": "C2",
+   "cx": "C3",
    "model": "flash",
    "status": "pending",
    "deps": [],
@@ -585,13 +676,19 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "D4": {
    "lane": "D",
    "module": "triangulation.py",
-   "cx": "C2",
+   "cx": "C3",
    "model": "flash",
    "status": "pending",
    "deps": [],
@@ -604,8 +701,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "D5": {
    "lane": "D",
@@ -625,8 +728,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-flash",
+   "effort": "medium",
+   "token_budget_k": 40
   },
   "E1": {
    "lane": "E",
@@ -646,8 +755,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "E2": {
    "lane": "E",
@@ -667,13 +782,19 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "E3": {
    "lane": "E",
    "module": "golden G-09~G-15",
-   "cx": "C3",
+   "cx": "C2",
    "model": "max",
    "status": "pending",
    "deps": [
@@ -688,8 +809,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-flash",
+   "effort": "medium",
+   "token_budget_k": 40
   },
   "E4": {
    "lane": "E",
@@ -709,8 +836,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-flash",
+   "effort": "medium",
+   "token_budget_k": 40
   },
   "E5": {
    "lane": "E",
@@ -730,13 +863,19 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "F1": {
    "lane": "F",
    "module": "entropy.py（L1 新增，ORCH-03）",
-   "cx": "C2",
+   "cx": "C3",
    "model": "flash",
    "status": "pending",
    "deps": [],
@@ -749,13 +888,19 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "F2": {
    "lane": "F",
    "module": "audit.py",
-   "cx": "C2",
+   "cx": "C3",
    "model": "flash",
    "status": "pending",
    "deps": [],
@@ -768,13 +913,19 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "F3": {
    "lane": "F",
    "module": "diagnostics.py",
-   "cx": "C2",
+   "cx": "C3",
    "model": "flash",
    "status": "pending",
    "deps": [
@@ -789,8 +940,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "F4": {
    "lane": "F",
@@ -808,8 +965,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-flash",
+   "effort": "medium",
+   "token_budget_k": 40
   },
   "P2": {
    "lane": "ALL",
@@ -834,8 +997,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "P3a": {
    "lane": "A",
@@ -855,13 +1024,19 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 90
   },
   "P3b": {
    "lane": "E",
    "module": "Phase 3 第二人复跑",
-   "cx": "C2",
+   "cx": "C1",
    "model": "flash",
    "status": "pending",
    "deps": [
@@ -876,8 +1051,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-flash",
+   "effort": "low",
+   "token_budget_k": 15
   },
   "P3c": {
    "lane": "F",
@@ -897,8 +1078,14 @@
     "tf": null,
     "pass": null,
     "fail": null,
-    "commit": null
-   }
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-flash",
+   "effort": "low",
+   "token_budget_k": 15
   }
  },
  "legacy_tasks": [
@@ -978,10 +1165,10 @@
   "verified_at_commit": "064fca2"
  },
  "counters": {
-  "flash_pkgs": 0,
-  "max_pkgs": 0,
-  "c3_pkgs": 17,
-  "c3_ratio_pct": 55,
+  "flash_pkgs": 8,
+  "max_pkgs": 23,
+  "c3_pkgs": 23,
+  "c3_ratio_pct": 74,
   "escalations": 0,
   "rework_rounds": 0,
   "quality_incidents": 0,
@@ -990,7 +1177,25 @@
   "net_new_test_funcs": 0,
   "net_new_test_funcs_cap": 120,
   "slots_in_use": 0,
-  "slots_limit": 6
+  "slots_limit": 6,
+  "c2_pkgs": 6,
+  "c1_pkgs": 2,
+  "effort_dist": {
+   "high": 20,
+   "xhigh": 3,
+   "medium": 6,
+   "low": 2
+  },
+  "token_budget_lane_k": 2340,
+  "token_budget_orch_k": 660,
+  "token_hard_cap_k": 3000,
+  "token_used_k": {
+   "max": 0,
+   "flash": 0
+  },
+  "downgrades": 0,
+  "flash_first_pass_ok": 0,
+  "flash_first_pass_total": 0
  },
  "next_dispatch": {
   "A": "A1",
@@ -1049,6 +1254,90 @@
     "v3.0 文档更新到 457 行 / 50087 B；dag-state.json 重写为 6 lane / 31 包"
    ],
    "next": "A1 B1 C1 D1 E1 F1（T+0 同时派发，D1 与 F1 必须同批）"
+  },
+  {
+   "seq": 5,
+   "date": "2026-11-24",
+   "session": "parent(交互)",
+   "did": [
+    "用户质询「新 DAG 是否考虑 qwen3.8-max/flash 高低搭配」→ 审计发现执行断层",
+    "grep 实测：v3.0 初版全文 0 处出现 qwen3.8-max / qwen3.8-flash，§8 与 §12 均未要求 spawn_agent 传 model",
+    "ORCH-08：新增铁律 R-16 + §5.4 模型/effort 配对表（xhigh 3 / high 20 / medium 6 / low 2）+ 升降级并行语义",
+    "按 ORCH §3.1 打分表逐包复核档位，修正 8 处标低（7 升 C3、E3 降 C2、P3b 降 C1），C3 由 17 → 23",
+    "ORCH-04 补完：认定 §3.1 打分表与 §3.4 占比护栏不可同时满足，占比护栏作废，改用 token 硬上限 3.0M",
+    "dag-state 每包新增 model_id / effort / token_budget_k / ev.token_k / ev.first_pass / ev.escalated_from"
+   ],
+   "next": "A1 B1 C1 D1 E1 F1（T+0 同时派发，spawn 必须显式带 model+effort）"
   }
- ]
+ ],
+ "model_routing": {
+  "rule": "R-16 / ORCH-08：spawn_agent 必须显式传 model + reasoning_effort，禁止省略（省略 = 继承父模型 = 高低搭配失效）",
+  "pairs": {
+   "C3": "qwen3.8-max",
+   "C2": "qwen3.8-flash",
+   "C1": "qwen3.8-flash"
+  },
+  "effort_map": {
+   "xhigh": [
+    "A2",
+    "A3",
+    "A4"
+   ],
+   "high": [
+    "A1",
+    "B1",
+    "B3",
+    "B4",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "D1",
+    "D2",
+    "D3",
+    "D4",
+    "E1",
+    "E2",
+    "E5",
+    "F1",
+    "F2",
+    "F3",
+    "P2",
+    "P3a"
+   ],
+   "medium": [
+    "B2",
+    "C1",
+    "D5",
+    "E3",
+    "E4",
+    "F4"
+   ],
+   "low": [
+    "P3b",
+    "P3c"
+   ]
+  },
+  "token_budget_per_pkg_k": {
+   "C3": 90,
+   "C2": 40,
+   "C1": 15
+  },
+  "escalation": "同一包 + 同一错误签名 + 连续 2 次未过门禁 → close 原 agent → qwen3.8-max/high 重派同一包（占 F 机动槽），附两次失败日志原文",
+  "downgrade": "max 完成的包被 R4 判定「规格逐字搬运、无推导成分」→ 主控在同步点统一裁决同族后续包降 flash；lane 内不得自行降级",
+  "forbidden": "不得为省 token 把 C3 包先派给 flash「先试试」（ORCH §3.3.3）；C3 首次派工必须是 max",
+  "flash_first_pass_gate": "某同步点内 flash 首试通过率 <50% → 下一波次先修拆分粒度或 digest 质量再继续（ORCH §3.4）",
+  "guardrail_change": "ORCH §3.4 的占比护栏（flash ≥60% 任务数 / max ≤40%）作废：与 §3.1 打分表在本项目不可同时满足（实测 max = 23/31 = 74%）。…",
+  "downgrade_candidates_if_over_budget": [
+   "E2 golden-a→C2",
+   "F4 reports→C1",
+   "D5 cli→C1",
+   "C1 io_loaders→C1",
+   "B2 aggregate→C1"
+  ],
+  "downgrade_floor": "max = 18/31 = 58%，token 上限降到 1,890k",
+  "detail_ref": "升降级并行语义、护栏变更依据见 §5.4 ORCH-08"
+ },
+ "grade_reaudit_ref": "ORCH §3.1 打分表逐包复核的过程与逐包得分见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §5.2 与附 B（ORCH-08）",
+ "sync_points_detail_ref": "每个同步点的完整裁决清单与固定 5 件事见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §7"
 }
