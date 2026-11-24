@@ -69,6 +69,27 @@ imputed. Negative actuals never enter the sample on either scope: a negative is
 the very thing being replaced. The median is Decimal end to end (V-9,
 numeric.median), never a float mean.
 
+WHICH SET that median is read from is a second question, and [L1134] does not
+answer it either: the line only enumerates the four rule names (ZERO / SKIP /
+IMPUTE_MEDIAN / BLOCK) and says not one word about the reference set. That is an
+original-text gap, filed as ERRATUM-08, so the basis level of the answer below is
+`derived:` and NOT `verbatim:` -- nothing here may be quoted as an explicit
+requirement of the design doc. It is derived from two things that ARE in the
+text: [L941], which already makes anchor_set the preferred reference for min/max
+and mean/sd, and the invariance [L1407] (G-05), [L1428] (P-4) and [L1500] (V-7)
+demand -- appending a strategy must leave every existing strategy's norm,
+composite and grade untouched. A median read off the current-period pool can
+never satisfy that: any appended row can move the pool median and with it the
+value an existing strategy's hole is imputed with, which then rewrites its
+attainment, norm, composite and grade. So the IMPUTE_MEDIAN reference set is the
+anchor_set first (compute(anchor_set=...)), and the current-period pool only as
+the fallback for a bucket the anchor set cannot serve at all -- a fallback that
+is disclosed as ANCHOR_SET_STALE rather than taken silently (V-14).
+anchor_set=None means the caller declared no anchor document at all; nothing can
+then be "stale", so the pool stays the reference set exactly as it was, with no
+code invented for it (H-7). Handing the real anchor document to every call site
+is chain wiring and is not something this module may invent on its own.
+
 A synthesized cell is not an observation, so it never widens
 attainment_coverage: [L928] counts what the strategy reported with a target
 over the signed-off metrics.
@@ -99,8 +120,8 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from dsm import numeric
 from dsm.config import AppConfig
-from dsm.models import (AttainmentFrame, AttainmentRow, DowngradeAction,
-                        MetricDictRow, MetricFactRow, Ratio)
+from dsm.models import (AnchorSetDoc, AttainmentFrame, AttainmentRow,
+                        DowngradeAction, MetricDictRow, MetricFactRow, Ratio)
 from dsm.numeric import D, ONE, ZERO, q12
 from dsm.reason_codes import RC
 
@@ -291,7 +312,8 @@ def _index_intervals(intervals) -> dict:
     return out
 
 
-def _clean_medians(facts, dictionary, scope=IMPUTE_SCOPE_ALL, signed=()) -> dict:
+def _clean_medians(facts, dictionary, scope=IMPUTE_SCOPE_ALL, signed=(),
+                   only_ids=None) -> dict:
     '''(version_id, period, metric_id) -> median of the non-negative actuals.
 
     Only built for metrics whose missing_rule is IMPUTE_MEDIAN, and only from
@@ -307,6 +329,16 @@ def _clean_medians(facts, dictionary, scope=IMPUTE_SCOPE_ALL, signed=()) -> dict
     unsigned metric with no sample at all. Rows of a strategy a BLOCK later
     suppresses stay in the sample on both scopes: the sample is a property of
     the metric and the period, and G-09's hand computation counts them.
+
+    only_ids restricts the sample to one set of strategy_ids and is how the
+    anchor_set reference sample is built (ORCH-37 ruling 8; basis level
+    `derived:` -- [L1134] names IMPUTE_MEDIAN and says nothing about which set
+    the median is read from, ERRATUM-08; see the module docstring). None samples
+    every strategy, i.e. the current-period pool, which is the fallback. The
+    bucket grain, the sign-off filter and the clean-row filter are deliberately
+    IDENTICAL for both samples: only the membership changes, so [L1134]'s scope
+    semantics and G-09's hand computation stay exactly as pinned and the two
+    samples stay comparable.
     '''
     if scope not in IMPUTE_SCOPES:
         raise AttainmentError('unknown impute_scope: ' + str(scope))
@@ -317,12 +349,74 @@ def _clean_medians(facts, dictionary, scope=IMPUTE_SCOPE_ALL, signed=()) -> dict
             continue
         if scope == IMPUTE_SCOPE_SIGNED and metric.signoff_status not in signed:
             continue
+        if only_ids is not None and fact.strategy_id not in only_ids:
+            # Outside the reference set: its actual must not move the median
+            # another strategy's hole is imputed from. This is the whole point of
+            # the anchor-first reading -- an appended strategy is not a member,
+            # so it cannot reach an existing strategy's imputed value ([L1407]).
+            continue
         value = D(fact.value)
         if value < ZERO:
             continue
         key = (fact.version_id, fact.period, fact.metric_id)
         buckets.setdefault(key, []).append(value)
     return {key: numeric.median(vals) for key, vals in buckets.items()}
+
+
+class _MedianTable:
+    '''Which median one IMPUTE_MEDIAN cell runs on: anchor_set first, pool second.
+
+    ORCH-37 ruling 8. Basis level `derived:`, NOT `verbatim:` -- [L1134] only
+    enumerates the four missing_rule names and says not one word about the
+    reference set the median comes from, so this is an original-text gap filed as
+    ERRATUM-08 and needs an SDD erratum plus business sign-off. It is derived
+    from [L941] (anchor_set is already the preferred reference for min/max and
+    mean/sd -- same reading, same governance philosophy: a fixed reference scale
+    is what stops a rank reversal) and from the invariance [L1407] (G-05) /
+    [L1428] (P-4) / [L1500] (V-7) impose. A pool-sourced median moves whenever a
+    strategy is appended, so it structurally cannot leave an existing strategy's
+    imputed hole -- and therefore its attainment, norm, composite and grade --
+    untouched. The anchor set is signed off and frozen for its effective period
+    ([L1213], RK-8), which is what makes it usable as that fixed scale.
+
+    `declared` separates two situations, and only the second is a degradation:
+
+      * anchor_set=None -- the caller declared no anchor document at all. There
+        is nothing that could be stale, so the pool is the reference set exactly
+        as it was before this ruling and no code is invented for it (H-7).
+      * an anchor document that cannot serve one bucket -- it has no member, or
+        no member with a clean non-negative actual, in that (version_id, period,
+        metric_id). That IS the "[L941] anchor set failed" case: the pool takes
+        over and the takeover is recorded on `pool_fallbacks` so compute() can
+        disclose it as ANCHOR_SET_STALE (V-14: never a silent fallback).
+
+    Expiry is deliberately NOT judged here: effective_from / effective_to
+    ([L1213]) can only be read against an as-of date, and this module reads no
+    clock (H-8); normalize.py, the [L941] precedent, does not judge expiry
+    either. "Stale" here means "cannot serve this bucket", the same reading
+    normalize uses for an anchor set with no member reporting this period.
+
+    Read-only apart from `pool_fallbacks`. `get` keeps the plain-mapping call
+    signature _apply_missing_rule already used, so the [L1134] dispatch table --
+    the one place a rule name turns into behaviour -- is untouched.
+    '''
+
+    def __init__(self, pool: Mapping, anchor: Mapping | None, declared: bool):
+        self._pool = pool
+        self._anchor = {} if anchor is None else anchor
+        self._declared = declared
+        self.pool_fallbacks = []      # bucket keys, in first-use order
+
+    def get(self, key):
+        '''The Decimal median for one (version_id, period, metric_id), or None.'''
+        if not self._declared:
+            return self._pool.get(key)
+        if key in self._anchor:
+            return self._anchor[key]
+        value = self._pool.get(key)
+        if value is not None and key not in self.pool_fallbacks:
+            self.pool_fallbacks.append(key)
+        return value
 
 
 # ---------------------------------------------------------------------------
@@ -543,7 +637,8 @@ def compute(facts: Sequence[MetricFactRow],
             *,
             params: AttainmentParams | None = None,
             intervals: Mapping[str, Sequence] | None = None,
-            impute_scope: str = IMPUTE_SCOPE_ALL) -> AttainmentResult:
+            impute_scope: str = IMPUTE_SCOPE_ALL,
+            anchor_set: AnchorSetDoc | None = None) -> AttainmentResult:
     '''Step 1 of the scoring flow: the absolute attainment track ([L927]).
 
     Exactly one of config / params must be given: config is resolved through
@@ -560,6 +655,17 @@ def compute(facts: Sequence[MetricFactRow],
     impute_scope picks the IMPUTE_MEDIAN sample (module docstring); it is an
     input because [L1134] states no scope and guessing one is forbidden (V-14).
 
+    anchor_set picks the IMPUTE_MEDIAN REFERENCE SET (ORCH-37 ruling 8, basis
+    level `derived:` -- [L1134] says nothing about it, ERRATUM-08). Keyword-only
+    and optional, so no existing call site changes meaning: an AnchorSetDoc makes
+    the median come from the anchor members first, with the current-period pool
+    only as the fallback for a bucket the anchor set cannot serve, disclosed as
+    ANCHOR_SET_STALE on AttainmentResult.downgrades; None keeps the pool as the
+    reference set and invents no code (_MedianTable). Same reading as [L941] and
+    as normalize.compute, which takes the anchor document as a mandatory
+    positional -- here it cannot be mandatory without rewriting every call site,
+    which is chain wiring and outside this module's write set.
+
     Complexity is O(strategies x metrics), one pass over the long fact table.
     '''
     if (config is None) == (params is None):
@@ -575,8 +681,25 @@ def compute(facts: Sequence[MetricFactRow],
         if not isinstance(fact, MetricFactRow):
             raise AttainmentError(
                 'facts entries must be MetricFactRow, got ' + type(fact).__name__)
-    medians = _clean_medians(fact_rows, dictionary, impute_scope,
-                             resolved.signed_off_statuses)
+    anchor_ids = None
+    if anchor_set is not None:
+        if not isinstance(anchor_set, AnchorSetDoc):
+            # An EMPTY strategy_ids tuple is the explicit "no anchor" case and is
+            # a declared anchor set (normalize.compute reads it the same way, and
+            # it must be allowed to reach the ANCHOR_SET_STALE fallback instead
+            # of being refused). Anything that is not an AnchorSetDoc at all is a
+            # caller error: guessing membership would be inventing a reference
+            # set (V-14).
+            raise AttainmentError(
+                'anchor_set must be an AnchorSetDoc or None, got '
+                + type(anchor_set).__name__)
+        anchor_ids = frozenset(anchor_set.strategy_ids)
+    pool_medians = _clean_medians(fact_rows, dictionary, impute_scope,
+                                  resolved.signed_off_statuses)
+    anchor_medians = None if anchor_ids is None else _clean_medians(
+        fact_rows, dictionary, impute_scope, resolved.signed_off_statuses,
+        only_ids=anchor_ids)
+    medians = _MedianTable(pool_medians, anchor_medians, anchor_ids is not None)
 
     signed = resolved.signed_off_statuses
     rows = []
@@ -625,6 +748,22 @@ def compute(facts: Sequence[MetricFactRow],
         rows = [row for row in rows
                 if (row.strategy_id, row.version_id, row.period) not in blocked]
         numerator = {k: v for k, v in numerator.items() if k not in blocked}
+
+    surviving = {(row.version_id, row.period, row.metric_id) for row in rows}
+    for key in sorted(k for k in medians.pool_fallbacks if k in surviving):
+        # V-14: falling back to the current-period pool is a downgrade, so it
+        # rides out as a [L1051] item-13 DowngradeAction, one per bucket that
+        # really did land a row (a bucket whose only imputation belonged to a
+        # BLOCK-suppressed strategy is dropped with that strategy, and disclosing
+        # an imputation that never reached the frame would be a false claim).
+        # ANCHOR_SET_STALE is registered WARN with blocks_run False
+        # (dsm/reason_codes.py:49), so the run still produces scores.
+        downgrades.append(DowngradeAction(
+            reason_code=RC.ANCHOR_SET_STALE,
+            action='IMPUTE_MEDIAN 的锚定参考集对该 (version, period, metric) 桶无有效'
+                   '出值，已回退当期池中位数（ORCH-37 第 8 条；依据等级 derived:，'
+                   '[L1134] 对参考集零字规定 -> ERRATUM-08）',
+            subject='|'.join(key)))
 
     rows.sort(key=_locator)
     denominator = sum(1 for m in dictionary.values() if m.signoff_status in signed)

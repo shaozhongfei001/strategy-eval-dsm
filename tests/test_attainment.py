@@ -24,8 +24,12 @@ from dsm.attainment import (
     AttainmentImputeError, AttainmentParams)
 from dsm.config import AppConfig
 from dsm.models import AttainmentFrame, MetricDictRow, MetricFactRow
+# ATT-1: the T8 anchor document, the IMPUTE_MEDIAN reference set (ORCH-37 r8)
+from dsm.models import AnchorSetDoc
 from dsm.numeric import D, ZERO, eq_tol
 from dsm.reason_codes import RC
+# ATT-1: severity / blocks_run of the fallback code are registry properties
+from dsm.reason_codes import Severity, blocks_run, severity
 
 CAP = D('1.2')
 SIGNED = ('SIGNED',)
@@ -534,3 +538,275 @@ def test_g04_negative_actual_zero_counts_zero_on_an_inverse_metric_too():
     r = _row(_compute([_fact('S1', 'm_cost', -80000)], [m]), 'S1', 'm_cost')
     assert r.attainment == ZERO and r.reason_code == RC.NEGATIVE_ACTUAL
     assert r.has_target is True and r.capped_flag is False
+
+
+# ---------------------------------------------------------------------------
+# ATT-1 / ORCH-37 ruling 8 -- WHICH SET the IMPUTE_MEDIAN median is read from.
+#
+# 依据等级 derived:，**不是** verbatim:。SDD [L1134] 只枚举 missing_rule 的四个
+# 名字（ZERO / SKIP / IMPUTE_MEDIAN / BLOCK），对「中位数取自哪个集合」**零字规定**
+# —— 这是原文缺口，登记为 ERRATUM-08，须走 SDD 勘误 + 业务签认。推导依据是原文里
+# 确实存在的两件事：
+#   * [L941]「min/max 与 mean/sd 优先取自 anchor_set」——同口径先例（固定参考尺）
+#   * [L1407] G-05 / [L1428] P-4 / [L1500] V-7 的不变性要求：追加策略不得改写存量
+# 中位数取自当期池时，追加任何一行都可能移动它 -> 存量策略的洞被填成别的值 ->
+# attainment / norm / composite / grade 一并被改写，不变性在结构上不可能成立。
+# 下面每一个期望值都由构造输入手算得出（R-14），无一取自实现输出。
+# ---------------------------------------------------------------------------
+ATT1_PERIOD = '2026-Q3'
+ATT1_VERSION = 'v1'
+
+
+def _anchors(*strategy_ids, anchor_set_id='AS-ATT1'):
+    '''One T8 anchor_set row. An EMPTY strategy_ids tuple is the explicit "no
+    anchor" case -- normalize.compute reads it the same way -- so it must be
+    accepted and reach the ANCHOR_SET_STALE fallback, not refused at the door.'''
+    return AnchorSetDoc(anchor_set_id=anchor_set_id,
+                        strategy_ids=tuple(strategy_ids),
+                        effective_from=DAY, effective_to=DAY,
+                        rationale='ATT-1 synthetic anchor rationale')
+
+
+def _afact(strategy_id, metric_id, value):
+    '''One T3 fact row inside the ATT-1 bucket (v1, 2026-Q3).'''
+    return _fact(strategy_id, metric_id, value,
+                 version_id=ATT1_VERSION, period=ATT1_PERIOD)
+
+
+def _att1_metrics():
+    '''m_roi carries the IMPUTE_MEDIAN hole (the G-09 construction, which the
+    frozen fixtures put on anchor member S-011); m_peer is a complete metric so
+    that every strategy exists in the [L1149] locator grid.'''
+    roi = _metric('m_roi', 'RATIO_DIRECT', 1, 'RATIO', D('0.1'),
+                  missing_rule='IMPUTE_MEDIAN')
+    peer = _metric('m_peer', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    return roi, peer
+
+
+def _att1_peers(*strategy_ids):
+    return [_afact(sid, 'm_peer', D('0.10')) for sid in strategy_ids]
+
+
+def _att1_cells(fr, only=None):
+    '''Whole [L928] rows as comparable tuples. Decimal equality with NO
+    tolerance, because G-05 asks for "unchanged", not for "close enough".'''
+    out = []
+    for r in fr.rows:
+        if only is not None and r.strategy_id not in only:
+            continue
+        out.append((r.strategy_id, r.version_id, r.period, r.metric_id,
+                    r.attainment, r.has_target, r.capped_flag, r.reason_code))
+    return tuple(out)
+
+
+def test_att1_g05_appended_extreme_strategy_leaves_an_existing_imputed_hole_unchanged():
+    '''G-05 的单元级复现（[L1407] / [L1428] P-4 / [L1500] V-7）：追加极端策略后，
+    存量策略被填补的那一格必须 Decimal 精确不变。
+
+    构造与冻结 fixtures 同形：洞落在**锚定成员** S-011 上，追加的 S-901 不入锚定集。
+    手算（target 0.1，RATIO_DIRECT，direction +1，cap 2）：
+      * 锚定样本 (A1, A2, A3) = [0.080, 0.090, 0.100] -> 中位数 0.090（奇数取中间）
+        -> S-011 填补后的达成率 = 0.090 / 0.1 = 0.900000000000
+      * 当期池样本 = [0.080, 0.090, 0.100, 0.130, 0.140] -> 中位数 0.100 -> 1.0
+      * 追加 S-901（m_roi 0.190，非锚定）后池变 6 个
+        [0.080, 0.090, 0.100, 0.130, 0.140, 0.190] -> 中位数 (0.100+0.130)/2 = 0.115
+        -> 池口径会把 S-011 改写成 1.150000000000；锚定样本一个值都没动 -> 仍 0.9。
+    '''
+    roi, peer = _att1_metrics()
+    metrics = [roi, peer]
+    anchor = _anchors('A1', 'A2', 'A3', 'S-011')
+    base_facts = ([_afact('A1', 'm_roi', D('0.080')),
+                   _afact('A2', 'm_roi', D('0.090')),
+                   _afact('A3', 'm_roi', D('0.100')),
+                   _afact('N1', 'm_roi', D('0.130')),
+                   _afact('N2', 'm_roi', D('0.140'))]
+                  + _att1_peers('A1', 'A2', 'A3', 'N1', 'N2', 'S-011'))
+    # S-011 carries NO m_roi row at all: the [L1156] missing-row trigger.
+    appended = base_facts + [_afact('S-901', 'm_roi', D('0.190')),
+                             _afact('S-901', 'm_peer', D('0.10'))]
+    params = _params(cap=D('2'))
+
+    before = _compute(base_facts, metrics, params=params, anchor_set=anchor)
+    after = _compute(appended, metrics, params=params, anchor_set=anchor)
+
+    assert 'S-901' not in anchor.strategy_ids, '极端策略必须不入锚定集（构造要点）'
+    existing = {'A1', 'A2', 'A3', 'N1', 'N2', 'S-011'}
+    # THE acceptance criterion: every existing row identical, Decimal-exact.
+    assert _att1_cells(before, existing) == _att1_cells(after, existing)
+    hole = _row(after, 'S-011', 'm_roi')
+    assert isinstance(hole.attainment, Decimal)
+    assert hole.attainment == D('0.900000000000')
+    assert _row(before, 'S-011', 'm_roi').attainment == D('0.900000000000')
+    assert hole.has_target is True and hole.capped_flag is False
+    assert hole.reason_code is None
+    # The anchor set served every bucket, so no fallback happened and none may be
+    # claimed either (V-14 cuts both ways: no silent downgrade, no invented one).
+    assert before.downgrades == () and after.downgrades == ()
+    # S-901 itself is scored from its own facts: 0.190 / 0.1 = 1.9, under cap 2.
+    assert _row(after, 'S-901', 'm_roi').attainment == D('1.900000000000')
+
+    # Teeth: the very same append under the POOL reference set (no anchor document
+    # declared) DOES move the existing hole. That is D-A1-08 reproduced, and it is
+    # why the anchor-first reading is needed rather than merely nicer.
+    pool_before = _compute(base_facts, metrics, params=params)
+    pool_after = _compute(appended, metrics, params=params)
+    assert _row(pool_before, 'S-011', 'm_roi').attainment == D('1.000000000000')
+    assert _row(pool_after, 'S-011', 'm_roi').attainment == D('1.150000000000')
+
+
+def test_att1_anchor_reference_set_outranks_the_current_pool_median():
+    '''锚定中位数 != 池中位数时，取的是锚定值（与 [L941] 同口径）。
+
+    手算（target 0.10，cap 5）：
+      * 锚定样本 (A1, A2) = [0.30, 0.50] -> 偶数取均值 0.40 -> 0.40 / 0.10 = 4
+      * 当期池样本 = [0.05, 0.05, 0.05, 0.30, 0.50] -> 中位数 0.05 -> 0.5
+    洞落在**非锚定**策略 S1 上：参考集是锚定集，与「谁的洞」无关。
+    '''
+    roi, peer = _att1_metrics()
+    facts = ([_afact('A1', 'm_roi', D('0.30')), _afact('A2', 'm_roi', D('0.50')),
+              _afact('N1', 'm_roi', D('0.05')), _afact('N2', 'm_roi', D('0.05')),
+              _afact('N3', 'm_roi', D('0.05'))]
+             + _att1_peers('A1', 'A2', 'N1', 'N2', 'N3', 'S1'))
+    fr = _compute(facts, [roi, peer], params=_params(cap=D('5')),
+                  anchor_set=_anchors('A1', 'A2'))
+    made = _row(fr, 'S1', 'm_roi')
+    assert made.attainment == D('4.000000000000')
+    assert made.attainment != D('0.500000000000'), '不得取当期池中位数'
+    assert made.capped_flag is False and made.reason_code is None
+    assert fr.downgrades == ()
+    # and the anchor members themselves are untouched by their own reference role
+    assert _row(fr, 'A1', 'm_roi').attainment == D('3.000000000000')
+
+
+def test_att1_pool_fallback_is_disclosed_as_anchor_set_stale_never_silent():
+    '''V-14：锚定集无法为该桶出值时回退当期池，且**必须**落 ANCHOR_SET_STALE。
+
+    两种失效都覆盖：
+      (a) 锚定集为空（strategy_ids = ()，[L239] 的显式「无锚定」）；
+      (b) 锚定成员存在，但对该指标在该桶内没有**干净**出值（唯一的锚定值是负数，
+          而负数正是被替换的对象，不入样本）。
+    手算（target 0.10，cap 2）：当期池样本 [0.06, 0.08, 0.10] -> 中位数 0.08
+      -> 回退后的填补达成率 = 0.08 / 0.10 = 0.800000000000。
+    '''
+    roi, peer = _att1_metrics()
+    bucket = ATT1_VERSION + '|' + ATT1_PERIOD + '|m_roi'
+
+    # (a) declared but empty anchor set
+    facts = ([_afact('N1', 'm_roi', D('0.06')), _afact('N2', 'm_roi', D('0.08')),
+              _afact('N3', 'm_roi', D('0.10'))]
+             + _att1_peers('N1', 'N2', 'N3', 'S1'))
+    fr = _compute(facts, [roi, peer], anchor_set=_anchors())
+    assert _row(fr, 'S1', 'm_roi').attainment == D('0.800000000000')
+    assert len(fr.downgrades) == 1, '回退必须留痕，且一桶一条'
+    stale = fr.downgrades[0]
+    assert stale.reason_code == RC.ANCHOR_SET_STALE
+    assert stale.subject == bucket
+    assert 'IMPUTE_MEDIAN' in stale.action
+    # severity / blocks_run are registry properties, asserted as registered
+    # (dsm/reason_codes.py:49 -> WARN; not in _BLOCKS_RUN -> the run still scores)
+    assert severity(RC.ANCHOR_SET_STALE) is Severity.WARN
+    assert blocks_run(RC.ANCHOR_SET_STALE) is False
+
+    # (b) an anchor member whose only value for the metric is negative: no clean
+    # anchor sample, so the pool takes over for BOTH the missing row of S1 and the
+    # negative-actual row of A1 -- one bucket, therefore exactly one disclosure.
+    facts_b = ([_afact('A1', 'm_roi', D('-1')), _afact('N1', 'm_roi', D('0.06')),
+                _afact('N2', 'm_roi', D('0.08')), _afact('N3', 'm_roi', D('0.10'))]
+               + _att1_peers('A1', 'N1', 'N2', 'N3', 'S1'))
+    fr_b = _compute(facts_b, [roi, peer], anchor_set=_anchors('A1'))
+    assert _row(fr_b, 'S1', 'm_roi').attainment == D('0.800000000000')
+    neg = _row(fr_b, 'A1', 'm_roi')
+    assert neg.attainment == D('0.800000000000')
+    assert neg.reason_code == RC.NEGATIVE_ACTUAL
+    assert len(fr_b.downgrades) == 1
+    assert fr_b.downgrades[0].reason_code == RC.ANCHOR_SET_STALE
+    assert fr_b.downgrades[0].subject == bucket
+
+
+def test_att1_anchor_median_of_an_even_sample_is_decimal_quantized_and_never_float():
+    '''偶数个锚定样本 -> 中间两值的均值，全程 Decimal（V-9），量化到既有 q12 口径。
+
+    手算：锚定样本 [1, 10000000000.1, 10000000000.3, 100000000000]（4 个，偶数）
+      -> 中位数 = (10000000000.1 + 10000000000.3) / 2 = 10000000000.2
+      -> target 1 -> 达成率 10000000000.200000000000（12 位小数）
+    当期池多一个非锚定的 7 -> [1, 7, 10000000000.1, 10000000000.3, 100000000000]
+      -> 中位数 10000000000.1，与锚定值不同，故本条同时钉住「取的是锚定样本」。
+    这两个值在二进制浮点里都不可精确表示：绕一趟 float 会得到
+      10000000000.199999809265，在 1e-12 上立刻露馅。
+    '''
+    big = _metric('m_big', 'RATIO_DIRECT', 1, 'RATIO', D('1'),
+                  missing_rule='IMPUTE_MEDIAN')
+    peer = _metric('m_peer', 'RATIO_DIRECT', 1, 'RATIO', D('0.20'))
+    facts = ([_afact('A1', 'm_big', D('1')),
+              _afact('A2', 'm_big', D('10000000000.1')),
+              _afact('A3', 'm_big', D('10000000000.3')),
+              _afact('A4', 'm_big', D('100000000000')),
+              _afact('N1', 'm_big', D('7'))]
+             + _att1_peers('A1', 'A2', 'A3', 'A4', 'N1', 'S1'))
+    fr = _compute(facts, [big, peer], params=_params(cap=D('100000000000')),
+                  anchor_set=_anchors('A1', 'A2', 'A3', 'A4'))
+    made = _row(fr, 'S1', 'm_big')
+    assert isinstance(made.attainment, Decimal)
+    assert not isinstance(made.attainment, float)
+    assert made.attainment == D('10000000000.200000000000')
+    assert made.attainment.as_tuple().exponent == -12, 'q12 口径：12 位小数'
+    assert made.attainment != D('10000000000.100000000000'), '不得取当期池中位数'
+    assert made.capped_flag is False
+    assert fr.downgrades == ()
+    # the float detour this assertion rules out, spelled out and hand-checked
+    contaminated = numeric.q12((Decimal(float('10000000000.1'))
+                                + Decimal(float('10000000000.3'))) / 2)
+    assert contaminated == D('10000000000.199999809265')
+    assert made.attainment != contaminated
+
+
+def test_att1_negative_actual_imputes_from_the_anchor_sample_and_excludes_negatives():
+    '''[L930] 的负数触发走同一张参考集表：填补值取自锚定样本，且锚定成员自己的
+    负数**不入**样本（负数正是被替换的对象，干净样本规则在锚定过滤下不变）。
+
+    手算（target 0.10，cap 2）：
+      * 第一组：锚定样本 [0.080, 0.100, 0.120] -> 中位数 0.100 -> 1.000000000000
+        （当期池 [0.080, 0.100, 0.120, 0.300, 0.400] -> 0.120 -> 1.2，两者不同）
+      * 第二组：把锚定成员 A3 的值改成负数 -> 锚定样本只剩 [0.080, 0.100]
+        -> 偶数均值 0.090 -> 0.900000000000
+        （当期池 [0.080, 0.100, 0.300, 0.400] -> 0.200 -> 2.0，两者不同）
+    '''
+    roi, peer = _att1_metrics()
+    params = _params(cap=D('2'))
+    anchor = _anchors('A1', 'A2', 'A3')
+    tail = [_afact('N1', 'm_roi', D('0.300')), _afact('N2', 'm_roi', D('0.400')),
+            _afact('S1', 'm_roi', D('-1'))]
+    peers = _att1_peers('A1', 'A2', 'A3', 'N1', 'N2', 'S1')
+
+    clean = [_afact('A1', 'm_roi', D('0.080')), _afact('A2', 'm_roi', D('0.100')),
+             _afact('A3', 'm_roi', D('0.120'))]
+    fr = _compute(clean + tail + peers, [roi, peer], params=params, anchor_set=anchor)
+    hit = _row(fr, 'S1', 'm_roi')
+    assert hit.attainment == D('1.000000000000')
+    assert hit.reason_code == RC.NEGATIVE_ACTUAL, '填补不吞掉既有的负数披露'
+    assert fr.downgrades == (), '锚定集供得上，不得谎报 ANCHOR_SET_STALE'
+
+    dirty = [_afact('A1', 'm_roi', D('0.080')), _afact('A2', 'm_roi', D('0.100')),
+             _afact('A3', 'm_roi', D('-9'))]
+    fr2 = _compute(dirty + tail + peers, [roi, peer], params=params, anchor_set=anchor)
+    assert _row(fr2, 'S1', 'm_roi').attainment == D('0.900000000000')
+    own = _row(fr2, 'A3', 'm_roi')
+    assert own.attainment == D('0.900000000000'), 'A3 自己的负数同样由锚定中位数填补'
+    assert own.reason_code == RC.NEGATIVE_ACTUAL
+    assert fr2.downgrades == ()
+
+
+def test_att1_anchor_set_of_a_foreign_type_is_refused_not_guessed():
+    '''anchor_set 只接受 AnchorSetDoc 或 None：拿元组 / 列表 / 字典 / 字符串当锚定集，
+    等于让「谁是锚定成员」变成猜的（V-14）。空的 strategy_ids 不属于这一类，它是
+    显式的「无锚定」，必须被接受并走到 ANCHOR_SET_STALE 回退（见上一条）。
+    '''
+    roi, peer = _att1_metrics()
+    facts = ([_afact('N1', 'm_roi', D('0.06'))]
+             + _att1_peers('N1', 'S1'))
+    for bogus in (('N1',), ['N1'], {'strategy_ids': ('N1',)}, 'N1'):
+        with pytest.raises(AttainmentError, match='anchor_set'):
+            _compute(facts, [roi, peer], anchor_set=bogus)
+    ok = _compute(facts, [roi, peer], anchor_set=_anchors())
+    assert [d.reason_code for d in ok.downgrades] == [RC.ANCHOR_SET_STALE]
+    assert _row(ok, 'S1', 'm_roi').attainment == D('0.600000000000')
