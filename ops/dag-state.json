@@ -334,6 +334,47 @@
     "Windows 侧 D:/ws/codex_rd/ss_campaignlab/_arch1（仓库外，仅补丁脚本）因沙箱策略拒绝 Remove-Item 未能删除，不影响仓库内容。"
    ],
    "adr_note": "本条以 dag-state.decisions[ORCH-31] 为权威记录；独立 ADR 文件与 P3a 证据表一并归档（时间预算优先给关键路径）。P3a 必须逐条披露第 2 / 3 项的边界收紧理由与第 9 项的编码事故。"
+  },
+  "ORCH-32": {
+   "at_epoch": 1795560556.36,
+   "clock": "T+5.53h",
+   "title": "SEAM-1 收口 + reason_code 单值槽契约缺陷裁决（frame 级披露通道）+ MODELS-1 扩权",
+   "trigger": "SEAM-1 上报 GAP(1) BLOCKING-ADJ：NormalizedRow.reason_code 单值槽无法同时承载 INACTIVE_METRIC 与 RANK_REVERSAL_RISK，而既有冻结断言 tests/test_normalize.py:239 要求锚定有效且零变异时 {r.reason_code}=={INACTIVE_METRIC}（全集合精确相等）。提升 RANK_REVERSAL_RISK 优先序即可让 spine 转绿，但必使该既有断言红 = 弱化既有断言（R-14 红线）。",
+   "rulings": [
+    "1) 优先序不动：row 单值槽维持既有口径（INACTIVE_METRIC 优先于 RANK_REVERSAL_RISK）。严禁为迎合 spine 提升 RANK_REVERSAL_RISK 优先序。",
+    "2) 依 V-14「无静默降级」认定这是契约缺陷而非测试构造错误：单值槽会静默丢弃第二个适用的降级码。授权给 NormalizedFrame 增 frame 级披露通道（warnings + excluded），承载未占用 row 槽的次级码与被剔除行。此为新增披露面，不得删改 NormalizedRow 既有列语义。",
+    "3) spine 修法唯一指定：tests/test_integration_spine.py::test_step2_normalize_pool_and_anchor 改读 frame 级披露通道，并保留原业务断言强度（仍须断言 RANK_REVERSAL_RISK 被披露、anchor_used 语义不变、松键/严键行为不变）。明确否决 SEAM-1 方案①「放宽为 anchor_used=False 落任一已注册降级码」（属弱化）。方案②「另造锚定失效输入专验回退」允许作为补充测试，不得替代原断言。",
+    "4) D-MODELS-01 落地口径确认：PoolKey.evidence_class 改可选；Step2 用松键（biz_domain 等当时已知维度）、Step7 用完整键（含 evidence_class）。依据 ORCH-29 第4条 + M29 L1334/L1338 的先后顺序；M29 L1334 与 M43 L942 的表面矛盾由此收口。不得用默认值填充 evidence_class 伪造（违 V-14）。",
+    "5) SEAM-1 GAP(3) 并入 MODELS-1：on_zero=None 时 INACTIVE 行被剔除 -> 某策略全指标 INACTIVE 则 Step2 零行、pooling 读不到标注仍抛错（静默断链）。用 frame 级 excluded 披露修，使 pooling 能区分「全指标 INACTIVE -> WARN/降级」与「无标注的 null -> 抛错」（ORCH-28 口径）。",
+    "6) GAP(2) 归 P2：pooling 新增 kw-only normalized，但 dsm/cli.py / reports.py / whatif.py 调用点未传。MODELS-1 只登记 dsm_stage/MODELS-1/HANDOFF-P2.md，不改 cli.py。",
+    "7) GAP(4) 归 P3a：SMALL_POOL(normalize/L943) 与 POOL_TOO_SMALL(pooling/L1005) 两码并存两个披露面，由 P3a 收敛披露口径；ORCH-28 已裁两条边界独立，不得合并码。GAP(5) 锚定尺跨版本不去重：digest 未给，保持现状不猜（R-12），登记 PLACEHOLDER 交签认。",
+    "8) E3 硬止线：E3 已超预算（96 分钟）且其后 A1c 会改数据、E3b 会更新 expects，故令其停止扩大手算范围、按已手算部分提交、未覆盖 case 标 PLACEHOLDER 交 E3b，以免阻塞关键路径。"
+   ],
+   "reason_codes_discipline": "若 frame 级通道需要新 reason_code，MODELS-1 不得自行注册（dsm/reason_codes.py 由 R15B2 独占在飞）；优先复用已注册码，缺失者写 dsm_stage/MODELS-1/NEED-CODES.md 交主控转 R15B2，代码中以 PLACEHOLDER 注释标明，不得裸写字面量（P-8）。"
+  },
+  "ORCH-33": {
+   "at_epoch": 1795560556.36,
+   "clock": "T+5.53h",
+   "title": "E3 收口入账 + 三项新 fixtures 缺陷登记（D-A1-06/07/08）+ 复现哈希失效原因改为双记 + G-10 原文互斥升级取证",
+   "rulings": [
+    "1) E3 判 done（commit 35a6635）。其 5 条红是「诚实红」——按 R-14 未照抄实现输出反填，而是把手算期望写进测试并如实暴露他包缺陷。这符合本 RUN 的证据纪律，不视为 E3 的质量问题；但 P2 的「0 failed」门禁要求这 5 条最终必须各自归位（改实现 / 改 fixtures / 依原文改期望），逐条归责见 defects。",
+    "2) 登记三项新 fixtures 缺陷：D-A1-06（G05 变体 M_AUM_MINOR=目标值致 attainment 1.0，与 golden hand「+1 指标一律 1.9」不自洽；CONTRIB 1.810 vs 1.900、综合分 1.5076 vs 1.5346）、D-A1-07（evidence.classify 按设计卡出桥 13 行 vs 评价期事实 12 pair vs pooling 证据结构 11，三分母互不相等，S-005/v1 无本期事实）、D-A1-08（anchor_set 对部分指标覆盖不足/退化，致 G-05「存量策略 norm 不变」被破坏：S-011/v1 M_ROI norm 0.500000000000->0.541666666667）。三项全部并入 A1c 写集，并已实时转达 A1CPREP（Huygens）扩写 A1C-EXEC-SPEC.md，预算 35->50 分钟。",
+    "3) reproducibility_hash 失效原因改为双记（纠正 ORCH-30 只预声明 A1c 的口径）：第一次失效已由 SEAM-1（8f2eca3）造成，8083efc9... -> 4de4b8cb...，发生在 A1c 之前；第二次将由 A1c 造成；第三次可能由 MODELS-1 造成。P3a/P3b 必须逐条记明「哪个 commit 造成哪次变化」，否则会把 SEAM-1 的变更错误归给 A1c。P3b 的最终判据是「A1c 与 MODELS-1 均落地后重测的哈希，两连跑精确相等」，不是与 8083efc9 相等。",
+    "4) G-10 原文互斥（M31 约 L1412「单维清空 -> BLOCK + DIMENSION_EMPTIED」 vs M22 C-02「清空维度数>=2 才 BLOCK」）不在本 RUN 内自行判定。依教训 L-03「架构争议须四行原文齐读」与 ORCH-30「不得凭空升格 BLOCK」，派只读取证包 ADJ-G10（flash/medium，15 分钟）做逐字摘录 + C-01~C-08 全表 + 是否命中其他 C-xx + 候选方案列举；主控在取证回来后裁 ORCH-34，再由 E3b 或 preflight 修复包落地。在裁决前该测试保持 RED，禁止任何一方反填。",
+    "5) GAP-E3-04（sensitivity D2 无「LOO 影响力」量度，实测按 flip 数排序而非按剔除后综合分跨度排序）登记为功能缺口 D-D2-01，不在本 RUN 内新增实现（超范围且无剩余预算）；由 P3a 写入 KNOWN-GAPS 与 V-ACCEPTANCE-EVIDENCE 的未覆盖项，交下一版本。",
+    "6) GAP-E3-01（文档码名 vs 注册名不一致，如 M31 写 STALE 而注册名 WEIGHT_VERSION_STALE）：一律以 dsm/reason_codes.py 注册名为准（ADJ-3）；由 A1CPREP 产出「文档码名 -> 注册名」对照表交 P3a 归档。",
+    "7) GAP-E3-05（冻结权重文档 T7 provenance=null -> C-01 在冻结件上必 BLOCK）作为 D-A1-04 的第二来源独立印证，增强 A1c 修法可辩护性；ORCH-30 已定其为最高优先，本次不改变优先级，只补证据链。"
+   ],
+   "pytest_after_E3": {
+    "commit": "35a6635",
+    "failed": 13,
+    "split": {
+     "test_golden_b(E3 新增诚实红)": 5,
+     "test_golden_a(g04/g08, D-A1-02)": 2,
+     "test_integration_spine(D-MODELS-01 + 单值槽契约缺陷)": 6
+    },
+    "note": "E3 的 5 条红使全量由 8 -> 13；这不是回退，是把此前未被测试覆盖的缺陷显性化。P2 门禁判定必须在 A1c + MODELS-1 + ORCH-34 之后进行。"
+   }
   }
  },
  "pkg_id_remap_from_5lane": {
@@ -1018,7 +1059,7 @@
    "module": "golden G-09~G-15",
    "cx": "C2",
    "model": "max",
-   "status": "running",
+   "status": "done",
    "deps": [
     "E2"
    ],
@@ -1038,7 +1079,12 @@
    },
    "model_id": "qwen3.8-flash",
    "effort": "medium",
-   "token_budget_k": 40
+   "token_budget_k": 40,
+   "agent": "Turing",
+   "commit": "35a6635",
+   "closed_at_epoch": 1795560556.36,
+   "minutes": 96,
+   "result": "tests/test_golden_b.py 16 测试（G-05/06/07/10/11/12/14），11 PASS / 5 FAIL；PROD=0；两处手算对拍点与 A1 golden_map 逐位一致；5 条红全部归因他包（SEAM-1 接缝 / fixtures D-A1-02 / sensitivity D2 无 LOO 影响力度量 / M31-M22 互斥 / pooling C5 口径），按 R-14 未反填；上报 8 项缺口，其中 GAP-E3-07/08 为新发现 fixtures 缺陷 -> D-A1-06/D-A1-07，G-05 红 -> D-A1-08"
   },
   "E4": {
    "lane": "E",
@@ -1634,7 +1680,7 @@
    "module": "修复 D-SEAM-01：normalize 误用池内统计判 sd=0 + pooling 把 L943 的 WARN 当硬错误（ORCH-28）",
    "cx": "C3",
    "model": "max",
-   "status": "report_pending",
+   "status": "done",
    "deps": [
     "D3",
     "C5",
@@ -1661,7 +1707,10 @@
    "plan_scope": false,
    "ruling": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md",
    "commit": "8f2eca3",
-   "note": "??? 8f2eca3?? D-SEAM-01??????????? + ??? null ? reject_reason ???golden G-01/G-02 ????? failed 10->9 ????????????????? MODELS-1"
+   "note": "??? 8f2eca3?? D-SEAM-01??????????? + ??? null ? reject_reason ???golden G-01/G-02 ????? failed 10->9 ????????????????? MODELS-1",
+   "agent": "Avicenna",
+   "closed_at_epoch": 1795560556.36,
+   "result": "修 D-SEAM-01：锚定参考尺不按池裁剪（原裁成 anchor_set∩pool 使 sd=0 判据落在池内单值上）+ 有标注的 null 由 reject_reason 承载；G-01/G-02 转绿；normalize 16->19、pooling 19->23 全绿；既有 35 条断言零弱化；上报 6 项缺口，其中 GAP(1) 为 BLOCKING 裁决请求 -> ORCH-32"
   },
   "A1c": {
    "lane": "adhoc",
@@ -1838,13 +1887,13 @@
    "lane": "adhoc",
    "module": "D-MODELS-01：PoolKey.evidence_class 改可选（Step2 按 biz_domain，Step7 用完整键）——R-15 授权改冻结契约 models.py",
    "cx": "C3",
-   "model": "max",
-   "status": "blocked_on_SEAM-1",
+   "model": "qwen3.8-max",
+   "status": "running",
    "deps": [
     "SEAM-1",
     "P2a"
    ],
-   "budget_min": 40,
+   "budget_min": 50,
    "prod_max": 120,
    "tf_max": 10,
    "ev": {
@@ -1863,7 +1912,19 @@
    "token_budget_k": 50,
    "adhoc": true,
    "plan_scope": false,
-   "ruling": "ORCH-29 第 4 条"
+   "ruling": "ORCH-29 第 4 条",
+   "agent": "Harvey",
+   "agent_id": "01a20fbc-0a6c-7181-90b6-2520168fc916",
+   "spawned_at_epoch": 1795560556.36,
+   "writeset": [
+    "dsm/models.py",
+    "dsm/normalize.py",
+    "tests/test_integration_spine.py",
+    "(条件)dsm/pooling.py",
+    "(条件)tests/test_pooling.py",
+    "(条件,仅新增)tests/test_normalize.py"
+   ],
+   "scope": "D-MODELS-01（PoolKey.evidence_class 可选，Step2 松键/Step7 严键）+ ORCH-32 扩权（NormalizedFrame 增 frame 级披露通道 warnings/excluded，修单值槽静默丢弃次级码与全指标 INACTIVE 零行断链）+ spine 改读 frame 级通道且保留断言强度"
   },
   "E3b": {
    "lane": "adhoc",
@@ -1920,6 +1981,27 @@
     "tests/test_reason_codes.py"
    ],
    "scope": "reason_code ?????2??????79? + codes_requested 8? + ??? SEAM-1/SMALL_POOL?models_questions 4?????(?? MODELS-DEFERRED.md)????????? CONSUMPTION-TODO.md"
+  },
+  "P2PREP": {
+   "status": "running",
+   "agent": "Curie",
+   "agent_id": "01a20fb4-e561-73c2-816a-680436ea8d4f",
+   "model": "qwen3.8-max",
+   "effort": "high",
+   "spawned_at_epoch": 1795560556.36,
+   "budget_min": 30,
+   "readonly": true,
+   "scope": "P2 只读前置设计：cli.py 调用点盘点 / smoke 实测 / 编码校验定义与实测 / 六门禁基线量化(含 skip+xfail 清单) / 红测试归因表 / 施工顺序与并行度 / verify_p2.sh"
+  },
+  "ADJ-G10": {
+   "status": "running",
+   "agent": "ADJ-G10",
+   "model": "qwen3.8-flash",
+   "effort": "medium",
+   "spawned_at_epoch": 1795560556.36,
+   "budget_min": 15,
+   "readonly": true,
+   "scope": "G-10 原文取证（M31 vs M22 C-02 互斥）：逐字摘录 + C-01~C-08 全表 + 变体实测事实 + 实现落点 + 候选方案列举（不推荐不排序，裁决权在主控）"
   }
  },
  "legacy_tasks": [
@@ -2046,15 +2128,15 @@
   "plan_scope_complete": true
  },
  "next_dispatch": {
-  "immediate": "SEAM-1 ?? -> close_agent -> ??? MODELS-1?max/high?dsm/models.py ? PoolKey.evidence_class ??? + normalize Step2 ?? / Step7 ???",
+  "immediate": "等 ADJ-G10 取证 -> 主控裁 ORCH-34（G-10 归属）；等 A1CPREP 交付 A1C-EXEC-SPEC.md",
   "then": [
-   "SEAM-1 + E3 ??? -> ? A1c?max/xhigh?? A1CPREP ? A1C-EXEC-SPEC.md????? D-A1-04?",
-   "A1c -> E2b -> E3b ????",
-   "R15B2 ? CONSUMPTION-TODO.md ???? A1c/P2",
-   "???? -> P2 -> P3a/P3b/P3c ??"
+   "A1c 解锁条件 = A1CPREP 交付 + E3 已落地(满足) + SEAM-1 已落地(满足) + MODELS-1 不在 fixtures 上撞写集；一旦 A1C-EXEC-SPEC.md 到手即派 A1c（max/xhigh）",
+   "A1c -> E2b -> E3b 严格串行（E3b 须吸收 ORCH-34 裁决与 D-A1-06/07/08 的重算）",
+   "R15B2 的 CONSUMPTION-TODO.md + MODELS-1 的 HANDOFF-P2.md + P2PREP 的 P2-EXEC-SPEC.md 三件合流 -> P2",
+   "P2 全量转绿 -> P3a / P3b / P3c 并行"
   ],
-  "slot_policy": "6 ?????????? close_agent ???",
-  "note": "???? = A1c -> E2b/E3b -> P2 -> P3a/b/c?A1CPREP ? R15B2 ???????????????"
+  "slot_policy": "6 槽硬上限，收到交付先 close_agent 再补派",
+  "note": "T+5.53h；在飞 MODELS-1 / A1CPREP / R15B2 / P2PREP / P3a-prep(Singer) / ADJ-G10 = 6 满槽"
  },
  "session_log": [
   {
@@ -2705,22 +2787,6 @@
   "D-6_min_honesty": "上报行 MIN 必须是从收到任务到 commit 的墙钟分钟，并明示主控会用 git 时间戳独立核实。依据：F1 探针实测 agent 自报 15min vs 独立核实 21min，自报偏乐观 29%"
  },
  "active_agents": {
-  "SEAM-1": {
-   "agent_id": "01a20f7f-56e0-77c1-bbd8-4756d16be547",
-   "nickname": "Avicenna",
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "adhoc": true,
-   "spawned_at_epoch": 1795556435.3
-  },
-  "E3": {
-   "agent_id": "01a20f81-cb8c-7673-87f2-2a1610703a06",
-   "nickname": "Turing",
-   "model_id": "qwen3.8-flash",
-   "effort": "medium",
-   "adhoc": false,
-   "spawned_at_epoch": 1795556956.0
-  },
   "A1CPREP": {
    "agent_id": "01a20fac-5e85-79c0-b067-10349477622b",
    "nickname": "Huygens",
@@ -2737,6 +2803,32 @@
    "effort": "high",
    "adhoc": true,
    "spawned_at_epoch": 1795559486.19
+  },
+  "MODELS-1": {
+   "agent_id": "01a20fbc-0a6c-7181-90b6-2520168fc916",
+   "nickname": "Harvey",
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "adhoc": true,
+   "spawned_at_epoch": 1795560556.36
+  },
+  "P2PREP": {
+   "agent_id": "01a20fb4-e561-73c2-816a-680436ea8d4f",
+   "nickname": "Curie",
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "adhoc": true,
+   "spawned_at_epoch": 1795560556.36,
+   "readonly": true
+  },
+  "ADJ-G10": {
+   "agent_id": "PENDING_FILL",
+   "nickname": "ADJ-G10",
+   "model_id": "qwen3.8-flash",
+   "effort": "medium",
+   "adhoc": true,
+   "spawned_at_epoch": 1795560556.36,
+   "readonly": true
   }
  },
  "self_check_T0": {
@@ -3442,9 +3534,12 @@
    "found_by": "E2 tests/test_golden_a.py（commit d3b3d5f，手算期望值独立重算）",
    "file": "dsm/normalize.py + dsm/pooling.py",
    "symptom": "单例池 → normalize 按池内统计判 sd=0 不出 composite_relative；pooling 对 null 一律抛 PoolingInputError → M29 Step7 中断，卡住 golden G-01/G-02/G-04 与 spine×14",
-   "status": "OPEN",
+   "status": "CLOSED",
    "fix_package": "SEAM-1",
-   "ruling": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md"
+   "ruling": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md",
+   "fix_commit": "8f2eca3",
+   "fixed_at": "T+5.53h",
+   "fix": "锚定参考尺改为不按池裁剪（anchor_ref[(period,metric)]），回退仍严格池内；有标注的 null 由 reject_reason 承载而非抛错"
   },
   {
    "id": "D-A1-02",
@@ -3510,6 +3605,56 @@
    "status": "OPEN",
    "fix_package": "A1c 或 C1c（格式归属按 M21/M18 原文二选一）",
    "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+  },
+  {
+   "id": "D-A1-06",
+   "status": "OPEN",
+   "found_at": "T+5.53h",
+   "found_by": "E3 tests/test_golden_b.py（commit 35a6635，GAP-E3-07）",
+   "file": "fixtures/variants/G05_append_extreme + fixtures/golden/golden_map.json",
+   "symptom": "G05 变体把正向指标 M_AUM_MINOR 留成 10000=目标值（达成率 1.0），与 golden_map hand 口径「+1 指标一律 1.900000」不自洽；按实际 fixture 手算 CONTRIB=1.810000000000、综合分=1.507600000000，而 golden 记 S-009_CONTRIB=1.900000、综合分 1.5346",
+   "fix_package": "A1c（裁决「改变体值」还是「改 golden hand」须依 M34 关于 G-05 的设计意图原文）",
+   "ruling": "ORCH-33 第2条"
+  },
+  {
+   "id": "D-A1-07",
+   "status": "OPEN",
+   "found_at": "T+5.53h",
+   "found_by": "E3（commit 35a6635，GAP-E3-08）",
+   "file": "fixtures/input/design_card.jsonl + metric_fact.jsonl + golden_map.json",
+   "symptom": "evidence.classify 按设计卡出桥 13 行，评价期事实只有 12 个 (strategy,version) pair（S-005/v1 无本期事实），pooling 侧证据结构口径为 11（实测 A3 B0 C3 D5），golden 记 4/12；13/12/11 三分母互不相等",
+   "fix_package": "A1c（须先依原文确定「证据结构占比」的分母定义，并与 D-A1-02 的 A3B3C4D2 一起验算）",
+   "ruling": "ORCH-33 第2条"
+  },
+  {
+   "id": "D-A1-08",
+   "status": "OPEN",
+   "found_at": "T+5.53h",
+   "found_by": "E3（commit 35a6635，G-05 红）",
+   "file": "fixtures/input/anchor_set.jsonl（AS-SYNTH-2026）",
+   "symptom": "G-05 要求追加极端策略后存量策略 norm/composite/grade 完全不变（ORCH-28 对 M43 L941 的裁决），实测 S-011/v1 的 M_ROI norm 0.500000000000->0.541666666667、composite 0.967705891652->0.968545891652；SEAM-1 已修锚定尺不按池裁剪，故残余根因疑为 anchor_set 对 M_ROI 等指标覆盖不足或取值退化，被迫回退池内尺度",
+   "fix_package": "A1c（须产出 anchor_set 对全部 15 指标的覆盖矩阵后定补法）",
+   "ruling": "ORCH-33 第2条"
+  },
+  {
+   "id": "D-D2-01",
+   "status": "OPEN-WONTFIX-THIS-RUN",
+   "found_at": "T+5.53h",
+   "found_by": "E3（commit 35a6635，GAP-E3-04）",
+   "file": "dsm/sensitivity.py",
+   "symptom": "LOO 无「影响力」量度：手算期望按「剔除后综合分跨度」排序（M_REV_MINOR 剔除后 S-009 1.268600000000->1.148600000000，跨度 0.120000000000 为最大），实测按 flip 数排序得 (M_CONTACT_FREQ_PER_30D, M_SATISFY_SCORE)",
+   "disposition": "本 RUN 不新增实现（超范围 + 无剩余预算）；P3a 写入 KNOWN-GAPS 与 V-ACCEPTANCE-EVIDENCE 未覆盖项，交下一版本",
+   "ruling": "ORCH-33 第5条"
+  },
+  {
+   "id": "D-SPEC-G10",
+   "status": "OPEN-ADJUDICATING",
+   "found_at": "T+5.53h",
+   "found_by": "E3（commit 35a6635，GAP-E3-02）",
+   "file": "SDD M31(约 L1412) vs M22 C-02",
+   "symptom": "原文互斥：M31 单维清空 -> BLOCK + DIMENSION_EMPTIED；M22 C-02 清空维度数>=2 才 BLOCK。实测实现走 WARN + WEIGHT_REALLOCATED / exit_code=0；红测试 tests/test_golden_b.py::test_g10_sust_dimension_emptied_must_block_preflight",
+   "disposition": "派 ADJ-G10 只读取证（逐字原文 + C-01~C-08 全表 + 是否命中其他 C-xx + 候选方案列举），主控裁 ORCH-34 后由 E3b 或 preflight 修复包落地；裁决前保持 RED，禁止任何一方反填",
+   "ruling": "ORCH-33 第4条"
   }
  ],
  "environment_changes": [
@@ -3562,7 +3707,11 @@
   },
   {
    "id": "L-06",
-   "lesson": "主控写盘必须 UTF-8 无 BOM；ASCII 会静默把中文转问号，UTF8 会加 BOM 破坏 bash 首行。"
+   "at_epoch": 1795560556.36,
+   "clock": "T+5.53h",
+   "lesson": "主控写盘链路必须显式 UTF-8 无 BOM。PowerShell Set-Content -Encoding ASCII 会把 here-string 里的中文静默转成问号（提交信息与 dag-state 文本双双损坏），而 -Encoding UTF8 又会加 BOM 使 bash 首行报 command not found。正确做法：用 [IO.File]::WriteAllText(path, text, (New-Object System.Text.UTF8Encoding($false)))。",
+   "incident": "dbe96aa 的提交信息与 ORCH-31 原文被转写为问号；已由 0b0c8f3 重写 ORCH-31 文本，dbe96aa 不做 amend（避免与在飞 lane 抢 index.lock 及改写历史）。",
+   "rule": "此后所有主控脚本一律 UTF-8 无 BOM 落盘；任何含中文的提交信息，提交后必须用 git log -1 --pretty=%B 回读自证可读。"
   }
  ],
  "gap_adjudications_SP1": {
@@ -3689,9 +3838,9 @@
   }
  },
  "clock_now": {
-  "epoch": 1795559678.89,
-  "t_hours": 5.284,
-  "remaining_hours": 4.716
+  "epoch": 1795560556.36,
+  "t_hours": 5.527,
+  "remaining_hours": 4.473
  },
  "gap_adjudications_SP2": {
   "new_gaps_reported_wave1_2": {
@@ -3754,7 +3903,34 @@
   "commit": "8cd222c",
   "note": "V-3 / G-12 / V-10 的实测证据，P3b 第二人复跑须得到同一 hash",
   "status": "valid_until_A1c",
-  "supersede_note": "ORCH-30 第 5 条：A1c 受控解冻后该哈希必然改变，属预期非回归；P3b 须以 A1c 后重测哈希为准，P3a 须同时披露解冻前后两个哈希与 fixtures sha256 清单"
+  "supersede_note": "ORCH-30 第 5 条：A1c 受控解冻后该哈希必然改变，属预期非回归；P3b 须以 A1c 后重测哈希为准，P3a 须同时披露解冻前后两个哈希与 fixtures sha256 清单",
+  "invalidation_log": [
+   {
+    "seq": 1,
+    "hash_before": "8083efc940c648c460516291efe61ae35b6093671ae9b68f93fbab8bbc3a26b8",
+    "hash_after": "4de4b8cb(P3a/P3b 须补全 64 位)",
+    "cause": "SEAM-1 commit 8f2eca3：锚定参考尺改为不按池裁剪，normalize 输出变化",
+    "at": "T+5.53h",
+    "pre_declared_by": "无（ORCH-30 只预声明了 A1c，属遗漏，已由 ORCH-33 第3条纠正）"
+   },
+   {
+    "seq": 2,
+    "hash_before": "4de4b8cb...",
+    "hash_after": "待测",
+    "cause": "MODELS-1：NormalizedFrame 增 frame 级披露通道 + PoolKey.evidence_class 可选",
+    "at": "pending",
+    "pre_declared_by": "ORCH-32 第2/4条"
+   },
+   {
+    "seq": 3,
+    "hash_before": "待测",
+    "hash_after": "待测",
+    "cause": "A1c 受控解冻 fixtures（D-A1-02/03/04/05/06/07/08）",
+    "at": "pending",
+    "pre_declared_by": "ORCH-30 第5条"
+   }
+  ],
+  "p3b_criterion": "最终判据 = A1c 与 MODELS-1 均落地后重测的哈希，在全新 clone + 断网单机 + 同 seed 下两连跑精确相等；不是与 8083efc9 相等"
  },
  "r15_batch_2": {
   "status": "queued",
