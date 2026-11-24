@@ -1013,7 +1013,7 @@
       "module": "properties P-1~P-15",
       "cx": "C2",
       "model": "flash",
-      "status": "running",
+      "status": "done",
       "deps": [
         "E3"
       ],
@@ -1021,19 +1021,22 @@
       "prod_max": 0,
       "tf_max": 15,
       "ev": {
-        "min": null,
-        "prod": null,
-        "tf": null,
-        "pass": null,
-        "fail": null,
-        "commit": null,
+        "min": 48,
+        "prod": 0,
+        "tf": 16,
+        "pass": 15,
+        "fail": 0,
+        "commit": "34d6e21",
         "token_k": null,
         "first_pass": null,
         "escalated_from": null
       },
       "model_id": "qwen3.8-flash",
       "effort": "medium",
-      "token_budget_k": 40
+      "token_budget_k": 40,
+      "gaps_reported": 0,
+      "skip_remaining": 1,
+      "skip_note": "P-13b 以函数体内 importorskip(dsm.weights_calibrate) 挂起，A3 落地自动解锁；P-11/P-12 经核已由 config 层 _frozen_provenance 与 combine+grading+pooling 全链在线覆盖，未空转 skip"
     },
     "E5": {
       "lane": "A",
@@ -1546,11 +1549,11 @@
     "bookkeeping_note": "主控两次漏记在跑包状态（C2、F3）；根因是派发与状态落盘分处两个工具调用。已改为：每次 spawn 后的下一次状态写入必须核对 active_agents 与 work_packages.status 双向一致",
     "work_packages_total": 35,
     "plan_scope_total": 31,
-    "done": 23,
-    "running": 6,
+    "done": 24,
+    "running": 5,
     "pending": 5,
-    "done_plan_scope": 21,
-    "updated_at_epoch": 1795554223.8
+    "done_plan_scope": 22,
+    "updated_at_epoch": 1795554977.7
   },
   "next_dispatch": {
     "immediate": "A2b（等 A3+A4 落地，签名冻结，消除 H-9 import 边）",
@@ -2200,14 +2203,6 @@
       "effort": "high",
       "adhoc": true,
       "spawned_at_epoch": 1795554223.8
-    },
-    "E4": {
-      "agent_id": "01a20f57-f9b8-7313-952c-ea915e95810d",
-      "nickname": "Confucius",
-      "model_id": "qwen3.8-flash",
-      "effort": "medium",
-      "adhoc": false,
-      "spawned_at_epoch": 1795554223.8
     }
   },
   "self_check_T0": {
@@ -2792,6 +2787,12 @@
       "result": "❌ 转为实测 -> 暴露真实缺陷 D-C1-01（净收益为正）",
       "pending_action": "SP-1 由主控把 pyarrow 声明为 pyproject.toml 的 optional extra（parquet = ['pyarrow>=14']），核心依赖集不变，避免破坏 P3b 的断网复跑；同时写进 requirements 说明",
       "decision": "不回退安装。回退等于用「引擎缺失」掩盖缺陷，违反 V-14 无静默降级"
+    },
+    {
+      "at": "T+3.978h",
+      "what": "主控统一 push origin main（R-13：只主控 push）",
+      "why": "本地累积 25 提交未 push；P3b『全新 clone + 断网单机 + 同 seed → reproducibility_hash 精确相等』需要远端可达，且降低长程 run 的丢失风险",
+      "result": "见 push 输出"
     }
   ],
   "orch_lessons": [
@@ -2884,10 +2885,10 @@
     }
   },
   "clock_now": {
-    "epoch": 1795554223.8,
-    "elapsed_h": 3.768,
+    "epoch": 1795554977.7,
+    "elapsed_h": 3.978,
     "hard_stop_h": 10.0,
-    "remaining_h": 6.232
+    "remaining_h": 6.022
   },
   "gap_adjudications_SP2": {
     "new_gaps_reported_wave1_2": {
