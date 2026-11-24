@@ -466,6 +466,44 @@
    "concurrency": "A1c(fixtures) / ATT-1(attainment) / EVID-1(evidence) / MODELS-1(models+normalize+spine) / P2-cli(cli) 五包写集两两不相交，6 槽满并发；G14FIX 待 MODELS-1 落地后派（pooling 写集相撞）",
    "serial_tail": "A1c+ATT-1+EVID-1+MODELS-1+G14FIX -> E2b -> E3b -> P2-wire -> P3a/P3b/P3c 并行 -> 主控统一 push + tag v1.1.0",
    "r14_boundary": "A1c 只允许改 golden_map 的载体指纹类字段；expects/hand/probes[].e 的任何数值改动（含 D-A1-06 的 1.9->1.81 与 1.5346->1.5076）一律留 E2b/E3b 独立手算，A1c 只在 ADR 登记结论与依据"
+  },
+  "ORCH-38": {
+   "at_epoch": 1795562873.97,
+   "clock": "T+6.17h",
+   "title": "MODELS-1 收口（cc18a38）+ 两项写集/断言偏离追认 + 复现哈希台账更正 + A1d 触发条件已满足（必须执行）+ 新权威基线 11/2190/2201",
+   "rulings": [
+    "1) MODELS-1 判 done，D-MODELS-01 CLOSED，ORCH-32 第2/5条（frame 级披露通道 + 全指标 INACTIVE 零行断链）已落地。spine 由 6 红降至 4 红，且余 4 红经其逐条归因**全部属 fixtures**（D-A1-05 / D-A1-04 / D-A1-02 / D-A1-03），确证 A1c 是关键路径唯一长杆。",
+    "2) 追认写集偏离①：MODELS-1 改了派工写集外的 tests/test_models_output.py 的 3 行**登记数据表**（FRAME_MODELS / SYN_PAYLOADS 的 NormalizedFrame 条目、SUB_MODELS[PoolKey] 的 req->null），**零 assert 行改动**。理由成立：ORCH-32 授权新增 frame 级列后，该文件的模型花名册与 nullability 分区表必须同步，否则会产生 3 条归属本包的假红（test_d01[NormalizedFrame] / test_e04[NormalizedFrame] / test_j02[PoolKey]）；且当时无其他 lane 在飞该文件，未违反单写者纪律。要求 P3a 在披露节记明此写集偏离及其正当理由。",
+    "3) 追认断言处置②：test_normalize.py:244 的「仅允许新增断言」与 ORCH-32 第2条**在数学上不可同时满足**——原断言 dropped == NormalizedFrame(rows=()) 是**整体相等**比较，而新增的 excluded 列必然非空，整体相等必失败。MODELS-1 改为 dropped.rows == () 并**新增 5 条留痕断言**，原业务主张（零行、不编值）的实质**逐字保留**，净强度增加。裁定：这**不是弱化**，而是「断言对象随契约扩展而精确化」，属 R-14 允许的情形。要求 P3a 把该处置作为先例记录进 V-ACCEPTANCE-EVIDENCE，并附 git diff -U0 证据。",
+    "4) 🔴 复现哈希失效台账更正：seq2（MODELS-1）**实测未造成失效**，改前=改后=4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7（两连跑精确相等）。原因：dsm/audit.py:242 只哈希 score_card / grade_ledger / weight_version_id，MODELS-1 是纯增披露面、被哈希数值一位未变。ORCH-30/31/33 的「MODELS-1 可能造成第三次失效」是**预声明而非实测结论**，现按实测更正。P3a / P3b 必须按实测值记台账，不得沿用预期值。",
+    "5) 教训 L-08：预声明「可能失效」不等于「必然失效」。凡涉及 reproducibility_hash 的裁决，落地后必须由执行包**实测**新旧值并上报，台账只记实测；主控不得把预声明当作既成事实写入交付文档。",
+    "6) 🔴 A1d 触发条件已满足 → **必须执行**。ORCH-37 第2条把 A1d 定为「条件执行」，条件是「是否存在专门因 JSONL 格式而红的测试」；MODELS-1 实测 spine 的 step1_io_loaders_loads_the_frozen_design_card_table 红，根因正是 design_card 为 JSONL 而 io_loaders 只认 CSV/Parquet（D-A1-05）。故 A1c 落地后**立即派 A1d**。",
+    "7) A1d 范围收紧（最小修法优先）：先**诊断**该测试究竟要求什么（格式？目录布局？两者？）。若只需格式，则做 8 张输入表 JSONL->CSV 转换 + manifest 同步 + fixtures_gen 输出改造。**dsm/io_loaders.py:274-279 的 data/<period>/ 目录布局迁移（L888）不在 A1d 范围**——若诊断表明确需迁移，登记 D-A1-09 交 P3a 披露并作为遗留缺口，不在硬停线内做超范围架构迁移。A1d 必须单独提交、单独出 sha256 表与 failed 归因表，使归因可与 A1c 分离（这是 ORCH-37 第2条拆包的唯一目的）。",
+    "8) 预算超支核可（同 ADJ-11 口径）：MODELS-1 实测 78min / 预算 50min。**核可不返工**。超支主因是环境性的（PowerShell->WSL2 跨壳吞 $ 与引号、pytest 叠 -q 陷阱致两次统计作废）与设计前置证伪成本（须先确认新增披露列不撞 test_models_output 的 32/17 计数 assert）；产出质量高（零弱化自证完整、哈希未变、spine 转绿 2 条、新码需求 0 条）。后续派工单一律把 L-06 / L-07 写进铁律以消除该类超支。",
+    "9) 教训 L-09：提交信息内的行号必须在提交后回读自证。cc18a38 的 message 行号是提交前估值（models.py:773 / normalize.py:311 / pooling.py:227），实测值见 dsm_stage/MODELS-1/NOTES-MODELS-1.md §七 对照表（models.py:762 / normalize.py:342 / pooling.py:236）。R-13 禁 amend，故不追加提交改历史；**P3a / P3c 引用行号时一律以该对照表为权威，不得引用提交信息**。"
+   ],
+   "new_authoritative_baseline": {
+    "commit": "cc18a38",
+    "failed": 11,
+    "passed": 2190,
+    "errors": 0,
+    "skipped": 0,
+    "xfailed": 0,
+    "collected": 2201,
+    "attribution": {
+     "spine_step1_io_loaders": "D-A1-05 -> A1d（JSONL vs CSV）",
+     "spine_step2_preflight": "D-A1-04 -> A1c（最高优先）",
+     "spine_step3_evidence": "D-A1-02 -> A1c",
+     "spine_step4_redline": "D-A1-03 -> A1c（按 ORCH-37 第1条改走 missing_rule 对调）",
+     "golden_a_g04_g08": "D-A1-02 -> A1c",
+     "golden_b_g05": "D-A1-08 -> ATT-1（在飞）",
+     "golden_b_g06": "D-A1-02 -> A1c",
+     "golden_b_g07": "D-D2-01 -> 待 ADJ-G07 取证后裁",
+     "golden_b_g10": "ORCH-35 -> E3b",
+     "golden_b_g14": "ORCH-36 -> G14FIX（在飞）"
+    },
+    "verified_by": "MODELS-1（cc18a38）全量实测，未叠 -q"
+   }
   }
  },
  "pkg_id_remap_from_5lane": {
@@ -1993,7 +2031,7 @@
    "module": "D-MODELS-01：PoolKey.evidence_class 改可选（Step2 按 biz_domain，Step7 用完整键）——R-15 授权改冻结契约 models.py",
    "cx": "C3",
    "model": "qwen3.8-max",
-   "status": "running",
+   "status": "done",
    "deps": [
     "SEAM-1",
     "P2a"
@@ -2029,7 +2067,11 @@
     "(条件)tests/test_pooling.py",
     "(条件,仅新增)tests/test_normalize.py"
    ],
-   "scope": "D-MODELS-01（PoolKey.evidence_class 可选，Step2 松键/Step7 严键）+ ORCH-32 扩权（NormalizedFrame 增 frame 级披露通道 warnings/excluded，修单值槽静默丢弃次级码与全指标 INACTIVE 零行断链）+ spine 改读 frame 级通道且保留断言强度"
+   "scope": "D-MODELS-01（PoolKey.evidence_class 可选，Step2 松键/Step7 严键）+ ORCH-32 扩权（NormalizedFrame 增 frame 级披露通道 warnings/excluded，修单值槽静默丢弃次级码与全指标 INACTIVE 零行断链）+ spine 改读 frame 级通道且保留断言强度",
+   "commit": "cc18a38",
+   "closed_at_epoch": 1795562873.97,
+   "minutes": 78,
+   "result": "frame 级新列 NormalizedFrame.warnings:tuple[DowngradeAction,...]=() 与 .excluded:tuple[AttainmentRow,...]=()（models.py:1288-1289，未新增模型类故 test_models_output 的 32/17 计数 assert 零改动）；PoolKey.evidence_class 契约可空(models.py:762)；Step2 松键 normalize.py:342 step2_pool_key（evidence_class 留 None，不填默认值伪造）；Step7 严键 pooling.py:236 step7_pool_key（缺即抛，构键:366）；断链修复 pooling.py:265（_comparability_tags 扫 rows+excluded，warnings 依 ORCH-28 裁决3 三码封闭不参与举证）。spine 6红->4红（转绿2条+1条补充测试，余4红=D-A1-05/04/02/03 全归 A1c）。全量 11 failed/2190 passed/0 error/0 skip/0 xfail(collected 2201)。test_normalize 19->22、test_pooling 23->25，SEAM-1 的 7 条 test_seam1_* 未回退。零弱化自证：删5行中4行为import/数据表，改写既有assert仅2行且净增强，:239 与 :166 一字未改。reproducibility_hash 改前=改后=4de4b8cb…202d7（预声明的第三次失效实测未发生）。新 reason_code 需求 0 条（四码复用 M43 L944 已注册码）"
   },
   "E3b": {
    "lane": "adhoc",
@@ -2167,7 +2209,7 @@
    "scope": "ORCH-36 拆包产物：cli #4/#6、CONSUMPTION-TODO 第 2/3/4/5/7/9 条接线、preflight.py:209-211 等价性核验(ORCH-35 第4条)、ratchet 32->28 收缩、编码校验门禁收窄到 git ls-files、D-TOOLS-01、全量 0 failed 判定与哈希重登记（保留旧值 8083efc9 与 4de4b8cb）"
   },
   "G14FIX": {
-   "status": "pending",
+   "status": "running",
    "depends_on": [
     "MODELS-1"
    ],
@@ -2176,7 +2218,13 @@
     "dsm/reports.py",
     "tests/test_pooling.py"
    ],
-   "scope": "ORCH-36 第一部分：分子改 C 类占比(L1416 唯一明文)、分母与 share_* 同源且依 L1004 剔 NOT_ASSESSED、阈值保持 TOL 工程默认并登记新 K-21 PLACEHOLDER、GAP-06 把 mix_quality_verdict 接入 reports.py+cli.py、并入 CONSUMPTION-TODO 第 6 条 PRIMARY_POOL_REJECTED_GRADE。禁改 tests/test_golden_b.py 的 g14 期望（应自然转绿），禁改 dsm/models.py（MODELS-1 独占）"
+   "scope": "ORCH-36 第一部分落地：分子改 C 类占比(L1416 verbatim)、分母与 share_* 同源且依 L1004 剔 NOT_ASSESSED(derived)、阈值保持 TOL 并出 K-21 提案、GAP-06 把 mix_quality_verdict 接入 reports.py（cli 侧接线交 P2-wire）、并入 CONSUMPTION-TODO 第6条 PRIMARY_POOL_REJECTED_GRADE、按 ERRATUM-06 更正 pooling.py:74 注释锚 L1854->L1416",
+   "agent": "Dalton",
+   "agent_id": "01a20fe1-b77c-71f2-bf75-78bfb821f87e",
+   "model": "qwen3.8-max",
+   "effort": "high",
+   "spawned_at_epoch": 1795562873.97,
+   "budget_min": 35
   },
   "P3b-prep": {
    "status": "done",
@@ -2339,14 +2387,15 @@
   "plan_scope_complete": true
  },
  "next_dispatch": {
-  "immediate": "等 MODELS-1 落地 -> 派 G14FIX（pooling+reports，含 CONSUMPTION-TODO 第6条 + ORCH-36 第1~5条）；有空槽则派 ADJ-G07（LOO 影响力度量取证，解 D-D2-01 与 g07 红）",
+  "immediate": "等 ATT-1 / EVID-1 落地（预算 30/25 分钟，应很快）-> 空槽即派 ADJ-G07（LOO 影响力度量取证，解 golden_b g07 与 D-D2-01，这是 0 failed 门禁的最后一个未定项）",
   "then": [
-   "A1c+ATT-1+EVID-1+MODELS-1+G14FIX 全落地 -> E2b(golden_a expects) -> E3b(golden_b expects + ORCH-35 的 g10 改名与新增 >=2 维 BLOCK 测试)",
-   "-> P2-wire（接线 + preflight:209-211 + ratchet 32->28 + 编码校验门禁收窄 + 全量 0 failed + 哈希重登记）",
+   "A1c 落地 -> 立即派 A1d（ORCH-38 第6/7条：最小修法优先，目录布局迁移不在范围）",
+   "A1c+A1d+ATT-1+EVID-1+G14FIX 全落地 -> E2b(golden_a) -> E3b(golden_b + ORCH-35 的 g10 改名与新增 >=2 维 BLOCK 测试 + ORCH-37 第6条的 G-14 分母 12->11)",
+   "-> P2-wire（接线 + preflight:209-211 核验 + ratchet 32->28 + 编码校验门禁收窄 git ls-files + 全量 0 failed 判定 + 哈希重登记）",
    "-> P3a/P3b/P3c 并行 -> 主控统一 push + tag v1.1.0"
   ],
   "slot_policy": "6 槽硬上限（含已完成未关闭者），收到交付先 close_agent 再补派",
-  "note": "T+6.04h"
+  "note": "T+6.17h"
  },
  "session_log": [
   {
@@ -2997,14 +3046,6 @@
   "D-6_min_honesty": "上报行 MIN 必须是从收到任务到 commit 的墙钟分钟，并明示主控会用 git 时间戳独立核实。依据：F1 探针实测 agent 自报 15min vs 独立核实 21min，自报偏乐观 29%"
  },
  "active_agents": {
-  "MODELS-1": {
-   "agent_id": "01a20fbc-0a6c-7181-90b6-2520168fc916",
-   "nickname": "Harvey",
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "adhoc": true,
-   "spawned_at_epoch": 1795560556.36
-  },
   "P2-cli": {
    "agent_id": "01a20fd0-9657-7691-a4c0-085efa15f4ba",
    "nickname": "Darwin",
@@ -3044,6 +3085,14 @@
    "effort": "high",
    "adhoc": true,
    "spawned_at_epoch": 1795562408.23
+  },
+  "G14FIX": {
+   "agent_id": "01a20fe1-b77c-71f2-bf75-78bfb821f87e",
+   "nickname": "Dalton",
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "adhoc": true,
+   "spawned_at_epoch": 1795562873.97
   }
  },
  "self_check_T0": {
@@ -3785,9 +3834,12 @@
    "found_by": "P2a tests/test_integration_spine.py（commit 8cd222c）+ E2 独立印证",
    "file": "dsm/models.py + dsm/normalize.py",
    "symptom": "PoolKey.evidence_class required=True，但 M29 L1334 的 Step2 normalize 排在 L1338 的 Step3 evidence 之前，evidence_class 尚不存在 → Step2 无法构键",
-   "status": "OPEN",
+   "status": "CLOSED",
    "fix_package": "MODELS-1（ORCH-29 第 4 条，等 SEAM-1）",
-   "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md"
+   "ruling": "docs/adr/RUN-ORCH-29-batch-adjudication.md",
+   "fix_commit": "cc18a38",
+   "fixed_at": "T+6.17h",
+   "fix": "PoolKey.evidence_class 契约可空(models.py:762)；Step2 松键 normalize.py:342 step2_pool_key（留 None 不填默认值伪造）；Step7 严键 pooling.py:236 step7_pool_key（缺即抛，构键:366）。另按 ORCH-32 第2/5条给 NormalizedFrame 增 warnings/excluded 两个 frame 级披露列，修复「全指标 INACTIVE -> Step2 零行 -> pooling 读不到标注仍抛错」的静默断链"
   },
   {
    "id": "D-A1-03",
@@ -3979,6 +4031,20 @@
    "clock": "T+5.90h",
    "lesson": "pytest 取数命令固定为 -ra --tb=no --continue-on-collection-errors。pyproject.toml 的 addopts 已含 -q，命令行再叠 -q 会变 -qq，吞掉汇总行与 short summary，看起来像 pytest 崩溃（P2PREP 踩中 2 次）。",
    "rule": "任何 lane 与主控取六门禁数字一律用该固定命令；需要明细时用 -ra，不得用 -q/-qq。"
+  },
+  {
+   "id": "L-08",
+   "at_epoch": 1795562873.97,
+   "clock": "T+6.17h",
+   "lesson": "预声明「可能失效」不等于「必然失效」。凡涉及 reproducibility_hash 的裁决，落地后必须由执行包实测新旧值并上报，台账只记实测值；主控不得把预声明当既成事实写入交付文档。",
+   "incident": "ORCH-30/31/33 预声明 MODELS-1 会造成第三次哈希失效，实测未发生（audit.py:242 只哈希 score_card/grade_ledger/weight_version_id，纯增披露面不影响）"
+  },
+  {
+   "id": "L-09",
+   "at_epoch": 1795562873.97,
+   "clock": "T+6.17h",
+   "lesson": "提交信息内的代码行号必须在提交后回读自证；R-13 禁 amend，故行号应以包内 NOTES 的实测对照表为权威，交付文档不得引用提交信息里的估值行号。",
+   "incident": "cc18a38 的 message 行号为提交前估值，实测对照表在 dsm_stage/MODELS-1/NOTES-MODELS-1.md §七"
   }
  ],
  "gap_adjudications_SP1": {
@@ -4124,9 +4190,9 @@
   }
  },
  "clock_now": {
-  "epoch": 1795562408.23,
-  "t_hours": 6.042,
-  "remaining_hours": 3.958
+  "epoch": 1795562873.97,
+  "t_hours": 6.171,
+  "remaining_hours": 3.829
  },
  "gap_adjudications_SP2": {
   "new_gaps_reported_wave1_2": {
@@ -4203,10 +4269,13 @@
    {
     "seq": 2,
     "hash_before": "4de4b8cb...",
-    "hash_after": "待测",
+    "hash_after": "4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7（未变）",
     "cause": "MODELS-1：NormalizedFrame 增 frame 级披露通道 + PoolKey.evidence_class 可选",
     "at": "pending",
-    "pre_declared_by": "ORCH-32 第2/4条"
+    "pre_declared_by": "ORCH-32 第2/4条",
+    "occurred": false,
+    "measured_by": "MODELS-1 @cc18a38 两连跑精确相等",
+    "correction": "ORCH-38 第4条：预声明的失效**实测未发生**。原因 dsm/audit.py:242 只哈希 score_card / grade_ledger / weight_version_id，MODELS-1 是纯增披露面。台账以实测为准"
    },
    {
     "seq": 3,
