@@ -2,7 +2,7 @@
   "append": {
     "design_card": [
       {
-        "alt_method_note": null,
+        "alt_method_note": "SYNTH-ALT-METHOD: DID 双重差分，假设为处理组与对照组平行趋势",
         "card_status": "COMPLETE",
         "control_arrangement": "CONCURRENT_CONTROL",
         "data_source": "SYNTH_DW_TABLE",

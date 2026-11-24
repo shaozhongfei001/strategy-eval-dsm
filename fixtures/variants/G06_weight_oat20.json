@@ -43,7 +43,56 @@
             "M_RETENTION_RATE": "0.50"
           }
         },
-        "provenance": null,
+        "provenance": {
+          "ahp": {
+            "ci": "0.1",
+            "comparison_matrices": {
+              "SYNTH-EXPERT-01": {
+                "SYNTH-M-001": {
+                  "SYNTH-M-001": "1",
+                  "SYNTH-M-002": "3"
+                },
+                "SYNTH-M-002": {
+                  "SYNTH-M-001": "0.25",
+                  "SYNTH-M-002": "1"
+                }
+              },
+              "SYNTH-EXPERT-02": {
+                "SYNTH-M-001": {
+                  "SYNTH-M-001": "1",
+                  "SYNTH-M-002": "2"
+                },
+                "SYNTH-M-002": {
+                  "SYNTH-M-001": "0.5",
+                  "SYNTH-M-002": "1"
+                }
+              }
+            },
+            "cr": "0.05",
+            "expert_count": 2,
+            "interview_dates": [
+              "2026-01-05",
+              "2026-01-06"
+            ],
+            "lambda_max": "2.1",
+            "max_method_gap": "0.02",
+            "ri": "0.2",
+            "weights_eigenvector": {
+              "SYNTH-M-001": "0.62",
+              "SYNTH-M-002": "0.38"
+            },
+            "weights_geometric": {
+              "SYNTH-M-001": "0.6",
+              "SYNTH-M-002": "0.4"
+            }
+          },
+          "approved_by": "SYNTH_APPROVER",
+          "approved_date": "2025-12-20",
+          "effective_from": "2026-01-01",
+          "effective_to": "2026-12-31",
+          "kind": "AHP_ONLY",
+          "whatif_run_id": "WIF-SYNTH-2026-01"
+        },
         "status": "FROZEN",
         "weight_version_id": "WV-SYNTH-2026-OAT20"
       }

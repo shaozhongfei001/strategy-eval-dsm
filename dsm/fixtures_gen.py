@@ -53,9 +53,14 @@ METRICS = (
     ('M_ROI', 'EFFIC', 'RATIO', 1, 'RATIO_DIRECT', '0.100000', 'IMPUTE_MEDIAN', False, '0.40', 'SIGNED'),
     ('M_COST_PER_CONV_MINOR', 'EFFIC', 'MONEY_MINOR', -1, 'INVERSE_RATIO', 39900, 'ZERO', False, '0.30', 'SIGNED'),
     ('M_CONV_RATE', 'EFFIC', 'RATIO', 1, 'RATIO_DIRECT', '0.200000', 'SKIP', False, '0.30', 'SIGNED'),
-    ('M_COMPLAINT_RATE', 'EXPER', 'RATIO', -1, 'INVERSE_RATIO', '0.002000', 'BLOCK', True, '0.40', 'SIGNED'),
+    # A1c(D-A1-03/ORCH-37 第1条)：BLOCK -> IMPUTE_MEDIAN，与同维 M_SATISFY_SCORE
+    # 对调；红线指标不得承载真实缺格（dsm/redline.py:330 的 V-14 抛错）。
+    ('M_COMPLAINT_RATE', 'EXPER', 'RATIO', -1, 'INVERSE_RATIO', '0.002000',
+     'IMPUTE_MEDIAN', True, '0.40', 'SIGNED'),
     ('M_CONTACT_FREQ_PER_30D', 'EXPER', 'COUNT', -1, 'INVERSE_RATIO', 2, 'BLOCK', True, '0.40', 'SIGNED'),
-    ('M_SATISFY_SCORE', 'EXPER', 'RATIO', 1, 'RATIO_DIRECT', '0.100000', 'IMPUTE_MEDIAN', False, '0.20', 'SIGNED'),
+    # A1c(D-A1-03)：IMPUTE_MEDIAN -> BLOCK，承接 G-09 的 BLOCK 分支（非红线）。
+    ('M_SATISFY_SCORE', 'EXPER', 'RATIO', 1, 'RATIO_DIRECT', '0.100000',
+     'BLOCK', False, '0.20', 'SIGNED'),
     ('M_CAMPAIGN_COST_MINOR', 'COST', 'MONEY_MINOR', -1, 'INVERSE_RATIO', 1995000, 'ZERO', False, '0.50', 'SIGNED'),
     ('M_HANDLE_SEC', 'COST', 'DURATION_SEC', -1, 'INVERSE_RATIO', 3990, 'SKIP', False, '0.50', 'SIGNED'),
     ('M_RETENTION_RATE', 'SUST', 'RATIO', 1, 'RATIO_DIRECT', '0.600000', 'IMPUTE_MEDIAN', False, '0.50', 'SIGNED'),
@@ -75,6 +80,30 @@ CALIBER_VERSION = 'CAL-SYNTH-2026'
 WEIGHT_VERSION_ID = 'WV-SYNTH-2026'
 OAT20_WEIGHT_VERSION_ID = 'WV-SYNTH-2026-OAT20'
 ANCHOR_SET_ID = 'AS-SYNTH-2026'
+# ---- A1c 合成常量（ORCH-29 第5条第1点 / ORCH-37 第5条）：显式标注为合成值，
+#      不得冒充业务签认真值，不得填 K-01~K-20。逐字段「合成、待业务签认」。----
+# [L1241] whatif_run_id：只需满足 dsm/whatif.py:309-315 三条（str / 非 PLACEHOLDER
+# 前缀 / strip 非空，dsm/config.py:84-85）。格式沿用 tests/test_preflight.py:33 先例。
+SYNTH_WHATIF_RUN_ID = 'WIF-SYNTH-2026-01'
+# [L1171] alt_method_note = 无严谨对照条件时用了什么替代方法；[L977] ③ 要求准实验
+# 「须写方法名与假设」——方法名由 eval_method=DID 承载，假设写在这里（[L977]/[L1171]）。
+SYNTH_ALT_METHOD_NOTE = 'SYNTH-ALT-METHOD: DID 双重差分，假设为处理组与对照组平行趋势'
+# [L1232]-[L1233] AHP 段（P-11 结构完备所需，dsm/config.py:1218-1230）。数值逐字复用
+# tests/test_models_provenance.py:62-84 的 AHP_SNAPSHOT（仓库既有合成载荷，非本包拟定，
+# R-12）；标识符改为本 fixtures 的 SYNTH- 命名约定。合成、待业务签认。
+SYNTH_AHP_SEGMENT = {
+    'comparison_matrices': {
+        'SYNTH-EXPERT-01': {
+            'SYNTH-M-001': {'SYNTH-M-001': '1', 'SYNTH-M-002': '3'},
+            'SYNTH-M-002': {'SYNTH-M-001': '0.25', 'SYNTH-M-002': '1'}},
+        'SYNTH-EXPERT-02': {
+            'SYNTH-M-001': {'SYNTH-M-001': '1', 'SYNTH-M-002': '2'},
+            'SYNTH-M-002': {'SYNTH-M-001': '0.5', 'SYNTH-M-002': '1'}}},
+    'lambda_max': '2.1', 'ci': '0.1', 'ri': '0.2', 'cr': '0.05',
+    'expert_count': 2, 'interview_dates': [date(2026, 1, 5), date(2026, 1, 6)],
+    'weights_geometric': {'SYNTH-M-001': '0.6', 'SYNTH-M-002': '0.4'},
+    'weights_eigenvector': {'SYNTH-M-001': '0.62', 'SYNTH-M-002': '0.38'},
+    'max_method_gap': '0.02'}
 # M34 第 1459 行：证据分布 A x3 / B x3 / C x4 / D x2。
 # 列: strategy_id, version_id, biz_domain, segment_type, evidence_intent, profile
 STRATEGIES = (
@@ -133,12 +162,16 @@ _REDLINE_ACTUAL = {
     ('S-009', 'M_COMPLAINT_RATE'): _D('0.008000'),          # G-03: > HARD 阈值 0.005
     ('S-006', 'M_COMPLAINT_RATE'): _D('0.007000'),          # G-15: 越线且无豁免留痕
     ('S-008', 'M_OPTOUT_RATE'): _D('0.095000')}             # SOFT 越线（软扣分路径）
-# G-09：四条 missing_rule 分支各需一个真实缺格（评价期）；BLOCK 落在 S-008。
+# G-09：四条 missing_rule 分支各需一个真实缺格（评价期）；BLOCK 落在 S-008 的
+# M_SATISFY_SCORE。A1c(D-A1-03 / ORCH-37 第1条)：原载体 M_COMPLAINT_RATE 是 HARD 红线
+# 指标，缺事实行会撞 dsm/redline.py:330 的 V-14 显式抛错；两个 BLOCK 规则指标全是红线
+# 指标，故「BLOCK 分支需真实缺格」与「红线指标不得缺事实行」数学上不可能共存 -> 载体
+# 迁到同维非红线的 M_SATISFY_SCORE（missing_rule 同步对调）。四分支覆盖不变。
 OMITTED_FACTS = frozenset({
     ('S-005', 'v2', EVAL_PERIOD, 'M_CAMPAIGN_COST_MINOR'),
     ('S-006', 'v1', EVAL_PERIOD, 'M_CUST_GAIN'),
     ('S-011', 'v1', EVAL_PERIOD, 'M_ROI'),
-    ('S-008', 'v1', EVAL_PERIOD, 'M_COMPLAINT_RATE')})
+    ('S-008', 'v1', EVAL_PERIOD, 'M_SATISFY_SCORE')})
 # G-04：9/15 = 60% 指标无 target_value，跨 EFFIC/EXPER/COST/SUST 四个维度。
 NO_TARGET_METRICS = ('M_ROI', 'M_COST_PER_CONV_MINOR', 'M_CONV_RATE',
                      'M_COMPLAINT_RATE', 'M_CONTACT_FREQ_PER_30D', 'M_SATISFY_SCORE',
@@ -267,12 +300,12 @@ def metric_dict_rows(no_target=(), pending=()):
 
 
 def design_card(sid, vid, ev, card_status='COMPLETE', limit=None,
-                criteria='SYNTH_SUCC_CRITERIA'):
+                criteria='SYNTH_SUCC_CRITERIA', alt_note=None):
     row = {'strategy_id': sid, 'version_id': vid, 'direct_goal': 'SYNTH_GOAL_' + sid,
            'process_metrics': ('M_REACH_RATE', 'M_CONV_RATE'),
            'result_metrics': ('M_REV_MINOR', 'M_ROI'), 'observation_window': 'P30D',
            'data_source': 'SYNTH_DW_TABLE', 'data_timeliness': 'T+1',
-           'eval_owner': 'SYNTH_OWNER_02', 'alt_method_note': None,
+           'eval_owner': 'SYNTH_OWNER_02', 'alt_method_note': alt_note,
            'card_status': card_status, 'estimator_method': None, 'experiment_id': None,
            'holdout_id': None, 'mde_ok': None, 'incremental_value': None,
            'incremental_ci_lower': None, 'incremental_ci_upper': None,
@@ -285,10 +318,15 @@ def design_card(sid, vid, ev, card_status='COMPLETE', limit=None,
                    experiment_id='SYNTH-EXP-' + sid, incremental_value=120000,
                    incremental_ci_lower=60000, incremental_ci_upper=180000)
     elif ev == 'B':    # 准实验 -> 证据 B
+        # A1c(D-A1-02 / ORCH-37 第4条)：[L977] ③ 认 B 要求「写明方法名与假设」，方法名
+        # 由 eval_method=DID 承载，假设的载体是 [L1171] alt_method_note（SDD 无独立假设
+        # 列）。interpretation_limit 一律不补——[L1172]/[L1293] 把该义务限定在 C 类，且
+        # dsm/evidence.py:248-249 明写 A/B/D 不被 ⑤ 改写，补它属过度规格化。
         row.update(eval_method='DID', control_arrangement='CONCURRENT_CONTROL',
                    estimator_method='SYNTH_DID', holdout_id='SYNTH-HOLD-' + sid,
                    incremental_value=90000, incremental_ci_lower=30000,
-                   incremental_ci_upper=150000)
+                   incremental_ci_upper=150000,
+                   alt_method_note=alt_note or SYNTH_ALT_METHOD_NOTE)
     elif ev == 'C':    # 纯观察 + 解释边界非空 -> 证据 C
         row['interpretation_limit'] = limit or 'SYNTH-LIMIT: 无对照组，增量不可识别'
     return row
@@ -300,6 +338,12 @@ def design_card_rows(downgrade_to_c=()):
         eff = 'C' if sid in downgrade_to_c else ev
         kw = {'card_status': 'COMPLETE', 'limit': None,
               'criteria': 'SYNTH_SUCC_CRITERIA'}
+        # A1c(D-A1-02)：按**声明意图** EVIDENCE_INTENT 补 [L1171] 假设载体，故 G-14 的
+        # downgrade_to_c 分支（eff='C'、eval_method=OBSERVATIONAL_ONLY）也带上该 note；
+        # 因 dsm/evidence.py:225 的 ③ 要求 eval_method in QUASI_METHODS，note 在 C 卡上
+        # 惰性、不改判定（§5.5 PLACEHOLDER-A1C-02 实测结论：G-14 仍走 ④ -> C，安全）。
+        if EVIDENCE_INTENT.get(sid) == 'B':
+            kw['alt_note'] = SYNTH_ALT_METHOD_NOTE
         if sid in downgrade_to_c:
             kw['limit'] = 'SYNTH-LIMIT: 变体降级为 C 类'
         if sid == 'S-010':       # D 类路径 1：评价设计卡 MISSING
@@ -329,7 +373,18 @@ def weight_version(wid, l1, eff_to, status='FROZEN'):
             'level2_weights': {d: {m[0]: _D(m[8]) for m in METRICS if m[1] == d}
                                for d in DIMS},
             'approved_by': 'SYNTH_APPROVER', 'approved_date': date(2025, 12, 20),
-            'provenance': None}
+            # A1c(D-A1-04 / ORCH-37 第5条)：[L1241]+[L1242]+[L1435] P-11。FROZEN 而缺
+            # whatif_run_id -> C-01 BLOCK（dsm/preflight.py:188-190）且 config 加载失败
+            # （dsm/config.py:1293-1297）；只补 whatif_run_id 会把阻塞挪到 ahp 段，故
+            # kind/ahp/签认四件套一并补齐。全部为合成值，待业务签认。
+            'provenance': {
+                'kind': 'AHP_ONLY',                    # [L1231] 三选一中要求最少者
+                'ahp': SYNTH_AHP_SEGMENT,              # [L1232]-[L1233]
+                'whatif_run_id': SYNTH_WHATIF_RUN_ID,  # [L1241]
+                'approved_by': 'SYNTH_APPROVER',       # [L1242]
+                'approved_date': date(2025, 12, 20),   # [L1242]
+                'effective_from': date(2026, 1, 1),    # [L1242]，与文档级同值
+                'effective_to': eff_to}}               # [L1242]，随文档级（G-11 STALE 自洽）
 
 
 def weight_version_rows():

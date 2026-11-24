@@ -71,9 +71,9 @@
       "sha256": "a3f8385e788c376d843d3b8606a013cc96e04024322661c5a971dfc0579582c0"
     },
     "fixtures/input/design_card.jsonl": {
-      "bytes": 8902,
+      "bytes": 9210,
       "rows": 13,
-      "sha256": "6a3c39dff04b53c263e6cdd26c535d745c67734f9e51a6cb6cf5aa0b787713ac"
+      "sha256": "db65d61cfc4952feff42506a0b06a55c7cf616be0ed8159e87f5487b5a222ab3"
     },
     "fixtures/input/grade_rule.jsonl": {
       "bytes": 1037,
@@ -83,12 +83,12 @@
     "fixtures/input/metric_dict.jsonl": {
       "bytes": 9144,
       "rows": 15,
-      "sha256": "30a2502838b4984eae6cada1db1ccfe875718188ca9920dd0698e13e1e18475e"
+      "sha256": "a55e5c5822272c967ccc86cb24d4326ba474e997b507e5c2b68bcc4076ce4a11"
     },
     "fixtures/input/metric_fact.jsonl": {
-      "bytes": 273549,
+      "bytes": 273548,
       "rows": 896,
-      "sha256": "5fd7442f79ef9046a1bd09280dd99e3f4ddb2e45f38a0f47dda2a89f376296e2"
+      "sha256": "05efc9197fd265acd8a694ae7f93ed45afa5af01a8c7e3261df538dbb7a11900"
     },
     "fixtures/input/redline.jsonl": {
       "bytes": 547,
@@ -101,9 +101,9 @@
       "sha256": "273ce1f746108a2d4e6f0ffb2aeb33968ea86db7c398cd8b80cb9a017c48e677"
     },
     "fixtures/input/weight_version.jsonl": {
-      "bytes": 743,
+      "bytes": 1465,
       "rows": 1,
-      "sha256": "b403bfbced929c6863eb57a95d4926f8893fa451387388574655bade82b70a27"
+      "sha256": "83e9c0268347746e856baafe169466f2ede04769c0caa9831d21d91ab5c1ffbc"
     },
     "fixtures/negative/G11_money_non_integer.json": {
       "bytes": 628,
@@ -113,17 +113,17 @@
     "fixtures/variants/G04_target_missing.json": {
       "bytes": 7722,
       "rows": 1,
-      "sha256": "83bd2b5c1097c9043c16fd42931e9b7307eed2b6280b7f282eb939bc82f7b783"
+      "sha256": "ab15a7498e75c6dfa153013fc9b6bc9c102a59e4dbc07762bd0e862663a03fe5"
     },
     "fixtures/variants/G05_append_extreme.json": {
-      "bytes": 8291,
+      "bytes": 8368,
       "rows": 1,
-      "sha256": "eaae9cfb1b2c62ea4fb0b4ef385e650e66f8f700ed3e96b802a2bcd71bb6d23e"
+      "sha256": "c7e0f6f2c146e1655e2d5d8bb979fcd837f9b11a705eb93467e3fa31ba1226de"
     },
     "fixtures/variants/G06_weight_oat20.json": {
-      "bytes": 1505,
+      "bytes": 2979,
       "rows": 1,
-      "sha256": "10986ae79aeafc0ff90e43bf9d6a661d53abc122ec32d784a346c14372612b96"
+      "sha256": "3a9ac9106fa87817f166471f8c62bd3347d6a8a18c8c33cc2cd7f40497f27830"
     },
     "fixtures/variants/G10_dim_emptied.json": {
       "bytes": 1075,
@@ -131,14 +131,14 @@
       "sha256": "4ef16ca47e430ca4aafa0479d29bcdb8f1e9df7f935c5ce2d7773168b02cdc7b"
     },
     "fixtures/variants/G11_stale_weight.json": {
-      "bytes": 1500,
+      "bytes": 2974,
       "rows": 1,
-      "sha256": "d76fae33b608f7d4ea893f58adad6af43ece75dd62b82da806c823c3fc9fc56d"
+      "sha256": "7f9a3162bf379ab1f2f88e2b027e87a0efec23f9603890ec04e93e4c61296ac2"
     },
     "fixtures/variants/G14_c_share_up.json": {
-      "bytes": 3195,
+      "bytes": 3426,
       "rows": 1,
-      "sha256": "2fafad6dba75c322caef249d4e2150b069d5a17d60b0969aa16b9786ba13171f"
+      "sha256": "5ad6206dbcf138abb3afe2f7b11a8778ca1dcaf9aad6fd00cfa2fba494e20068"
     }
   },
   "generator": "fixtures_gen-1.0",
