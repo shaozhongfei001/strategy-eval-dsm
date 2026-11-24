@@ -1,0 +1,105 @@
+{
+  "append": {},
+  "golden_refs": [
+    "G-14"
+  ],
+  "purpose": "两条 B 类降为 C 类 -> C 类占比 4/12 升到 6/12",
+  "replace": {
+    "design_card": [
+      {
+        "alt_method_note": null,
+        "card_status": "COMPLETE",
+        "control_arrangement": "NONE",
+        "data_source": "SYNTH_DW_TABLE",
+        "data_timeliness": "T+1",
+        "direct_goal": "SYNTH_GOAL_S-005",
+        "estimator_method": null,
+        "eval_method": "OBSERVATIONAL_ONLY",
+        "eval_owner": "SYNTH_OWNER_02",
+        "experiment_id": null,
+        "holdout_id": null,
+        "incremental_ci_lower": null,
+        "incremental_ci_upper": null,
+        "incremental_value": null,
+        "interpretation_limit": "SYNTH-LIMIT: 变体降级为 C 类",
+        "mde_ok": null,
+        "observation_window": "P30D",
+        "process_metrics": [
+          "M_REACH_RATE",
+          "M_CONV_RATE"
+        ],
+        "result_metrics": [
+          "M_REV_MINOR",
+          "M_ROI"
+        ],
+        "risk_constraints": "SYNTH_RISK_CONSTRAINT",
+        "strategy_id": "S-005",
+        "success_criteria": "SYNTH_SUCC_CRITERIA",
+        "version_id": "v1"
+      },
+      {
+        "alt_method_note": null,
+        "card_status": "COMPLETE",
+        "control_arrangement": "NONE",
+        "data_source": "SYNTH_DW_TABLE",
+        "data_timeliness": "T+1",
+        "direct_goal": "SYNTH_GOAL_S-005",
+        "estimator_method": null,
+        "eval_method": "OBSERVATIONAL_ONLY",
+        "eval_owner": "SYNTH_OWNER_02",
+        "experiment_id": null,
+        "holdout_id": null,
+        "incremental_ci_lower": null,
+        "incremental_ci_upper": null,
+        "incremental_value": null,
+        "interpretation_limit": "SYNTH-LIMIT: 变体降级为 C 类",
+        "mde_ok": null,
+        "observation_window": "P30D",
+        "process_metrics": [
+          "M_REACH_RATE",
+          "M_CONV_RATE"
+        ],
+        "result_metrics": [
+          "M_REV_MINOR",
+          "M_ROI"
+        ],
+        "risk_constraints": "SYNTH_RISK_CONSTRAINT",
+        "strategy_id": "S-005",
+        "success_criteria": "SYNTH_SUCC_CRITERIA",
+        "version_id": "v2"
+      },
+      {
+        "alt_method_note": null,
+        "card_status": "COMPLETE",
+        "control_arrangement": "NONE",
+        "data_source": "SYNTH_DW_TABLE",
+        "data_timeliness": "T+1",
+        "direct_goal": "SYNTH_GOAL_S-007",
+        "estimator_method": null,
+        "eval_method": "OBSERVATIONAL_ONLY",
+        "eval_owner": "SYNTH_OWNER_02",
+        "experiment_id": null,
+        "holdout_id": null,
+        "incremental_ci_lower": null,
+        "incremental_ci_upper": null,
+        "incremental_value": null,
+        "interpretation_limit": "SYNTH-LIMIT: 变体降级为 C 类",
+        "mde_ok": null,
+        "observation_window": "P30D",
+        "process_metrics": [
+          "M_REACH_RATE",
+          "M_CONV_RATE"
+        ],
+        "result_metrics": [
+          "M_REV_MINOR",
+          "M_ROI"
+        ],
+        "risk_constraints": "SYNTH_RISK_CONSTRAINT",
+        "strategy_id": "S-007",
+        "success_criteria": "SYNTH_SUCC_CRITERIA",
+        "version_id": "v1"
+      }
+    ]
+  },
+  "subject": "S-005,S-007"
+}

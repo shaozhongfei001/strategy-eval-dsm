@@ -1,0 +1,35 @@
+{
+  "append": {},
+  "golden_refs": [
+    "G-10"
+  ],
+  "purpose": "SUST 第二个指标也置 PENDING -> 维度被清空 -> preflight BLOCK",
+  "replace": {
+    "metric_dict": [
+      {
+        "attainment_formula": "RATIO_DIRECT",
+        "caliber_version": "CAL-SYNTH-2026",
+        "dedup_rule": "SYNTH_DEDUP_CUST_ID",
+        "denominator_def": "SYNTH_DEN_M_RETENTION_RATE",
+        "dict_version": "MD-SYNTH-2026",
+        "dim_code": "SUST",
+        "dim_signoff_status": "SIGNED",
+        "direction": 1,
+        "is_redline": false,
+        "metric_id": "M_RETENTION_RATE",
+        "metric_name": "SYNTH-METRIC-RETENTION_RATE",
+        "missing_rule": "IMPUTE_MEDIAN",
+        "numerator_def": "SYNTH_NUM_M_RETENTION_RATE",
+        "outlier_rule": "SYNTH_WINSOR_P1_P99",
+        "owner_name": "SYNTH_OWNER_01",
+        "signoff_date": null,
+        "signoff_status": "PENDING",
+        "target_basis": "SYNTH_BUDGET_2026",
+        "target_value": "0.600000",
+        "time_window": "P30D",
+        "unit": "RATIO"
+      }
+    ]
+  },
+  "subject": "M_RETENTION_RATE"
+}

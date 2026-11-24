@@ -1,0 +1,23 @@
+{
+  "expect_reason_code": "MONEY_NON_INTEGER",
+  "expect_rejected_by": "models.MetricFactRow",
+  "golden_refs": [
+    "G-11"
+  ],
+  "purpose": "MONEY_MINOR 字段传入非整数 -> preflight BLOCK，不产出 score_card",
+  "row": {
+    "caliber_version": "CAL-SYNTH-2026",
+    "data_as_of": "2026-09-30",
+    "data_quality_flag": "OK",
+    "metric_id": "M_REV_MINOR",
+    "period": "2026-Q3",
+    "snapshot_time": "2026-10-20T00:00:00",
+    "source_table": "SYNTH_FACT_TABLE",
+    "strategy_id": "S-007",
+    "value": 100.5,
+    "value_den": null,
+    "value_num": 100.5,
+    "version_id": "v1"
+  },
+  "table": "metric_fact"
+}

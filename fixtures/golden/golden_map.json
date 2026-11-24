@@ -1,0 +1,775 @@
+{
+  "case_count": 15,
+  "cases": [
+    {
+      "expects": {
+        "eligible_for_L1_library": true,
+        "evidence_class": "A",
+        "grade": "L1",
+        "reason_codes": []
+      },
+      "hand": {
+        "arithmetic": "15 个指标 attainment 全 >= 1.00（+1 取 1.00+0.01*i，-1 取 1.00）；维度值 CONTRIB 1.0010 / EFFIC 1.0270 / EXPER 1.0160 / COST 1.0000 / SUST 1.1150 / PROC 1.0650；0.30*1.0010+0.21*1.0270+0.21*1.0160+0.14*1.0000+0.07*1.1150+0.07*1.0650 = 1.021930 >= L1 门槛 1.00",
+        "attainment_min": "1.000000",
+        "composite_absolute": "1.021930"
+      },
+      "id": "G-01",
+      "probes": [
+        {
+          "e": {
+            "card_status": "COMPLETE",
+            "control_arrangement": "RANDOMIZED",
+            "eval_method": "AB_TEST",
+            "mde_ok": true
+          },
+          "m": {
+            "strategy_id": "S-001"
+          },
+          "nonnull": [
+            "experiment_id",
+            "incremental_ci_lower"
+          ],
+          "scope": "base",
+          "t": "design_card"
+        },
+        {
+          "m": {
+            "period": "2026-Q3",
+            "strategy_id": "S-001"
+          },
+          "n": 15,
+          "scope": "base",
+          "t": "metric_fact"
+        },
+        {
+          "e": {
+            "value": 2
+          },
+          "m": {
+            "metric_id": "M_CONTACT_FREQ_PER_30D",
+            "period": "2026-Q3",
+            "strategy_id": "S-001"
+          },
+          "scope": "base",
+          "t": "metric_fact"
+        },
+        {
+          "e": {
+            "value": "0.002000"
+          },
+          "m": {
+            "metric_id": "M_COMPLAINT_RATE",
+            "period": "2026-Q3",
+            "strategy_id": "S-001"
+          },
+          "scope": "base",
+          "t": "metric_fact"
+        }
+      ],
+      "scenario": "A 类证据 + 全指标达标 + 无红线 -> 一级",
+      "scope": "base",
+      "source": "digest M31 第 1403 行",
+      "subject": "S-001",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "eligible_for_L1_library": false,
+        "grade": "L2",
+        "l1_gate_reason": "PL_L1_GATE_EVIDENCE",
+        "rank_in_pool": "仅 (biz_domain=CARD, evidence_class=C) 池内",
+        "reason_code": "GR_EVIDENCE_GATE_L1"
+      },
+      "hand": {
+        "arithmetic": "CONTRIB 1.1350 / EFFIC 1.1050 / EXPER 1.0300 / COST 1.0000 / SUST 1.1500 / PROC 1.0750；0.30*1.1350+0.21*1.1050+0.21*1.0300+0.14*1.0000+0.07*1.1500+0.07*1.0750 = 1.0846",
+        "composite_absolute": "1.084600",
+        "note": "1.0846 > L1 门槛 1.00 -> 降级只能来自证据门禁，不来自分数"
+      },
+      "id": "G-02",
+      "probes": [
+        {
+          "e": {
+            "card_status": "COMPLETE",
+            "control_arrangement": "NONE",
+            "eval_method": "OBSERVATIONAL_ONLY"
+          },
+          "m": {
+            "strategy_id": "S-003"
+          },
+          "nonnull": [
+            "interpretation_limit"
+          ],
+          "scope": "base",
+          "t": "design_card"
+        },
+        {
+          "e": {
+            "value": 11500
+          },
+          "m": {
+            "metric_id": "M_REV_MINOR",
+            "period": "2026-Q3",
+            "strategy_id": "S-003"
+          },
+          "scope": "base",
+          "t": "metric_fact"
+        }
+      ],
+      "scenario": "C 类高分策略被证据门禁拦下，只在 (biz_domain, C) 池内排名",
+      "scope": "base",
+      "source": "digest M31 第 1404 行 / M37 E2",
+      "subject": "S-003",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "composite_absolute": "仍输出但不生效",
+        "forced": true,
+        "grade": "L4",
+        "reason_code": "REDLINE_HARD_M_CONTACT_FREQ_PER_30D",
+        "redline_pass": false
+      },
+      "hand": {
+        "arithmetic": "0.80*2.00 + 0.10*2.00 + 0.10*1.00 = 1.90（M31 要求 1.9）；CONTACT_FREQ 6 > 4 且 COMPLAINT_RATE 0.008 > 0.005 双越线",
+        "dim_CONTRIB": "1.900000"
+      },
+      "id": "G-03",
+      "probes": [
+        {
+          "e": {
+            "value": 6
+          },
+          "m": {
+            "metric_id": "M_CONTACT_FREQ_PER_30D",
+            "period": "2026-Q3",
+            "strategy_id": "S-009"
+          },
+          "scope": "base",
+          "t": "metric_fact"
+        },
+        {
+          "e": {
+            "value": "0.008000"
+          },
+          "m": {
+            "metric_id": "M_COMPLAINT_RATE",
+            "period": "2026-Q3",
+            "strategy_id": "S-009"
+          },
+          "scope": "base",
+          "t": "metric_fact"
+        },
+        {
+          "e": {
+            "value": 20000
+          },
+          "m": {
+            "metric_id": "M_REV_MINOR",
+            "period": "2026-Q3",
+            "strategy_id": "S-009"
+          },
+          "scope": "base",
+          "t": "metric_fact"
+        },
+        {
+          "e": {
+            "comparator": "GT",
+            "forced_grade": "L4",
+            "level": "HARD",
+            "threshold_value": 4
+          },
+          "m": {
+            "metric_id": "M_CONTACT_FREQ_PER_30D"
+          },
+          "scope": "base",
+          "t": "redline"
+        }
+      ],
+      "scenario": "贡献极高但红线越线 -> 强制四级（非补偿）",
+      "scope": "base",
+      "source": "digest M31 第 1405 行 / M37 E3",
+      "subject": "S-009",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "cap_reason": "GR_CAPPED_NO_TARGET",
+        "capped_flag": true,
+        "composite_relative": "仍给出（池内参考）",
+        "grade": "L3"
+      },
+      "gap": "digest M31/M37 写作 GRADE_CAPPED_NO_TARGET，dsm/reason_codes.py 注册的是 GR_CAPPED_NO_TARGET；本骨架按注册码记录，口径差请主控裁决",
+      "hand": {
+        "coverage_count": "0.400000 = 6/15",
+        "coverage_weighted": "0.405000 = 0.30 + 0.07*0.50 + 0.07",
+        "dims_without_target": "EFFIC / EXPER / COST / SUST（6 个维度中的 4 个）",
+        "null_target_share": "9/15 = 0.600000（M31 要求 60%）"
+      },
+      "id": "G-04",
+      "probes": [
+        {
+          "m": {
+            "target_value": null
+          },
+          "n": 9,
+          "scope": "variant:G04_target_missing",
+          "t": "metric_dict"
+        },
+        {
+          "m": {
+            "target_value": null
+          },
+          "none": true,
+          "scope": "base",
+          "t": "metric_dict"
+        },
+        {
+          "m": {
+            "period": "2026-Q3",
+            "strategy_id": "S-007"
+          },
+          "n": 15,
+          "scope": "base",
+          "t": "metric_fact"
+        }
+      ],
+      "scenario": "目标值大面积缺失 -> 绝对轨覆盖不足 -> 封顶三级",
+      "scope": "variant:G04_target_missing",
+      "source": "digest M31 第 1406 行 / M37 E4",
+      "subject": "S-007",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "existing_norm_composite_grade": "完全不变",
+        "rank_reversal": "不出现"
+      },
+      "hand": {
+        "extreme_attainment": "1.900000（+1 指标）/ 1.000000（-1 指标）",
+        "periods": "仅评价期 2026-Q3"
+      },
+      "id": "G-05",
+      "probes": [
+        {
+          "m": {
+            "strategy_id": "S-901"
+          },
+          "scope": "variant:G05_append_extreme",
+          "t": "strategy_master"
+        },
+        {
+          "m": {
+            "period": "2026-Q3",
+            "strategy_id": "S-901"
+          },
+          "n": 15,
+          "scope": "variant:G05_append_extreme",
+          "t": "metric_fact"
+        },
+        {
+          "m": {
+            "anchor_set_id": "AS-SYNTH-2026"
+          },
+          "notcontains": {
+            "strategy_ids": "S-901"
+          },
+          "scope": "base",
+          "t": "anchor_set"
+        },
+        {
+          "m": {
+            "strategy_id": "S-901"
+          },
+          "none": true,
+          "scope": "base",
+          "t": "strategy_master"
+        }
+      ],
+      "scenario": "基线后追加极端策略（不入锚定集）重跑，存量结果完全不变",
+      "scope": "variant:G05_append_extreme",
+      "source": "digest M31 第 1407 行",
+      "subject": "S-901",
+      "value_status": "SPEC（需两次运行对比，期望值不预填）"
+    },
+    {
+      "expects": {
+        "at_least_one": "NEAR_BOUNDARY 策略翻转为 L3",
+        "flip_rate": "计算正确",
+        "stability_label": "正确"
+      },
+      "hand": {
+        "S-002_base": "1.005000 = 0.30*0.90 + 0.70*1.05 -> L1",
+        "S-002_oat20": "0.996000 = 0.36*0.90 + 0.64*1.05 -> 跌破 1.00 -> L2",
+        "S-004_base": "0.905000 = 0.30*0.80 + 0.70*0.95 -> L2",
+        "S-004_oat20": "0.896000 = 0.36*0.80 + 0.64*0.95 -> 跌破 0.90 -> L3",
+        "weight_closure": "一级权重取 0.07 整数倍，x1.2 重归一后 12 位小数精确闭合"
+      },
+      "id": "G-06",
+      "probes": [
+        {
+          "m": {
+            "weight_version_id": "WV-SYNTH-2026-OAT20"
+          },
+          "scope": "variant:G06_weight_oat20",
+          "t": "weight_version"
+        },
+        {
+          "e": {
+            "status": "FROZEN"
+          },
+          "m": {
+            "weight_version_id": "WV-SYNTH-2026"
+          },
+          "scope": "base",
+          "t": "weight_version"
+        }
+      ],
+      "scenario": "CONTRIB 权重 x1.2 其余重归一 -> flip_rate / stability_label",
+      "scope": "variant:G06_weight_oat20",
+      "source": "digest M31 第 1408 行 / M37 E5",
+      "subject": "S-002,S-004",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "loo_impact_max": "M_REV_MINOR",
+        "reason_code": "DOMINANT_METRIC",
+        "report_warning": "存在单一指标过度影响"
+      },
+      "hand": {
+        "dominant_share": "0.800000（CONTRIB 内）；CONTRIB 一级权重 0.30 -> 该指标对 composite 的直接权重 0.240000"
+      },
+      "id": "G-07",
+      "probes": [
+        {
+          "e": {
+            "level2_weights": {
+              "CONTRIB": {
+                "M_REV_MINOR": "0.80"
+              }
+            }
+          },
+          "m": {
+            "weight_version_id": "WV-SYNTH-2026"
+          },
+          "scope": "base",
+          "t": "weight_version"
+        }
+      ],
+      "scenario": "LOO：构造权重占比过大的单一指标",
+      "scope": "base",
+      "source": "digest M31 第 1409 行",
+      "subject": "M_REV_MINOR",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "cross_version_trend": "抑制",
+        "promotion_streak": "重置",
+        "reason_code": "GR_VERSION_BREAK",
+        "version_break": true
+      },
+      "hand": {
+        "v1_periods": "4 期历史 2025-Q3..2026-Q2",
+        "v2_periods": "评价期 2026-Q3"
+      },
+      "id": "G-08",
+      "probes": [
+        {
+          "e": {
+            "status": "ACTIVE"
+          },
+          "m": {
+            "strategy_id": "S-005",
+            "version_id": "v2"
+          },
+          "nonnull": [
+            "version_change_note"
+          ],
+          "scope": "base",
+          "t": "strategy_master"
+        },
+        {
+          "e": {
+            "offline_date": "2026-06-30",
+            "status": "RETIRED"
+          },
+          "m": {
+            "strategy_id": "S-005",
+            "version_id": "v1"
+          },
+          "scope": "base",
+          "t": "strategy_master"
+        },
+        {
+          "m": {
+            "period": "2026-Q3",
+            "strategy_id": "S-005",
+            "version_id": "v1"
+          },
+          "none": true,
+          "scope": "base",
+          "t": "metric_fact"
+        },
+        {
+          "m": {
+            "period": "2026-Q3",
+            "strategy_id": "S-005",
+            "version_id": "v2"
+          },
+          "n": 14,
+          "scope": "base",
+          "t": "metric_fact"
+        }
+      ],
+      "scenario": "同 strategy_id 版本变更 -> VERSION_BREAK / 趋势抑制 / streak 重置",
+      "scope": "base",
+      "source": "digest M31 第 1410 行",
+      "subject": "S-005",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "BLOCK": "S-008 不产出分数",
+        "IMPUTE_MEDIAN": "中位数填补",
+        "SKIP": "剔除并重归一",
+        "ZERO": "按 0 计入",
+        "four_branches_distinct": true
+      },
+      "hand": {
+        "branch_map": "ZERO->S-005/v2 M_CAMPAIGN_COST_MINOR, SKIP->S-006 M_CUST_GAIN, IMPUTE_MEDIAN->S-011 M_ROI, BLOCK->S-008 M_COMPLAINT_RATE"
+      },
+      "id": "G-09",
+      "probes": [
+        {
+          "m": {
+            "missing_rule": "ZERO"
+          },
+          "n": 1,
+          "scope": "base",
+          "t": "metric_dict"
+        },
+        {
+          "m": {
+            "missing_rule": "SKIP"
+          },
+          "n": 1,
+          "scope": "base",
+          "t": "metric_dict"
+        },
+        {
+          "m": {
+            "missing_rule": "IMPUTE_MEDIAN"
+          },
+          "n": 1,
+          "scope": "base",
+          "t": "metric_dict"
+        },
+        {
+          "m": {
+            "missing_rule": "BLOCK"
+          },
+          "n": 1,
+          "scope": "base",
+          "t": "metric_dict"
+        },
+        {
+          "m": {
+            "metric_id": "M_CAMPAIGN_COST_MINOR",
+            "period": "2026-Q3",
+            "strategy_id": "S-005"
+          },
+          "none": true,
+          "scope": "base",
+          "t": "metric_fact"
+        },
+        {
+          "m": {
+            "metric_id": "M_CUST_GAIN",
+            "period": "2026-Q3",
+            "strategy_id": "S-006"
+          },
+          "none": true,
+          "scope": "base",
+          "t": "metric_fact"
+        },
+        {
+          "m": {
+            "metric_id": "M_ROI",
+            "period": "2026-Q3",
+            "strategy_id": "S-011"
+          },
+          "none": true,
+          "scope": "base",
+          "t": "metric_fact"
+        },
+        {
+          "m": {
+            "metric_id": "M_COMPLAINT_RATE",
+            "period": "2026-Q3",
+            "strategy_id": "S-008"
+          },
+          "none": true,
+          "scope": "base",
+          "t": "metric_fact"
+        }
+      ],
+      "scenario": "missing_rule 四种分支各有一个真实缺格",
+      "scope": "base",
+      "source": "digest M31 第 1411 行",
+      "subject": "S-005/v2,S-006,S-011,S-008",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "base": "该指标剔除；coverage 下降；reason = METRIC_NOT_SIGNED",
+        "reason_code_variant": "DIMENSION_EMPTIED",
+        "variant": "SUST 维度被清空 -> preflight BLOCK"
+      },
+      "hand": {
+        "sust_metrics": "SUST 仅 2 个指标，变体把两个都置 PENDING"
+      },
+      "id": "G-10",
+      "probes": [
+        {
+          "e": {
+            "signoff_status": "PENDING"
+          },
+          "m": {
+            "metric_id": "M_REPEAT_USE_COUNT"
+          },
+          "scope": "base",
+          "t": "metric_dict"
+        },
+        {
+          "e": {
+            "signoff_status": "PENDING"
+          },
+          "m": {
+            "metric_id": "M_RETENTION_RATE"
+          },
+          "scope": "variant:G10_dim_emptied",
+          "t": "metric_dict"
+        }
+      ],
+      "scenario": "未签认指标被剔除；维度被清空 -> preflight BLOCK",
+      "scope": "base+variant:G10_dim_emptied",
+      "source": "digest M31 第 1412 行",
+      "subject": "M_REPEAT_USE_COUNT,M_RETENTION_RATE",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "a_code": "WEIGHT_VERSION_STALE",
+        "a_preflight": "BLOCK",
+        "b_code": "MONEY_NON_INTEGER",
+        "b_preflight": "BLOCK",
+        "score_card": "均不产出"
+      },
+      "gap": "digest M31 写作 code = STALE，注册码为 WEIGHT_VERSION_STALE；按注册码记录",
+      "hand": {
+        "effective_to": "2026-06-30 早于评价期起点 2026-07-01",
+        "eval_period": "2026-Q3"
+      },
+      "id": "G-11",
+      "probes": [
+        {
+          "e": {
+            "effective_to": "2026-06-30"
+          },
+          "m": {
+            "weight_version_id": "WV-SYNTH-2026"
+          },
+          "scope": "variant:G11_stale_weight",
+          "t": "weight_version"
+        },
+        {
+          "e": {
+            "value_num": "100.5"
+          },
+          "m": {
+            "metric_id": "M_REV_MINOR"
+          },
+          "scope": "negative:G11_money_non_integer",
+          "t": "row"
+        }
+      ],
+      "scenario": "(a) 权重版本过期 (b) MONEY_MINOR 非整数 -> 均 BLOCK，不出 score_card",
+      "scope": "variant:G11_stale_weight+negative:G11_money_non_integer",
+      "source": "digest M31 第 1413 行",
+      "subject": "WV-SYNTH-2026",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "money_and_int_fields": "精确相等",
+        "ratio_fields": "差值 <= 1e-12",
+        "reproducibility_hash": "两次精确相等"
+      },
+      "hand": {
+        "fixture_side_guarantee": "fixtures_gen 无时钟、无全局状态、无 dict 无序依赖，同 seed 逐字节相等"
+      },
+      "id": "G-12",
+      "probes": [
+        {
+          "m": {
+            "period": "2026-Q3"
+          },
+          "n": 1,
+          "scope": "base",
+          "t": "metric_fact"
+        },
+        {
+          "m": {
+            "strategy_id": "S-001"
+          },
+          "n": 1,
+          "scope": "base",
+          "t": "strategy_master"
+        }
+      ],
+      "scenario": "同 manifest 连续两次运行 -> reproducibility_hash 精确相等",
+      "scope": "base",
+      "source": "digest M31 第 1414 行",
+      "subject": "SYNTH-RUN-0001",
+      "value_status": "SPEC"
+    },
+    {
+      "expects": {
+        "evidence_class_max": "C",
+        "evidence_reason": "EVIDENCE_CARD_PARTIAL"
+      },
+      "hand": {},
+      "id": "G-13",
+      "probes": [
+        {
+          "e": {
+            "card_status": "PARTIAL",
+            "control_arrangement": "NONE",
+            "eval_method": "OBSERVATIONAL_ONLY",
+            "success_criteria": ""
+          },
+          "m": {
+            "strategy_id": "S-011"
+          },
+          "nonnull": [
+            "interpretation_limit"
+          ],
+          "scope": "base",
+          "t": "design_card"
+        }
+      ],
+      "scenario": "评价设计卡 PARTIAL（缺成功判定）-> 证据最高只能 C",
+      "scope": "base",
+      "source": "digest M31 第 1415 行",
+      "subject": "S-011",
+      "value_status": "SPEC"
+    },
+    {
+      "expects": {
+        "report": "池内占比与合并占比分列",
+        "warning": "MIX_QUALITY_DEGRADED"
+      },
+      "hand": {
+        "c_share_base": "4/12 = 0.333333",
+        "c_share_variant": "6/12 = 0.500000"
+      },
+      "id": "G-14",
+      "probes": [
+        {
+          "e": {
+            "control_arrangement": "NONE",
+            "eval_method": "OBSERVATIONAL_ONLY"
+          },
+          "m": {
+            "strategy_id": "S-005"
+          },
+          "scope": "variant:G14_c_share_up",
+          "t": "design_card"
+        },
+        {
+          "e": {
+            "control_arrangement": "NONE",
+            "eval_method": "OBSERVATIONAL_ONLY"
+          },
+          "m": {
+            "strategy_id": "S-007"
+          },
+          "scope": "variant:G14_c_share_up",
+          "t": "design_card"
+        }
+      ],
+      "scenario": "一级库中 C 类占比上升 -> MIX_QUALITY_DEGRADED，占比双报分列",
+      "scope": "variant:G14_c_share_up",
+      "source": "digest M31 第 1416 行",
+      "subject": "S-005,S-007",
+      "value_status": "SPEC+HAND_COMPUTED"
+    },
+    {
+      "expects": {
+        "forced": true,
+        "grade": "L4",
+        "reason_code": "WAIVER_INVALID",
+        "treated_as": "未豁免"
+      },
+      "gap": "8 张输入表内没有豁免审批留痕的载体（approval_id / 有效期 / 范围只存在于输出侧 RedlineEvalRow）；本包用 waiver_allowed=true + 越线 + 全库无审批记录构造，输入侧载体缺口请主控裁决",
+      "hand": {
+        "actual": "0.007000 > 0.005000 -> HARD 越线",
+        "threshold": "0.005000"
+      },
+      "id": "G-15",
+      "probes": [
+        {
+          "e": {
+            "level": "HARD",
+            "threshold_value": "0.005000",
+            "waiver_allowed": true
+          },
+          "m": {
+            "metric_id": "M_COMPLAINT_RATE"
+          },
+          "scope": "base",
+          "t": "redline"
+        },
+        {
+          "e": {
+            "value": "0.007000"
+          },
+          "m": {
+            "metric_id": "M_COMPLAINT_RATE",
+            "period": "2026-Q3",
+            "strategy_id": "S-006"
+          },
+          "scope": "base",
+          "t": "metric_fact"
+        }
+      ],
+      "scenario": "waiver_allowed=true 但缺 approval_id -> 视为未豁免，照常强制降级",
+      "scope": "base",
+      "source": "digest M31 第 1417 行",
+      "subject": "S-006",
+      "value_status": "SPEC+HAND_COMPUTED"
+    }
+  ],
+  "discipline": "R-14：expects 来自 digest M31，hand 来自 fixtures 构造手算，严禁用实现输出反填；PENDING_IMPL 一律留空",
+  "fixtures_ref": "fixtures/manifest.json",
+  "generated_by": "tools/gen_golden.py",
+  "probe_semantics": {
+    "e": "该行必须满足的字段值",
+    "m": "行子集匹配",
+    "n": "匹配行数下限",
+    "none": "匹配行数必须为 0",
+    "nonnull": "这些字段必须非空",
+    "notcontains": "字段 -> 该值不得出现在其列表值里",
+    "scope": "base / variant:<name> / negative:<name>",
+    "t": "表名（negative scope 下固定为 row）"
+  },
+  "schema": "dsm-golden-skeleton-1",
+  "seed": 20260101,
+  "value_status_legend": {
+    "HAND_COMPUTED": "由 fixtures 写死的 target/actual/权重手算，算式见 hand",
+    "PENDING_IMPL": "待实现产出并经人工评审后固化（当前为空）",
+    "SPEC": "逐字来自 digest M31 G-01~G-15 期望输出列",
+    "SPEC+HAND_COMPUTED": "两者皆有"
+  }
+}
