@@ -14,7 +14,7 @@ from decimal import Decimal
 
 import pytest
 
-from dsm import numeric, preflight
+from dsm import io_loaders, numeric, preflight
 from dsm.io_loaders import Inputs
 from dsm.models import (AnchorSetDoc, DesignCardRow, GradeLedgerRow, MetricDictRow,
                         MetricFactRow, RedlineRow, StrategyMasterRow, WeightProvenance,
@@ -496,3 +496,171 @@ def test_v14_run_block_is_never_downgraded_and_no_default_config():
     blocked = preflight.run(blocked_inputs, blocked_config)
     with pytest.raises(preflight.PreflightError):
         preflight.build_audit_bundle(blocked, blocked_config, {'run_id': 'RUN-X'})
+
+
+def test_c08_single_subject_missing_card_does_not_block_the_round(tmp_path):
+    '''ORCH-29 第 3 条「单主体缺卡」侧的独立负向测试（R-2 测试内构造，不碰 fixtures/**）。
+
+    原文逐字：M22 [L907]『| C-08 | 评价设计卡完备性 | PARTIAL（缺对照安排或成功判定）→
+      证据上限压到 C；MISSING → 证据 D → NOT_ASSESSED | 降级 |』——严重度与动作列只有
+      「降级」，全行没有 BLOCK；M28 [L1292]『| 评价设计卡 MISSING | C-08 | 证据 D →
+      NOT_ASSESSED | 否 | 台账单独计数 |』；M23 [L977] 判定顺序 ①『设计卡缺失 → D
+      （NOT_ASSESSED）』；M29 [L1346]『Step 7 pooling → 分池禁混排 + 一级库门禁 +
+      占比双报 + NOT_ASSESSED 单列』。
+    断言：S2（strategy_id × version 无对应卡）落 NOT_ASSESSED —— 已注册 reason_code +
+      降级台账 + 披露位置，是 V-14 的显式留痕而不是静默降级；整轮不 BLOCK（status =
+      WARN、退出码 0、execute() 一个文件都不写，不进 [L1324]-[L1326] 的 BLOCK 出口）；
+      S1 / S3 照常评价。finding.severity 仍取注册表原值 BLOCK，本模块不改写成 WARN
+      （「BLOCK 不得降为 WARN」+ [L918] 任何 WARN 都不会被静默吞掉）；是否阻断整轮只由
+      RUN_BLOCKING_CODES 决定，策略级码不在其中。
+    占比双报分母：preflight 只交 result.not_assessed 这一个「剔除集」，[L1004] 的分母
+      算术由 C5 冻结的 tests/test_pooling.py 里
+      test_not_assessed_is_counted_separately_and_out_of_denominators 守护（其
+      not_assessed_reasons 恰为 {EVIDENCE_CARD_MISSING: 1}）；此处刻意不 import
+      dsm/pooling.py —— SEAM-1 在飞，避免跨包写集耦合。
+    '''
+    masters = (_master('S1'), _master('S2'), _master('S3'))
+    cards = (_card('S1'), _card('S3'))       # S2 在 T4 里没有 strategy_id × version 行
+    inputs, config = _world(strategy_master=masters, design_cards=cards)
+    result = preflight.run(inputs, config)
+
+    assert result.status == preflight.STATUS_WARN
+    assert result.exit_code == preflight.EXIT_OK == 0
+    assert not any(f.blocks_run for f in result.findings), '单主体缺卡不得阻断整轮'
+    missing = _only(result, RC.EVIDENCE_CARD_MISSING.value)
+    assert missing.code == 'C-08' and missing.scope == 'strategy:S2'
+    assert is_registered(missing.reason_code)
+    assert missing.reason_code == RC.EVIDENCE_CARD_MISSING.value
+    assert missing.severity is Severity.BLOCK is rc_severity(missing.reason_code)
+    assert missing.blocks_run is False
+    assert missing.disclosure == '台账单独计数'
+    assert missing.disclosure == preflight.DISCLOSURE[RC.EVIDENCE_CARD_MISSING.value]
+    assert missing.owner_hint.strip() and '本期无对应设计卡行' in missing.detail
+    assert result.not_assessed == ('S2',), 'NOT_ASSESSED 单列，且只单列它'
+    assert (RC.EVIDENCE_CARD_MISSING.value, 'S2') in {
+        (a.reason_code, a.subject) for a in result.downgrade_actions}
+    # 其余主体照常评价：整轮只有 S2 这一条 finding，S1 / S3 无 C-08、无证据封顶
+    assert {f.scope for f in result.findings} == {'strategy:S2'}
+    assert result.evidence_ceiling == {}
+    assert {'S1', 'S3'}.isdisjoint(result.not_assessed)
+    # 缺卡不等于缺数据：事实齐全，coverage 不因 C-08 下降（分母是指标字典全量）
+    assert all(result.coverage_after_drop[s] == Decimal(1) for s in ('S1', 'S2', 'S3'))
+    # 占比双报（[L1004] / [L1346]）：剔除集恰好等于 not_assessed，已参评 = 全体 - 剔除
+    assessed = tuple(s for s in ('S1', 'S2', 'S3') if s not in result.not_assessed)
+    assert assessed == ('S1', 'S3')
+    assert len(assessed) == len(masters) - len(result.not_assessed) == 2
+    # 不取 BLOCK 出口：退出码 0、一个文件都不写（audit.json 也不写）、score_card 不存在
+    out = tmp_path / 'out'
+    exit_code, executed, written = preflight.execute(inputs, config, out, _ctx())
+    assert exit_code == preflight.EXIT_OK == 0
+    assert executed.status == preflight.STATUS_WARN and written == ()
+    assert not out.exists() and not (out / 'audit.json').exists()
+    assert not [p for p in tmp_path.rglob('*') if p.name.startswith('score_card')]
+
+
+def test_c08_missing_card_is_keyed_by_strategy_id_and_version():
+    '''卡的存在性按 strategy_id × version 判（ORCH-29 第 3 条的粒度）。
+
+    S1 本期是 V2，T4 里只有 S1 的 V1 卡 -> 该 strategy_id × version 无对应卡 ->
+    NOT_ASSESSED；同表里 S2@V1 有卡 -> 照常评价。证明「缺卡」既不会按 strategy_id
+    粗粒度放过（别的版本有卡不算有卡），也不会牵连其它主体（V-14）。
+    '''
+    metrics = _metrics()
+    masters = (_master('S1', 'V2'), _master('S2', 'V1'))
+    cards = (_card('S1', 'COMPLETE', version_id='V1'), _card('S2'))
+    ledger = (_ledger('S1', 'V2'), _ledger('S2', 'V1'))
+    # 事实行也必须按 version_id 对齐：否则 C-04 会以 MISSING_RATE_BLOCK 混进本测试
+    facts = tuple(_fact(m.strategy_id, d.metric_id,
+                        1000 if d.unit == 'MONEY_MINOR' else Decimal('0.5'),
+                        version_id=m.version_id) for m in masters for d in metrics)
+    result = preflight.run(*_world(strategy_master=masters, metric_dict=metrics,
+                                   metric_facts=facts, design_cards=cards,
+                                   previous_ledger=ledger))
+    assert result.status == preflight.STATUS_WARN
+    assert result.exit_code == preflight.EXIT_OK == 0
+    assert {f.reason_code for f in result.findings} == {RC.EVIDENCE_CARD_MISSING.value}
+    missing = _only(result, RC.EVIDENCE_CARD_MISSING.value)
+    assert missing.code == 'C-08' and missing.scope == 'strategy:S1'
+    assert '本期无对应设计卡行' in missing.detail and missing.blocks_run is False
+    assert result.not_assessed == ('S1',) and result.evidence_ceiling == {}
+    assert _find(result, RC.EVIDENCE_CARD_PARTIAL.value) == ()
+    assert {'S2'}.isdisjoint(result.not_assessed)
+
+
+def test_c08_all_subjects_cardless_is_disclosed_and_not_run_blocking_gap():
+    '''ORCH-29 第 3 条「表级/轮级」侧：GAP 上报，本包不擅自新造 BLOCK。
+
+    裁决要求「所评价期全部主体都无卡 -> 整轮 BLOCK（保留）」。核对原文后：C-08 名下
+    没有这条 BLOCK。M22 [L907] 逐字『| C-08 | 评价设计卡完备性 | PARTIAL（缺对照安排
+    或成功判定）→ 证据上限压到 C；MISSING → 证据 D → NOT_ASSESSED | 降级 |』——严重度
+    与动作列只有「降级」；M28 [L1292] 同口径（是否出分 = 否 / 披露 = 台账单独计数）；
+    M22 [L917] 只规定了 BLOCK 的三条硬行为，没有规定触发情形，触发情形写在 C-01 /
+    C-02（清空维度数 >= 2）/ C-03 / C-07 / C-09 各自的严重度列里（**BLOCK**）。所以在
+    C-08 里新增轮级 BLOCK 是无原文授权的新规则；且 dsm/reason_codes.py 没有「设计卡表
+    整体缺失」的注册码（只有策略级 EVIDENCE_CARD_MISSING / EVIDENCE_CARD_PARTIAL /
+    NOT_ASSESSED），R-15 批量注册归主控，本包不得自行改 reason_codes.py；把策略级码塞
+    进 RUN_BLOCKING_CODES 又会直接弱化 C2 既有断言（test_c08_partial_caps_evidence_and_
+    missing_not_assessed 的 blocks_run is False、test_v14_run_block_is_never_downgraded_
+    and_no_default_config 的 RUN_BLOCKING_CODES.isdisjoint(STRATEGY_SCOPED) 与其末尾
+    status == WARN），红线不许。
+    本测试因此刻画当前行为并锁死 V-14 底线：全员无卡时逐主体留痕、绝不静默、运行状态
+    是 WARN 而不是 BLOCK。若主控经 SDD 勘误 + R-15 注册新码后裁定轮级要 BLOCK，只需
+    翻转末尾三条断言，其余 V-14 断言不变。
+    '''
+    masters = (_master('S1'), _master('S2'))
+    result = preflight.run(*_world(strategy_master=masters, design_cards=()))
+    missing = _find(result, RC.EVIDENCE_CARD_MISSING.value)
+    assert len(missing) == 2, '每个无卡主体各留一条痕，不许并成一条轮级 finding'
+    assert {f.scope for f in missing} == {'strategy:S1', 'strategy:S2'}
+    assert all(f.code == 'C-08' and is_registered(f.reason_code) for f in missing)
+    assert all(f.severity is rc_severity(f.reason_code) for f in missing)
+    assert all(f.disclosure == '台账单独计数' and f.owner_hint.strip()
+               and f.detail.strip() for f in missing)
+    assert result.not_assessed == ('S1', 'S2'), '全员单列，一个都没被吞掉'
+    assert {a.subject for a in result.downgrade_actions} == {'S1', 'S2'}
+    assert all(a.reason_code == RC.EVIDENCE_CARD_MISSING.value
+               for a in result.downgrade_actions)
+    # 缺卡不等于缺数据：事实齐全时 coverage 仍是 1，不用 0 或 None 冒充（[L916]）
+    assert all(v == Decimal(1) for v in result.coverage_after_drop.values())
+    # GAP：当前不 BLOCK（原文未授权 + 无注册码），退出码 0，不写 audit bundle
+    assert not any(f.blocks_run for f in result.findings)
+    assert result.status == preflight.STATUS_WARN and result.exit_code == preflight.EXIT_OK
+
+
+def test_c08_table_level_faults_fail_at_io_layer_with_exit_code_four(tmp_path):
+    '''「表级/文件级」缺陷的真实归属是 io_loaders（[L888] / [L889] / [L892]），不是 C-08。
+
+    M21 [L891]『输出 | Inputs（8 表）+ InputFingerprints（写入 audit.json，是第二人复跑
+    的比对基准）』、[L892]『异常 | DataLoadError（退出码 4）』；M29 [L1330]『io_loaders
+    → 8 表 + InputFingerprints（SHA256 / 行数）』。
+    实测（R-2 测试内构造 CSV，不碰 fixtures/**）：
+      1) T4 缺必需列（mde_ok，属 [L889] 类型强制要读的列）-> DataLoadError，退出码 4，
+         在 preflight 之前就硬失败，绝不会被降级成 NOT_ASSESSED；
+      2) 容器不可读（.jsonl 不是 [L888] 的 CSV / Parquet）-> 同样 DataLoadError 退出码 4；
+      3) 但 T4 文件整体不存在时 io_loaders 记的是 kind = TABLE_ABSENT，而 TABLE_ABSENT
+         不在 BLOCKING_KINDS 里（只有 strategy_master / metric_dict / metric_facts 才记
+         MISSING_FILE）-> 交出空表继续跑，于是全主体 NOT_ASSESSED（见上一条测试）。
+         「表整体缺失该不该整轮硬失败、走退出码 4（[L892]）还是 2（[L917]）」是跨层归属
+         问题，已随本包上报主控裁决；本测试只固定当前事实，不替主控定规则。
+    '''
+    broken = tmp_path / 'design_cards.csv'
+    broken.write_text('strategy_id,version_id,card_status,process_metrics,result_metrics\n'
+                      'S1,V1,COMPLETE,M1,M2\n', encoding='utf-8')
+    with pytest.raises(io_loaders.DataLoadError) as no_column:
+        io_loaders.load_table(broken, 'design_cards')
+    assert no_column.value.exit_code == 4
+    assert no_column.value.exit_code != preflight.EXIT_BLOCK, '退出码 4（[L892]）不是 2'
+    kinds = {i.kind for i in no_column.value.issues}
+    assert 'MISSING_COLUMN' in kinds
+    assert any('mde_ok' in i.message for i in no_column.value.issues)
+
+    alien = tmp_path / 'design_cards.jsonl'
+    alien.write_text('unsupported container: neither csv nor parquet\n', encoding='utf-8')
+    with pytest.raises(io_loaders.DataLoadError) as unreadable:
+        io_loaders.load_table(alien, 'design_cards')
+    assert unreadable.value.exit_code == 4
+    assert {i.kind for i in unreadable.value.issues} == {'MISSING_FILE'}
+
+    assert 'MISSING_FILE' in io_loaders.BLOCKING_KINDS
+    assert 'MISSING_COLUMN' in io_loaders.BLOCKING_KINDS
+    assert 'TABLE_ABSENT' not in io_loaders.BLOCKING_KINDS   # 第 3 点的根据（GAP 待裁决）
