@@ -19,6 +19,11 @@ M40-evidence-discipline。分池禁混排（P-6）属 pooling，本模块不做�
      cel.enabled = false 时七个预留字段一律不参与判定，非空即抛
      CelDisabledDataPresentError（RK-15）；单向 CEL -> T4 -> evidence.py，
      本模块不得反向调用 CEL（[L981]）。
+  5) 出桥范围按**评价期**过滤（D-EVID-01 / ORCH-37 第 9 条）：本期评价范围
+     （[L1063] ②）= 传入事实行覆盖到的 (strategy_id, version_id)；本期无事实行的
+     设计卡不出证据行（否则「证据结构 A/B/C/D 计数」的分母会被已退役版本
+     撑大，[L1003] / [L1459]），但**必须披露**（V-14，EvidenceScope.excluded），且卡
+     本身不得删除 —— G-08 的版本断裂判定（[L1117]）要用 S-005/v1 这张退役卡。
 '''
 from __future__ import annotations
 
@@ -142,20 +147,86 @@ def _card_index(design_cards) -> dict:
     return index
 
 
-def _universe(design_cards, facts) -> tuple:
-    '''判定全集 = T4 卡上的策略 x 版本，并入 T3 事实上出现过的同一对，排序返回以
-    保证行序确定（H-8）。有事实却没有卡正是 [L977] ① 的设计卡缺失，只看 T4 永远
-    看不见它 —— 这也是 facts 出现在 [L976] 签名里的唯一用处（五步本身不消费任何
-    事实值，已上报缺口）。'''
-    seen = set()
-    for card in design_cards:
-        seen.add((card.strategy_id, card.version_id))
+# 评价期范围过滤的判据标识与披露码槽。
+# derived: [L1063] ②「本期评价范围与覆盖率」+ ⑥「证据结构（A/B/C/D 计数与
+#   NOT_ASSESSED 明细）」+ [L942]「标准化在**池内**进行（biz_domain ×
+#   evidence_class）」+ [L1117]「跨版本不做趋势比较」；裁决 ORCH-37 第 9 条、
+#   A1CPREP §6-B.2 / §6-B.3。原文给了「本期评价范围」这个量，但没有逐字规定它
+#   等于「本期有事实行的 (strategy_id, version_id) 对」，故判据等级 = derived，
+#   待主控签认。
+# PLACEHOLDER: dsm/reason_codes.py 现有注册码里没有「本期无事实行 -> 不在评价期
+#   范围」这一类（NOT_ASSESSED 是 BLOCK 级「本期不可评价」，GR_VERSION_BREAK 是
+#   Step6 的版本断点标注，语义都不等于范围过滤），本包不得自行注册（主控单点
+#   管理）。需求见 dsm_stage/EVID-1/NEED-CODES.md；签认后把这个常量换成注册码。
+SCOPE_BASIS_NO_FACT_ROW = 'NO_FACT_ROW_IN_EVAL_PERIOD'
+PLACEHOLDER_OUT_OF_PERIOD_CODE = 'PLACEHOLDER'
+
+
+class ScopeExclusion(BaseModel):
+    '''一条「设计卡存在但不在本期评价范围」的披露（V-14：过滤不得静默丢弃）。
+
+    reason_code 目前是 PLACEHOLDER，但它**必须是显式字段**：调用侧（spine / cli /
+    report.md ②⑥ 段）拿这个元组去披露，而不是自己猜哪些卡被过滤掉了。basis 记
+    判据本身，便于第二人复算（V-3）。'''
+
+    model_config = ConfigDict(frozen=True, extra='forbid')
+
+    strategy_id: str
+    version_id: str
+    basis: str
+    reason_code: str
+
+
+class EvidenceScope(BaseModel):
+    '''本期评价范围（[L1063] ②）+ 被范围过滤掉的设计卡披露位。
+
+    period_established = False 表示传入的事实行为空：此时「本期」根本无法界定，
+    任何卡都判不出「不在本期范围内」，于是一张都不过滤（V-14：既不静默收窄口径，
+    也不把全部卡静默丢掉）。这个标志同样是披露，不是内部细节。'''
+
+    model_config = ConfigDict(frozen=True, extra='forbid')
+
+    in_period: tuple[tuple[str, str], ...]
+    excluded: tuple[ScopeExclusion, ...]
+    period_established: bool
+
+
+def _fact_pairs(facts) -> frozenset:
+    '''T3 事实行覆盖到的 (strategy_id, version_id) 集合 = 本期评价范围的载体。'''
+    pairs = set()
     for fact in facts:
         if not isinstance(fact, MetricFactRow):
             raise EvidenceError(
                 'facts entries must be MetricFactRow, got ' + type(fact).__name__)
-        seen.add((fact.strategy_id, fact.version_id))
-    return tuple(sorted(seen))
+        pairs.add((fact.strategy_id, fact.version_id))
+    return frozenset(pairs)
+
+
+def evaluation_scope(design_cards, facts) -> EvidenceScope:
+    '''按评价期过滤设计卡（D-EVID-01 的修法，ORCH-37 第 9 条）。
+
+    判据只有一条：**该 (strategy_id, version_id) 在传入的事实行里有没有本期事实**。
+    有 -> 在本期评价范围内；没有 -> 不在范围内，但**卡本身不被删除、不被隐藏**，
+    而是原样进 excluded 披露位（V-14）。G-08 的版本断裂判定要用的正是 S-005/v1
+    这张已退役卡（[L1117] / [L1121] / [L1123]），所以过滤只作用于「本期评价范围
+    统计」这一个口径，绝不作用于卡的可见性。
+
+    不采用「status = RETIRED + offline_date 早于评价期」这条判据：T4 设计卡上没有
+    status / offline_date 两列（它们在 T2 strategy_master，[L1121] / [L1123]），
+    本层按分层纪律不得反向去取 T2，[L976] 的签名里也没有 master 入参。两条判据
+    只用一条，不叠加凑数。'''
+    card_keys = tuple(sorted(_card_index(design_cards)))
+    in_period = _fact_pairs(facts)
+    if not in_period:
+        return EvidenceScope(in_period=card_keys, excluded=(),
+                             period_established=False)
+    excluded = tuple(
+        ScopeExclusion(strategy_id=sid, version_id=ver,
+                       basis=SCOPE_BASIS_NO_FACT_ROW,
+                       reason_code=PLACEHOLDER_OUT_OF_PERIOD_CODE)
+        for sid, ver in card_keys if (sid, ver) not in in_period)
+    return EvidenceScope(in_period=tuple(sorted(in_period)), excluded=excluded,
+                         period_established=True)
 
 
 def _cel_guard(card: DesignCardRow, cel_enabled: bool) -> None:
@@ -274,7 +345,13 @@ def classify(design_cards: Sequence[DesignCardRow],
              params: EvidenceParams | None = None) -> EvidenceFrame:
     '''Step 3 的 [L976] 签名：设计卡 + 事实 + 配置，出一个 EvidenceFrame。
     config 与 params 必须且只能给一个。GATE_ONLY 语义（[L978]）在这里表现为：
-    返回值只有 EvidenceFrame，没有分数、没有系数、没有任何可乘的东西。'''
+    返回值只有 EvidenceFrame，没有分数、没有系数、没有任何可乘的东西。
+
+    出桥范围 = evaluation_scope(design_cards, facts).in_period，即**本期评价范围**
+    （[L1063] ②）：本期没有事实行的设计卡（如已退役的 S-005/v1）不出证据行，但由
+    EvidenceScope.excluded 显式披露（V-14），卡本身仍留在 T4 里供 Step6 的版本断裂
+    判定使用（G-08）。调用侧要披露时请调 evaluation_scope，不要自己重算范围，
+    避免两处口径漂移。'''
     if (config is None) == (params is None):
         raise EvidenceError('pass exactly one of config or params')
     resolved = params if params is not None else params_from_config(config)
@@ -283,10 +360,11 @@ def classify(design_cards: Sequence[DesignCardRow],
             'evidence_mode=' + str(resolved.evidence_mode)
             + ' 需另立 ADR 并纳入敏感性扰动维度（[L978]）；本模块不给任何乘数')
 
+    scope = evaluation_scope(design_cards, facts)
     cards = _card_index(design_cards)
     keywords = resolved.significance_keywords
     rows = []
-    for locator in _universe(design_cards, facts):
+    for locator in scope.in_period:
         card = cards.get(locator)
         if card is None:
             # ① 卡整行缺失：连判定的材料都没有，D / NOT_ASSESSED。

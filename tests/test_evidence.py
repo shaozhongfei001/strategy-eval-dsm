@@ -364,3 +364,79 @@ def test_evidence_mode_defaults_to_gate_only_and_discount_is_refused():
         run([card()], mode='DISCOUNT')
     with pytest.raises(evidence.EvidenceError):
         evidence.classify((card(),), (fact(),), cfg, params=params())
+
+
+# ---------------------------------------------------------------------------
+# D-EVID-01（ORCH-37 第 9 条）：出桥范围必须按评价期过滤，且过滤必须披露（V-14）。
+# 期望值全部由 [L1063] ②「本期评价范围」+ [L977] ① 手算（R-14），不来自实现输出。
+# ---------------------------------------------------------------------------
+Q2 = '2026Q2'
+Q3 = '2026Q3'
+
+
+def test_bridge_rows_equal_the_pairs_that_have_facts_in_the_evaluation_period():
+    '''出桥行数 = 本期有事实行的 (strategy_id, version_id) 数（写成关系式，不硬写
+    12：fixtures 由 A1c 在飞，硬写数字会在别的包里变红）。
+
+    手算：三张卡 S1/v1、S2/v1、S3/v1，本期（Q3）只有 S1/v1、S2/v1 有事实行，另有
+    一条 S9/v1 的事实行**没有卡** -> [L1063] ② 的本期评价范围 = 3 对（S1/v1、
+    S2/v1、S9/v1），S3/v1 不在范围内；S9/v1 仍必须按 [L977] ① 判 D /
+    EVIDENCE_CARD_MISSING（范围过滤不得把「有事实没卡」这条守护一起滤掉）。'''
+    cards = [card('S1'), card('S2'), card('S3')]
+    facts = [fact('S1', period=Q3), fact('S2', period=Q3), fact('S9', period=Q3)]
+    frame = run(cards, facts)
+    pairs = {(r.strategy_id, r.version_id) for r in frame.rows}
+    assert len(frame.rows) == len(pairs) == 3
+    assert pairs == {(f.strategy_id, f.version_id) for f in facts}
+    assert ('S3', VER) not in pairs
+    by_key = {(r.strategy_id, r.version_id): r for r in frame.rows}
+    assert by_key[('S9', VER)].evidence_class == 'D'
+    assert by_key[('S9', VER)].evidence_reason == RC.EVIDENCE_CARD_MISSING
+    scope = evidence.evaluation_scope(tuple(cards), tuple(facts))
+    assert scope.period_established is True
+    assert tuple(sorted(scope.in_period)) == tuple(sorted(pairs))
+
+
+def test_retired_version_card_stays_visible_for_the_g08_version_break():
+    '''过滤只作用于「本期评价范围统计」，**不作用于卡的可见性**（G-08 依赖
+    S-005/v1 这张已退役卡做版本断裂判定，[L1117] / [L1121] / [L1123]）。
+
+    手算：同一 strategy_id 两版，v1 已退役（本期无事实行）、v2 本期出值。
+    ① Q3 调用：只有 v2 出证据行，v1 不出（这就是 13 -> 12 少掉的那一条）；
+    ② 传入的 design_cards 一张都没少（不得删卡、不得隐藏卡）；
+    ③ 换成 v1 仍在运行的 Q2 事实行调用，v1 立刻照常出证据行 -> 证明过滤是
+       **按评价期**的运行时行为，不是把这张卡永久剔除。'''
+    cards = (card('S5', version='v1'), card('S5', version='v2'))
+    q3 = (fact('S5', version='v2', period=Q3),)
+    frame = evidence.classify(cards, q3, params=params())
+    assert [(r.strategy_id, r.version_id) for r in frame.rows] == [('S5', 'v2')]
+    assert len(cards) == 2 and cards[0].version_id == 'v1'
+
+    q2 = (fact('S5', version='v1', period=Q2),)
+    prior = evidence.classify(cards, q2, params=params())
+    assert [(r.strategy_id, r.version_id) for r in prior.rows] == [('S5', 'v1')]
+    assert prior.rows[0].evidence_class == 'C'
+
+
+def test_out_of_period_cards_are_disclosed_not_silently_dropped():
+    '''V-14：被评价期过滤掉的卡必须有披露位，不得静默丢弃；披露码槽是显式的
+    PLACEHOLDER（dsm/reason_codes.py 由主控单点管理，本包不自行注册新码，也不裸写
+    字面量冒充当注册码，见 dsm_stage/EVID-1/NEED-CODES.md）。
+
+    另断言：事实行为空时「本期」无法界定 -> period_established = False 且一张卡都
+    不过滤（既不静默收窄口径，也不把全部卡静默丢掉）。'''
+    cards = (card('S5', version='v1'), card('S5', version='v2'))
+    scope = evidence.evaluation_scope(cards, (fact('S5', version='v2', period=Q3),))
+    assert scope.period_established is True
+    assert len(scope.excluded) == 1
+    dropped = scope.excluded[0]
+    assert (dropped.strategy_id, dropped.version_id) == ('S5', 'v1')
+    assert dropped.basis == evidence.SCOPE_BASIS_NO_FACT_ROW
+    assert isinstance(dropped.reason_code, str) and dropped.reason_code
+    assert dropped.reason_code == evidence.PLACEHOLDER_OUT_OF_PERIOD_CODE
+
+    empty = evidence.evaluation_scope(cards, ())
+    assert empty.period_established is False
+    assert empty.excluded == ()
+    assert tuple(sorted(empty.in_period)) == (('S5', 'v1'), ('S5', 'v2'))
+    assert len(evidence.classify(cards, (), params=params()).rows) == 2
