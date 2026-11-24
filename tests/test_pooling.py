@@ -25,8 +25,8 @@ import pytest
 
 from dsm import pooling
 from dsm.config import AppConfig
-from dsm.models import (EvidenceFrame, EvidenceRow, GradeFrame, GradeRow,
-                        NormalizedFrame, NormalizedRow, PoolKey, PoolStats,
+from dsm.models import (AttainmentRow, EvidenceFrame, EvidenceRow, GradeFrame,
+                        GradeRow, NormalizedFrame, NormalizedRow, PoolKey, PoolStats,
                         ScoreFrame, ScoreRow, SensitivityReport,
                         SensitivitySchemeResult, StrategyMasterRow)
 from dsm.numeric import D
@@ -560,6 +560,45 @@ def test_seam1_unannotated_null_is_still_a_contract_breach():
     # 载体类型不对也抛，不静默当成「没有标注」
     with pytest.raises(pooling.PoolingInputError):
         run(SEAM_NULL, normalized=[nrow('S3', 'M1', RC.SMALL_POOL.value)])
+
+
+def test_models1_all_inactive_strategy_is_disclosed_by_excluded_not_raised():
+    """MODELS-1 / ORCH-32 裁决 5：某策略**全部**指标 INACTIVE 且 on_zero=None 时，
+    Step2 的 rows 里根本没有它，只有 frame 级 excluded 有。Step7 必须读得到该
+    标注 -> 走 WARN/降级（reject_reason = INACTIVE_METRIC、pool_rank = null、
+    不予一级库准入、仍计入占比双报分母），绝不因为「rows 里查无此人」而误判为
+    无标注的 null 抛错（那就是 SEAM-1 GAP(3) 的静默断链）。
+    手算同 SEAM_NULL：S3 的 composite_relative 为 null，其余 3 条可比。
+    反面：excluded 里放一枚**不在** ORCH-28 裁决 3 三码内的标注（ANCHOR_SET_STALE）
+    仍必须抛 -> 不自行放宽举证口径。"""
+    dropped = AttainmentRow(
+        strategy_id='S3', version_id=VER, period=P, metric_id='M1',
+        attainment=D('1.0'), direction=1, target_source='budget',
+        has_target=True, capped_flag=False,
+        reason_code=RC.INACTIVE_METRIC.value)
+    carrier = NormalizedFrame(rows=(), excluded=(dropped,))
+    frame, stats = run(SEAM_NULL, normalized=carrier)
+    got = by_sid(frame)
+    assert got['S3'].pool_rank is None
+    assert got['S3'].reject_reason == RC.INACTIVE_METRIC
+    assert got['S3'].primary_pool_eligible is False
+    assert got['S3'].pool_key == PoolKey(biz_domain='CARD', evidence_class='B')
+    assert stats_by_pool(stats)[('CARD', 'B')].count == 2      # 仍计入分母
+    assert stats_by_pool(stats)[('CARD', 'B')].share_in_pool == D('0.666666666667')
+    stale = dropped.model_copy(update={'reason_code': RC.ANCHOR_SET_STALE.value})
+    with pytest.raises(pooling.PoolingInputError):
+        run(SEAM_NULL, normalized=NormalizedFrame(rows=(), excluded=(stale,)))
+
+
+def test_models1_step7_pool_key_refuses_a_missing_evidence_class():
+    """R7 严键（ORCH-29 第 4 条 / ORCH-32 第 4 条）：Step7 一律用完整
+    (biz_domain x evidence_class)。evidence_class 缺失 = 无从举证属哪一池 ->
+    显式抛（V-14），绝不把 None 当成第五类池去混排（P-6 / G-02 不松动）。"""
+    with pytest.raises(pooling.PoolingInputError):
+        pooling.step7_pool_key('CARD', None)
+    assert pooling.step7_pool_key('CARD', 'C') == PoolKey(biz_domain='CARD',
+                                                          evidence_class='C')
+    assert pooling.step7_pool_key('CARD', 'C').evidence_class == 'C'
 
 
 def test_seam1_incomparable_code_precedence_in_the_single_slot():

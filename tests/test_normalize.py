@@ -20,7 +20,7 @@ from dsm import grading, normalize
 from dsm.models import (AnchorSetDoc, AttainmentFrame, AttainmentRow,
                         MetricDictRow, NormalizedFrame, NormalizedRow, PoolKey)
 from dsm.numeric import D, eq_tol
-from dsm.reason_codes import RC, Severity, severity
+from dsm.reason_codes import RC, Severity, is_registered, message, severity
 
 POOL_A = PoolKey(biz_domain='RETAIL', evidence_class='A')
 POOL_B = PoolKey(biz_domain='WHOLESALE', evidence_class='B')
@@ -241,7 +241,16 @@ def test_zero_variance_metric_is_inactive_and_never_rescaled_silently():
         dropped = normalize.compute(flat, [metric('M1')], a,
                                     params=prm(method, on_zero=None),
                                     pools=pool_map(ids))
-        assert dropped == NormalizedFrame(rows=())   # on_zero=None -> 剔除，不编值
+        # on_zero=None -> 剔除，不编值。原写法是整帧相等 dropped ==
+        # NormalizedFrame(rows=())；ORCH-32 裁决 2 给 NormalizedFrame 新增了
+        # warnings / excluded 两条 frame 级披露列后，「整帧为空」不再成立也不再是
+        # 业务主张。业务主张（零行、不编值）逐字保留在 .rows 上，另**新增**三条
+        # 断言证明剔除与次级码都没有被静默丢弃（V-14），断言强度净增。
+        assert dropped.rows == ()
+        assert len(dropped.excluded) == 3
+        assert {r.reason_code for r in dropped.excluded} == {RC.INACTIVE_METRIC.value}
+        assert {r.metric_id for r in dropped.excluded} == {'M1'}
+        assert {w.reason_code for w in dropped.warnings} == {RC.RANK_REVERSAL_RISK.value}
 
 
 # --------------------------------------------------------------------------
@@ -496,6 +505,96 @@ def test_seam1_fallback_is_pool_local_and_only_then_goes_inactive():
     assert rows_b['T1'].reason_code == RC.INACTIVE_METRIC.value
     assert severity(RC.INACTIVE_METRIC) is Severity.WARN    # 预警级别来自注册表
     assert all(r.anchor_used is False for r in one.rows)
+
+
+def test_models1_frame_level_warnings_carry_the_codes_the_slot_dropped():
+    """MODELS-1 / ORCH-32 裁决 1+2：单值槽优先序不动，次级码走 frame 级 warnings。
+
+    手算：零变异指标 + 锚定集有成员但参考尺退化 -> 适用码 = {INACTIVE_METRIC,
+    RANK_REVERSAL_RISK}；再把 min_pool_size 抬到 99 -> 再叠一枚 SMALL_POOL。
+    单值槽只能读到优先序最靠前的 INACTIVE_METRIC（与 :239 的冻结断言一致），
+    另外两枚必须在 warnings 里逐条可读，一枚都不得静默消失。
+    """
+    flat = [fact('S1', 'M1', D('1.0')), fact('S2', 'M1', D('1.0')),
+            fact('S3', 'M1', D('1.0'))]
+    ids = ('S1', 'S2', 'S3')
+    md = [metric('M1')]
+    frame = normalize.compute(flat, md, anchor(ids),
+                              params=prm('min_max', min_pool_size=99, on_zero=D('0')),
+                              pools=pool_map(ids))
+    # 行单值槽：优先序不变（ORCH-32 裁决 1，与 :239 同口径）
+    assert {r.reason_code for r in frame.rows} == {RC.INACTIVE_METRIC.value}
+    # frame 级：被挤出单值槽的两枚码逐行逐码留痕，3 行 x 2 码 = 6 条
+    assert len(frame.warnings) == 6
+    per_row = {}
+    for w in frame.warnings:
+        key = tuple(w.subject.split(normalize.SUBJECT_SEP))
+        assert len(key) == 4, 'subject 必须是可定位的四段串'
+        per_row.setdefault(key, set()).add(w.reason_code)
+    assert len(per_row) == 3
+    for codes in per_row.values():
+        assert codes == {RC.RANK_REVERSAL_RISK.value, RC.SMALL_POOL.value}
+    # 措辞归注册表（本模块不拟话术），且码全部已注册（P-8 / H-6）
+    for w in frame.warnings:
+        assert w.action == message(w.reason_code)
+        assert is_registered(w.reason_code)
+    # 没有行被剔除（on_zero 是 Decimal）-> excluded 必须为空，不得虚报
+    assert frame.excluded == ()
+
+
+def test_models1_excluded_channel_keeps_every_dropped_row_traceable():
+    """MODELS-1 / ORCH-32 裁决 5：on_zero=None 的剔除行必须逐条可追溯。
+
+    手算：4 行事实，其中零变异指标 M2 的两行商无定义 -> rows 只剩 M1 的 2 行，
+    excluded 恰好是 M2 的 2 行，且两者并集 = Step1 的全部定位键（无静默丢行）。
+    excluded 元素是 Step-1 原行重打 Step-2 剔除码，原值一字不改。
+    """
+    facts = [fact('S1', 'M1', D('0.8')), fact('S2', 'M1', D('1.2')),
+             fact('S1', 'M2', D('1.0')), fact('S2', 'M2', D('1.0'))]
+    ids = ('S1', 'S2')
+    md = [metric('M1'), metric('M2')]
+    frame = normalize.compute(facts, md, anchor(ids),
+                              params=prm('min_max', on_zero=None),
+                              pools=pool_map(ids))
+    assert {r.metric_id for r in frame.rows} == {'M1'}
+    assert len(frame.rows) == 2
+    assert {r.metric_id for r in frame.excluded} == {'M2'}
+    assert len(frame.excluded) == 2
+    assert all(r.reason_code == RC.INACTIVE_METRIC.value for r in frame.excluded)
+    # 剔除行保留 Step-1 的原值（不编值、不填 0）
+    assert {r.attainment for r in frame.excluded} == {D('1.0')}
+    # rows + excluded = 全部可归一化的 Step1 行，一行都不能惄惄消失
+    kept = {(r.strategy_id, r.version_id, r.period, r.metric_id) for r in frame.rows}
+    dropped = {(r.strategy_id, r.version_id, r.period, r.metric_id)
+               for r in frame.excluded}
+    assert kept & dropped == set()
+    assert kept | dropped == {(r.strategy_id, r.version_id, r.period, r.metric_id)
+                              for r in facts}
+
+
+def test_models1_step2_loose_pool_key_needs_no_evidence_class():
+    """D-MODELS-01 / ORCH-29 第 4 条 / ORCH-32 第 4 条：Step2 松键。
+
+    [L1334] 的 Step2 排在 [L1338] 的 Step3 之前，构键时 evidence_class 不存在。
+    手算：两个 biz_domain 各 2 行，min_max 回退池内尺 -> 每池 0 / 1；
+    松键下两池仍不得合并（[L942] / P-6），且 evidence_class 必须是 None，
+    不得被填成任何默认等级（V-14）。
+    """
+    facts = [fact('S1', 'M1', D('0.8')), fact('S2', 'M1', D('1.2')),
+             fact('T1', 'M1', D('2.0')), fact('T2', 'M1', D('4.0'))]
+    pools = {'S1': normalize.step2_pool_key('RETAIL'),
+             'S2': normalize.step2_pool_key('RETAIL'),
+             'T1': normalize.step2_pool_key('WHOLESALE'),
+             'T2': normalize.step2_pool_key('WHOLESALE')}
+    assert all(k.evidence_class is None for k in pools.values())
+    frame = normalize.compute(facts, [metric('M1')], anchor(()),
+                              params=prm('min_max'), pools=pools)
+    got = norm_of(frame)
+    assert eq_tol(got['S1'], D('0')) and eq_tol(got['S2'], D('1'))
+    assert eq_tol(got['T1'], D('0')) and eq_tol(got['T2'], D('1'))
+    for row in frame.rows:
+        assert row.pool_key.evidence_class is None
+        assert row.pool_key == pools[row.strategy_id]
 
 
 def test_seam1_small_pool_never_nulls_drops_or_raises_the_strategy():

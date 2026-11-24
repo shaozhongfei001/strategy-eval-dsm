@@ -43,7 +43,7 @@ from dsm import (aggregate, attainment, audit, evidence, fixtures_gen as fg, gra
 from dsm.models import (AnchorSetDoc, AttainmentRow, DesignCardRow, GradeLedgerRow,
                         GradeRuleRow, MetricDictRow, PoolKey, ScoreCardDimCell,
                         ScoreCardMetricCell, ScoreCardRow, ScoringContext, WeightVersionDoc)
-from dsm.reason_codes import RC, is_registered
+from dsm.reason_codes import RC, is_registered, message
 
 D = Decimal
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -169,9 +169,10 @@ def _run_chain(root, period):
             attainment_cap=GOVERNANCE['attainment_cap'], on_zero=GOVERNANCE['on_zero'],
             signed_off_statuses=GOVERNANCE['signed_off_statuses']))
 
-    # Step 3 evidence（M29 L1338）—— 数据流上必须先于 Step 2 取到 evidence_class，
-    # 因为 dsm/normalize.py 的 pools 是 PoolKey(biz_domain, evidence_class)；
-    # 见 test_step2_pool_key_cannot_be_built_before_step3_evidence（RED 冲突 #3）。
+    # Step 3 evidence（M29 L1338）。D-MODELS-01 已由 ORCH-29 第 4 条 / ORCH-32 第 4 条
+    # 收口为「Step2 松键 / Step7 严键」：PoolKey.evidence_class 现为可选，Step2 可以
+    # 只用 T1 的 biz_domain 构键而先于 Step3 跑（见下方松键专验测试）。本 chain 仍按
+    # 严键走（九步贯通的参照口径不变，reproducibility_hash 因此不受松键影响）。
     ev = evidence.classify(
         inputs.design_cards, inputs.metric_facts,
         params=evidence.EvidenceParams(
@@ -545,12 +546,39 @@ def test_step2_normalize_pool_and_anchor_from_step1_rows(chain):
     norm_keys = {(r.strategy_id, r.version_id, r.period, r.metric_id)
                  for r in normalized.rows}
     assert norm_keys <= attain_keys, 'Step2 不得凭空产生 Step1 没有的行'
+    # ORCH-32 裁决 5：Step2 少掉的每一行都必须在 frame 级 excluded 逐条留痕，
+    # 不得有任何一行惄惄消失（V-14）。本 chain 的 on_zero = Decimal('0')，
+    # 两边都应为空集；该不变式在 on_zero = None 时同样成立（见 test_normalize.py）。
+    excluded_keys = {(r.strategy_id, r.version_id, r.period, r.metric_id)
+                     for r in normalized.excluded}
+    assert excluded_keys == attain_keys - norm_keys, '剔除必须逐行留痕'
+    assert all(is_registered(r.reason_code) for r in normalized.excluded)
     assert all(isinstance(r.norm_value, Decimal) for r in normalized.rows)
     # 锚定集参照命中 -> anchor_used True；失效 -> 回退 + 标注码（不静默降级）
     assert any(r.anchor_used for r in normalized.rows)
     assert any(not r.anchor_used for r in normalized.rows)
-    fallback = {r.reason_code for r in normalized.rows if not r.anchor_used}
-    assert RC.ANCHOR_SET_STALE.value in fallback or RC.RANK_REVERSAL_RISK.value in fallback
+    # ORCH-32 裁决 3（唯一指定修法）：回退改**读 frame 级披露通道**举证。
+    # 主控已明确否决「放宽为 anchor_used=False 落任一已注册降级码」（属弱化）：
+    # row 单值槽按冻结优先序（INACTIVE_METRIC > ANCHOR_SET_STALE >
+    # RANK_REVERSAL_RISK > SMALL_POOL）只装得下第一枚，而 M_AUM_MINOR 的锚定
+    # 参考尺退化后又零变异 -> 单值槽读 INACTIVE_METRIC，第二枚 RANK_REVERSAL_RISK
+    # 必须在 NormalizedFrame.warnings 里逐行可读（ORCH-32 裁决 2，V-14）。
+    fallback_locators = {(r.strategy_id, r.version_id, r.period, r.metric_id)
+                         for r in normalized.rows if not r.anchor_used}
+    assert fallback_locators, '锚定尺退化路径必须可达（不得靠放宽断言绕过）'
+    disclosed = set()
+    for w in normalized.warnings:
+        key = tuple(w.subject.split(normalize.SUBJECT_SEP))
+        assert is_registered(w.reason_code), '只允许已注册 reason_code'
+        assert w.action == message(w.reason_code), '措辞归注册表，模块不拟话术'
+        if key in fallback_locators:
+            disclosed.add(w.reason_code)
+    assert RC.RANK_REVERSAL_RISK.value in disclosed, (
+        '锚定参考尺退化回退当期池内统计时必须披露 RANK_REVERSAL_RISK')
+    # 单值槽优先序未被为迎合本断言而上调（ORCH-32 裁决 1）
+    assert RC.RANK_REVERSAL_RISK.value not in {
+        r.reason_code for r in normalized.rows
+        if r.metric_id == fg.ZERO_VARIATION_METRIC}
     assert all(r.reason_code is None or is_registered(r.reason_code)
                for r in normalized.rows), '只允许已注册 reason_code'
     # 零变异指标 M_AUM_MINOR（M34 构造 5）-> INACTIVE_METRIC，不填 0（V-14）
@@ -565,7 +593,14 @@ def test_step2_normalize_pool_and_anchor_from_step1_rows(chain):
 
 
 def test_step2_pool_key_cannot_be_built_before_step3_evidence():
-    '''RED（跨模块契约冲突 #3，归属待主控裁决）。
+    '''D-MODELS-01 已关（ORCH-29 第 4 条 / ORCH-32 第 4 条）：本断言现在守护的是
+    「PoolKey.evidence_class 必须保持可选」，即 Step2 能先于 Step3 构键。
+    函数名保留原缺陷场景的叙述，以免打断 ops/dag-state.json 与
+    docs/deliverables/V-ACCEPTANCE-EVIDENCE.md 对该测试名的交叉引用；断言本身
+    一字未改（RED -> GREEN，不属放宽）。松键/严键的行为验证另见
+    test_step2_loose_key_at_step2_and_strict_key_at_step7。
+
+    以下为原 RED 上报原文（保留作缺陷史料）：
 
     原文：M29 L1334「Step 2 normalize -> 池内标准化 + 锚定集参照」排在 L1338
           「Step 3 evidence -> A/B/C/D（短路判定；C 缺解释限制 -> D）」之前。
@@ -581,6 +616,44 @@ def test_step2_pool_key_cannot_be_built_before_step3_evidence():
           还是在 M29 数据流里把 evidence 提到 normalize 之前。
     '''
     assert not PoolKey.model_fields['evidence_class'].is_required()
+
+
+def test_step2_loose_key_at_step2_and_strict_key_at_step7(chain):
+    '''ORCH-32 裁决 3 允许的**补充**测试（不替代原断言）：松键/严键分工。
+
+    Step2 松键：只用 T1 的 biz_domain 构键，evidence_class 留 None（**不得**填默认
+    值伪造，V-14），且 Step2 确实能在 Step3 之前跑完（只读 Step1 产物 + T1）。
+    锚定参考尺不按池裁剪（ORCH-28 裁决 1），故锚定命中的行 norm_value 与严键
+    逐位相同；松键只改「回退当期池内统计」的分区口径（ORCH-29 第 4 条）。
+    Step7 严键：缺 evidence_class 即抛，绝不拿 None 当第五类混排（P-6 / G-02）。
+    '''
+    inputs, attain = chain['inputs'], chain['attain']
+    domain_of = {row.strategy_id: row.biz_domain for row in inputs.strategy_master}
+    loose = {sid: normalize.step2_pool_key(domain_of[sid]) for sid in sorted(domain_of)}
+    assert all(k.evidence_class is None for k in loose.values())
+    frame = normalize.compute(
+        attain, inputs.metric_dict, chain['anchor_set'],
+        params=normalize.NormalizeParams(
+            method=GOVERNANCE['normalize_method'],
+            min_pool_size=GOVERNANCE['min_pool_size'],
+            on_zero=GOVERNANCE['normalize_on_zero'], sd_dof=GOVERNANCE['sd_dof']),
+        pools=loose)
+    assert frame.rows, '松键下 Step2 仍须产出行（不依赖 Step3）'
+    assert {r.pool_key.evidence_class for r in frame.rows} == {None}
+    assert {r.pool_key.biz_domain for r in frame.rows} == set(domain_of.values())
+    strict = {(r.strategy_id, r.version_id, r.period, r.metric_id): r
+              for r in chain['normalized'].rows}
+    for row in frame.rows:
+        assert row.pool_key == normalize.step2_pool_key(domain_of[row.strategy_id])
+        if row.anchor_used:
+            ref = strict[(row.strategy_id, row.version_id, row.period, row.metric_id)]
+            assert numeric.eq_tol(row.norm_value, ref.norm_value), (
+                '锚定尺与分区无关，松键不得改变锚定命中行的 norm_value')
+    # Step7 严键：evidence_class 缺失即抛，不回退成松键、不填默认值
+    with pytest.raises(pooling.PoolingInputError):
+        pooling.step7_pool_key('CARD', None)
+    assert pooling.step7_pool_key('CARD', 'A') == PoolKey(biz_domain='CARD',
+                                                          evidence_class='A')
 
 
 def test_step3_evidence_gate_only_does_not_enter_the_score(chain):

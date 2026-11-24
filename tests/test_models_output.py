@@ -368,7 +368,14 @@ FRAME_MODELS = {
     'AttainmentFrame': (
         ('rows', 'req'), ('attainment_coverage', 'req'),
     ),
-    'NormalizedFrame': (('rows', 'req'),),
+    # MODELS-1 / ORCH-32 裁决 2+5：NormalizedFrame 增两条 frame 级披露列。
+    # 这是经主控授权的 R-15 契约变更（dsm/models.py 在 MODELS-1 写集内），
+    # 本表是该契约的登记镜像，故同步更新；两列都是 'empty'（空容器默认），
+    # 不是 'null'，也不携带任何业务数值（H-5）。未新增任何模型类，
+    # 故 SUB_MODELS 的 17 / ALL_MODELS 的 32 两个花名册计数一字未动。
+    'NormalizedFrame': (
+        ('rows', 'req'), ('warnings', 'empty'), ('excluded', 'empty'),
+    ),
     'EvidenceFrame': (('rows', 'req'),),
     'RedlineFrame': (('rows', 'req'),),
     'ScoreFrame': (('rows', 'req'),),
@@ -398,7 +405,10 @@ SUB_MODELS = {
     'DowngradeAction': (
         ('reason_code', 'req'), ('action', 'req'), ('subject', 'null'),
     ),
-    'PoolKey': (('biz_domain', 'req'), ('evidence_class', 'req')),
+    # D-MODELS-01 / ORCH-29 第 4 条 / ORCH-32 第 4 条：Step2 松键时 evidence_class
+    # 尚不存在，故为可空（不填默认值伪造，V-14）；Step7 的严键由
+    # pooling.step7_pool_key 强制。字段**名与个数**未变（test_o02 照旧钉住两列）。
+    'PoolKey': (('biz_domain', 'req'), ('evidence_class', 'null')),
     'ScoreCardMetricCell': (
         ('actual_value', 'req'), ('target_value', 'null'),
         ('attainment', 'null'),
@@ -588,7 +598,12 @@ SYN_PAYLOADS = {
         'rows': (ATTAINMENT_ROW,),
         'attainment_coverage': {S_ID: RATIO},
     },
-    'NormalizedFrame': {'rows': (NORMALIZED_ROW,)},
+    'NormalizedFrame': {
+        'rows': (NORMALIZED_ROW,),
+        # 两条披露列各给一条合法元素，证明元素类型也能构造（同 e04 的口径）。
+        'warnings': (DOWNGRADE_ROW,),
+        'excluded': (ATTAINMENT_ROW,),
+    },
     'EvidenceFrame': {'rows': (EVIDENCE_ROW,)},
     'RedlineFrame': {'rows': (REDLINE_EVAL_ROW,)},
     'ScoreFrame': {'rows': (SCORE_ROW,)},

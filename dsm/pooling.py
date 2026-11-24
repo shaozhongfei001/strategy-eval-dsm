@@ -33,6 +33,15 @@ M31 [L1404]、M26 [L1063]-[L1064]、M43 [L943]、M29 [L1346]。
      （C5 冻结口径：同域已参评 / 全体已参评，均只剔 NOT_ASSESSED）。
      没有任何标注的 null 才是真契约违规 -> 照旧抛 PoolingInputError（V-14）。
      标注只能从 Step 2 的载体读，pooling 绝不自己代 normalize 拟一个码（不猜）。
+     MODELS-1 / ORCH-32 裁决 5：标注除了 rows 还要读 frame 级 excluded -- on_zero=None 时
+     零变异行被剔除，若某策略全部指标 INACTIVE 则 rows 为空，只扫 rows 就等于
+     「有留痕却读不到」，仍会误抛（静默断链）；excluded 里的码与 rows 里的同一枚
+     码同权重参与 R6 举证。frame 级 warnings **不参与**举证：ORCH-28 裁决 3 把
+     能证明 null 的码封闭为那三枚，warnings 承载的是被优先序挤出的次级码，
+     且其 subject 是自由文本定位串，不作机器判据（不猜、不自行放宽）。
+  R7 池键分工（D-MODELS-01 / ORCH-29 第 4 条 / ORCH-32 第 4 条）：Step 2 用松键（只有
+     biz_domain，evidence_class 可为 None）；Step 7 一律用 step7_pool_key 构**严键**，
+     evidence_class 缺失即抛，绝不拿 None 当第五类混排（P-6 / G-02 不松动）。
 
 契约缺口（R-1 / R-15：不改 models.py / config.py，逐条上报主控裁决）：
   1. [L1005] 要 POOL_TOO_SMALL，但 [L1006] 的 PoolFrame / PoolStats 没有任何 flags
@@ -224,6 +233,19 @@ def mix_quality_verdict(current: PoolStats, previous: PoolStats | None):
     return None
 
 
+def step7_pool_key(biz_domain: str, evidence_class) -> PoolKey:
+    '''Step 7 的**严键**（D-MODELS-01 / ORCH-29 第 4 条 / ORCH-32 第 4 条）。
+
+    [L1001] 的分池禁混排（P-6 / G-02）只认完整的 (biz_domain x evidence_class)；
+    Step 7 排在 [L1338] Step 3 之后，evidence_class 已由证据层产出，故此处缺失就是
+    无从举证该策略属哪一池 -> 显式抛（V-14），不回退成松键、也不填默认值。
+    '''
+    if evidence_class is None:
+        raise PoolingInputError(
+            'Step7 分池需要完整池键，evidence_class 缺失：' + str(biz_domain))
+    return PoolKey(biz_domain=biz_domain, evidence_class=evidence_class)
+
+
 def _comparability_tags(normalized) -> dict:
     '''R6 的举证材料：定位三元组 -> normalize 落在该策略本期的可比性标注。
 
@@ -238,7 +260,9 @@ def _comparability_tags(normalized) -> dict:
         raise PoolingInputError('normalized 必须是 NormalizedFrame 或 None')
     order = tuple(getattr(c, 'value', c) for c in COMPARABILITY_CODES)
     tags = {}
-    for row in normalized.rows:
+    # ORCH-32 裁决 5：on_zero=None 时被剔除的行只存在于 frame 级 excluded，不扫这里
+    # 就等于「某策略全部指标 INACTIVE」时读不到任何标注 -> 静默断链。
+    for row in tuple(normalized.rows) + tuple(normalized.excluded):
         name = getattr(row.reason_code, 'value', row.reason_code)
         if name not in order:
             continue
@@ -337,9 +361,9 @@ def build(scores: ScoreFrame,
         if master_row is None:
             raise PoolingInputError(
                 'score 行没有对应的 strategy_master 行：' + KEY_SEP.join(_pair(score)))
-        # [L1001] 分池维度：业务领域来自 T1，证据等级来自 Step 3。
-        key = PoolKey(biz_domain=master_row.biz_domain,
-                      evidence_class=ev_row.evidence_class)
+        # [L1001] 分池维度：业务领域来自 T1，证据等级来自 Step 3。R7 严键：
+        # Step7 一律用完整 (biz_domain x evidence_class)，缺一不可（P-6 / G-02）。
+        key = step7_pool_key(master_row.biz_domain, ev_row.evidence_class)
         universe.append((score, grade, ev_row, key))
 
     assessed = tuple(u for u in universe if u[1].grade != NOT_ASSESSED)

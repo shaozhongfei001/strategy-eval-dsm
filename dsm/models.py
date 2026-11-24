@@ -746,10 +746,20 @@ class PoolKey(_OutputModel):
     (ruling 29) - a per-model copy would let the pooling key drift apart.
     biz_domain is the first pooling dimension ([L1119]) and stays a str: the
     domain registry is config driven (D7), so no closed set is invented.
-    [L1001] "no ranking across pools" is behaviour (P-6 / G-02).'''
+    [L1001] "no ranking across pools" is behaviour (P-6 / G-02).
+
+    evidence_class is nullable by D-MODELS-01 (ORCH-29 ruling 4, restated by
+    ORCH-32 ruling 4): [L1334] puts Step 2 normalize BEFORE [L1338] Step 3
+    evidence, so the second pooling dimension does not exist yet when Step 2
+    has to partition. The two readings are reconciled as a LOOSE key at Step 2
+    (normalize.step2_pool_key: biz_domain only, evidence_class left None --
+    never a fabricated default, V-14) and the FULL key at Step 7
+    (pooling.step7_pool_key refuses None), so P-6 / G-02 keep ranking inside
+    one biz_domain x evidence_class pool and [L942] is not weakened.'''
 
     biz_domain: str  # [L1119] first pooling dimension, config driven
-    evidence_class: EvidenceClass  # [L1001] second pooling dimension [L1895]
+    # [L1001] second pooling dimension [L1895]; None = the Step-2 loose key
+    evidence_class: EvidenceClass | None = None
 
 
 class ScoreCardMetricCell(_OutputModel):
@@ -1249,9 +1259,34 @@ class NormalizedFrame(_OutputModel):
     column: the relative track feeds ranking and the relative composite only
     and must never decide a grade floor - P-1 / G-01 guard that in
     normalize.py (S4), and this layer states it here rather than modelling it
-    (ruling 31: no extra wrapper, no invented guard field).'''
+    (ruling 31: no extra wrapper, no invented guard field).
+
+    warnings / excluded are the FRAME-LEVEL disclosure channel added by
+    ORCH-32 ruling 2 (V-14: no silent downgrade). NormalizedRow.reason_code is
+    ONE slot with the frozen precedence INACTIVE_METRIC > ANCHOR_SET_STALE >
+    RANK_REVERSAL_RISK > SMALL_POOL ([L944]), so a row that is both
+    zero-variance and measured against a degenerate anchor scale could only
+    keep the first code and the second one vanished without a trace. Both
+    columns are additive: no NormalizedRow column changes meaning, and an empty
+    pair is the "nothing to disclose" state, never a default that hides one.
+
+      warnings  every applicable code the single row slot could not take, as
+                [L1051] item-13 DowngradeAction records. subject is the
+                four-part locator joined by normalize.SUBJECT_SEP; action is
+                the registry message, so the wording stays owned by
+                reason_codes rather than being invented per module.
+      excluded  the Step-1 rows Step 2 refused to normalise at all (on_zero is
+                None, so the quotient is undefined and there is no row --
+                [L943] "drop and warn"), re-stamped with the Step-2 exclusion
+                code. ORCH-32 ruling 5: without it a strategy whose metrics
+                are ALL inactive yields zero rows and Step 7 can no longer tell
+                "disclosed downgrade" from "unannotated null". AttainmentRow
+                is reused because a dropped row IS a Step-1 row; Step-1's own
+                reason_code stays authoritative on AttainmentFrame.'''
 
     rows: tuple[NormalizedRow, ...]  # [L945] [L1156] long table
+    warnings: tuple[DowngradeAction, ...] = ()  # ORCH-32 r2: secondary codes
+    excluded: tuple[AttainmentRow, ...] = ()  # ORCH-32 r5: dropped rows [L943]
 
 
 class EvidenceFrame(_OutputModel):

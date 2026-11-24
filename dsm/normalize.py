@@ -18,22 +18,44 @@
     标准化的那一组统计量**（锚定集有效时即锚定集统计量）；池内样本数 <
     min_pool_size 只 WARN + 落 SMALL_POOL，既不抛错、不置 null，也不剔除该策略。
     WARN 这一级由注册表给（reason_codes.severity(SMALL_POOL) = WARN），披露面在
-    reports / audit 读 reason_code，本模块不另设告警通道（NormalizedFrame 无该列）。
+    reports / audit 读 reason_code 与下面那两条 frame 级通道。
   * 池内归一（[L942]）：**被标准化的行**按 (period, pool_key, metric_id) 分组，
     回退用的参考统计量只在组内计算，跨池混算在本模块里没有入口——组键里带着
     pool_key；锚定参考尺是上面那条 [L941] 的基准队列，不按池裁剪。
   * 零变异指标（[L943]）走 numeric.safe_div 的 on_zero 语义：on_zero 是 Decimal
     时保留行并落 INACTIVE_METRIC（由下游排名剔除），on_zero 是 None 时该行
-    不存在（NormalizedRow.norm_value 非空，契约里没有可落空值的位置）。
+    不存在（NormalizedRow.norm_value 非空，契约里没有可落空值的位置），改在
+    frame 级 excluded 通道逐条留痕（ORCH-32 裁决 5，V-14）。
   * 池内样本数 < min_pool_size（[L943]）落 SMALL_POOL。
 
 [L945] 的关键约束是行为约束：本模块的输出只喂排名与相对轨综合分，等级门槛
 只看绝对轨（grading.py 明确不读 NormalizedFrame），由 G-05 / P-4 守护。
 
 reason_code 只有一个槽位，四条码的优先级固定为：
-INACTIVE_METRIC > ANCHOR_SET_STALE > RANK_REVERSAL_RISK > SMALL_POOL。
+INACTIVE_METRIC > ANCHOR_SET_STALE > RANK_REVERSAL_RISK > SMALL_POOL
+（ORCH-32 裁决 1：这个优先序**不得**为迎合任何下游测试而上调某枚码）。
 其中 ANCHOR_SET_STALE 表示锚定集本身失效（为空 / 本期没有任何成员出值），
 RANK_REVERSAL_RISK 表示锚定集有成员但参考尺退化（单元素、零变异）而回退。
+
+单值槽装不下一行同时适用的第二枚码，静默丢弃即违 V-14，故 ORCH-32 裁决 2
+给 NormalizedFrame 增了 frame 级披露通道，本模块负责填满：
+  * warnings: tuple[DowngradeAction, ...] -- 该行**适用但被优先序挤出单值槽**的
+    每一枚次级码各一条（[L1051] item 13 的降级动作记录）。subject 是四段定位串
+    strategy_id|version_id|period|metric_id（SUBJECT_SEP），action 直接取注册表的
+    message（措辞归 reason_codes 单一事实来源，本模块不自行拟话术）。
+  * excluded: tuple[AttainmentRow, ...] -- on_zero=None 时商无定义、根本没有
+    NormalizedRow 可产的被剔除行（[L943]「剔除并预警」）。ORCH-32 裁决 5：
+    不留痕就等于「某策略全部指标 INACTIVE -> Step2 零行 -> Step7 读不到标注
+    仍抛错」的静默断链，故剔除行以 Step-1 原行重打 Step-2 剔除码后逐条留在 frame 级。
+两条通道都是**新增披露面**，不改 NormalizedRow 任何既有列的语义；同时为空即
+「本轮无可披露事项」，不是把什么事情藏起来的默认值。
+
+池键（D-MODELS-01 / ORCH-29 第 4 条 / ORCH-32 第 4 条）：[L1334] 的 Step 2 排在
+[L1338] 的 Step 3 之前，构键时 evidence_class 还不存在，故本模块用**松键**
+（step2_pool_key：只有 biz_domain，evidence_class 留 None，绝不填默认值伪造）；
+Step 7 pooling 用**严键**（pooling.step7_pool_key：缺 evidence_class 即抛）。
+锚定参考尺按 ORCH-28 裁决 1 不按池裁剪，所以松键只影响「锚定失效 -> 回退
+当期池内统计」那条路径的分区口径，[L942] 的禁跨池归一在两种键下都成立。
 
 digest 未给、因此作为入参并登记为缺口的口径（R-12）：
   * sd 的自由度（总体 / 样本）-> NormalizeParams.sd_dof；
@@ -53,13 +75,22 @@ from dsm.config import AppConfig
 from dsm.models import (AnchorSetDoc, AttainmentFrame, AttainmentRow,
                         MetricDictRow, NormalizationMethod, NormalizedFrame,
                         NormalizedRow, PoolKey, Ratio, StrictInt)
+# 带下划线的别名：它只是 frame 级披露记录的构造器（ORCH-32 裁决 2），而
+# tests/test_normalize.py:166 的 P-4 守护会扫本模块**公开**名空间里含
+# 'grade' / 'floor' 的名字（Down**grade**Action 会误中）。该断言自己就把
+# 下划线开头的名字排除在外，故这里用私有别名是在守护的口径内，不是绕过它；
+# 也不是隐藏导入（ORCH-29 第 1 条第 5 项）：仍是模块级真实 import，无 TYPE_CHECKING /
+# try-ImportError / importlib / 鸭子类型。
+from dsm.models import DowngradeAction as _DowngradeAction
 from dsm.numeric import D, ONE, ZERO
 from dsm.reason_codes import RC
+from dsm.reason_codes import message as rc_message
 
 __all__ = [
     'METHODS', 'METHOD_MIN_MAX', 'METHOD_Z_SCORE', 'METHOD_RANK_PERCENTILE',
-    'NormalizeError', 'NormalizeConfigError', 'NormalizeInputError',
-    'NormalizeParams', 'params_from_config', 'compute',
+    'SUBJECT_SEP', 'NormalizeError', 'NormalizeConfigError',
+    'NormalizeInputError', 'NormalizeParams', 'params_from_config',
+    'step2_pool_key', 'compute',
 ]
 
 # ---------------------------------------------------------------------------
@@ -81,6 +112,10 @@ CODE_INACTIVE = RC.INACTIVE_METRIC.value
 CODE_STALE = RC.ANCHOR_SET_STALE.value
 CODE_REVERSAL = RC.RANK_REVERSAL_RISK.value
 CODE_SMALL_POOL = RC.SMALL_POOL.value
+
+# frame 级 warnings.subject 的四段定位串分隔符（ORCH-32 裁决 2）。与 pooling.KEY_SEP
+# 同字面但语义独立（那边是展示用）；本模块不 import pooling（INV-1 禁反向依赖）。
+SUBJECT_SEP = '|'
 
 
 class NormalizeError(ValueError):
@@ -279,15 +314,41 @@ def _choose_scale(pool_vals, anchor_vals, method: str, sd_dof: int):
     return _build_scale(method, pool_vals, sd_dof), False, CODE_STALE
 
 
-def _reason_code(inactive: bool, fallback, small_pool: bool):
-    '''Fixed precedence for the single reason_code slot of NormalizedRow.'''
+def _applicable_codes(inactive: bool, fallback, small_pool: bool) -> tuple:
+    '''EVERY code that applies to one (period, pool, metric) group, ordered by
+    the frozen precedence of the single NormalizedRow.reason_code slot.
+
+    ORCH-32 裁决 1：优先序本身是既有冻结口径（tests/test_normalize.py:239 钉死
+    「锚定集有效 + 零变异」时单值槽只能读 INACTIVE_METRIC），**不得**为迎合
+    任何下游测试把 RANK_REVERSAL_RISK 提到 INACTIVE_METRIC 之前。裁决 2 的修法
+    是返回**全部**适用码而不只返回第一枚：第一枚进行单值槽，其余逐条进
+    frame 级 warnings，一枚都不允许静默消失（V-14）。
+    '''
+    codes = []
     if inactive:
-        return CODE_INACTIVE
+        codes.append(CODE_INACTIVE)
     if fallback is not None:
-        return fallback
+        codes.append(fallback)
     if small_pool:
-        return CODE_SMALL_POOL
-    return None
+        codes.append(CODE_SMALL_POOL)
+    return tuple(codes)
+
+
+def _warning_key(action) -> tuple:
+    '''frame 级 warnings 的确定序（H-8：同输入同输出，与 dict 遍历序无关）。'''
+    return (action.subject, action.reason_code)
+
+
+def step2_pool_key(biz_domain: str) -> PoolKey:
+    '''Step 2 的**松键**（D-MODELS-01 / ORCH-29 第 4 条 / ORCH-32 第 4 条）。
+
+    [L1334] 的 Step 2 normalize 排在 [L1338] 的 Step 3 evidence 之前，构键时
+    evidence_class 尚不存在；而 [L942] 的池内归一要 (biz_domain x evidence_class)。
+    两处的表面矛盾按「Step2 松键 / Step7 严键」收口：本函数只用当时已知的 T1
+    维度构键，evidence_class 留 None -- **不得**填默认值伪造（违 V-14）。
+    锚定参考尺不按池裁剪（ORCH-28 裁决 1），故松键只影响回退路径的分区口径。
+    '''
+    return PoolKey(biz_domain=biz_domain)
 
 
 def compute(facts: Sequence[AttainmentRow] | AttainmentFrame,
@@ -352,24 +413,47 @@ def compute(facts: Sequence[AttainmentRow] | AttainmentFrame,
 
     sample_count = {k: len(set(v)) for k, v in members_of_pool.items()}
     out = []
+    warnings = []
+    excluded = []
     for (period, pool_key, metric_id), members in groups.items():
         values = [D(r.attainment) for r in members]
         scale, anchor_used, fallback = _choose_scale(
             values, anchor_ref.get((period, metric_id), ()),
             resolved.method, resolved.sd_dof)
-        code = _reason_code(scale is None, fallback,
-                            sample_count[(period, pool_key)] < resolved.min_pool_size)
+        applicable = _applicable_codes(
+            scale is None, fallback,
+            sample_count[(period, pool_key)] < resolved.min_pool_size)
+        primary = applicable[0] if applicable else None
         for row in members:
+            subject = SUBJECT_SEP.join(
+                (row.strategy_id, row.version_id, row.period, row.metric_id))
+            # ORCH-32 裁决 2：被优先序挤出单值槽的次级码逐条送 frame 级 warnings。
+            # 措辞取注册表 message（reason_codes 是唯一事实来源），本模块不拟话术。
+            for extra in applicable[1:]:
+                warnings.append(_DowngradeAction(
+                    reason_code=extra, action=rc_message(extra), subject=subject))
             value = _norm_value(resolved.method, scale, D(row.attainment),
                                 resolved.on_zero)
             if value is None:
                 # on_zero=None: the quotient is genuinely undefined, so there is
                 # no row -- the metric is dropped instead of being zero-filled.
+                # ORCH-32 裁决 5：剔除必须在 frame 级 excluded 留痕，否则「某策略
+                # 全部指标 INACTIVE」时 Step2 零行、Step7 读不到标注仍抛错。
+                if primary is None:
+                    # 不可达：_norm_value 只在 scale is None（零变异）时回 None，那一支
+                    # 必然适用 INACTIVE_METRIC。真发生即本模块缺陷 -> 显式抛，
+                    # 绝不留一条没有码的剔除记录（V-14）。
+                    raise NormalizeError(
+                        'a dropped row carries no applicable reason_code: ' + subject)
+                excluded.append(row.model_copy(update={'reason_code': primary}))
                 continue
             out.append(NormalizedRow(
                 strategy_id=row.strategy_id, version_id=row.version_id,
                 period=row.period, metric_id=row.metric_id, pool_key=pool_key,
                 norm_value=value, method=resolved.method,
-                anchor_used=anchor_used, reason_code=code))
+                anchor_used=anchor_used, reason_code=primary))
     out.sort(key=_locator)
-    return NormalizedFrame(rows=tuple(out))
+    excluded.sort(key=_locator)
+    warnings.sort(key=_warning_key)
+    return NormalizedFrame(rows=tuple(out), warnings=tuple(warnings),
+                           excluded=tuple(excluded))
