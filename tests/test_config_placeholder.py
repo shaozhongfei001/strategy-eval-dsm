@@ -288,20 +288,31 @@ def _clean_eval_config():
 
 
 def _clean_weights(stem):
+    '''ORCH-25 G1 (same class of stale private fixture): B4 landed the
+    weight-version gate in dsm/config.py, and a FROZEN document now needs a
+    legal [L1190] status, a complete ruling 17 provenance and sum-to-one
+    level weights. The tree below is copied verbatim from the existing
+    synthetic construction tests/test_config_properties.py::_t06_complete_tree
+    for kind AHP_ONLY (its T06_Q_* values), so no new number and no new
+    governance value is invented here (H-5).'''
     return {
         'weight_version_id': stem,
-        'status': 'SYN-FROZEN',
-        'whatif_run_id': 'SYN-WHATIF-RUN',
-        'effective_from': 'SYN-EFFECTIVE-FROM',
-        'effective_to': 'SYN-EFFECTIVE-TO',
-        'dimensions': [
-            {'dimension_id': 'SYN-DIM-01',
-             'weight': 'SYN-DIM-WEIGHT',
-             'metrics': [{'metric_code': 'SYN-M-01',
-                          'weight': 'SYN-METRIC-WEIGHT'}]},
-        ],
-        'provenance': {'ahp_basis': 'SYN-AHP-BASIS',
-                       'alpha_basis': 'SYN-ALPHA-BASIS'},
+        'status': 'FROZEN',
+        'effective_from': '2026-01',
+        'effective_to': '2026-12',
+        'level1_weights': {'SYN-DIM-A': '0.5', 'SYN-DIM-B': '0.5'},
+        'level2_weights': {
+            'SYN-DIM-A': {'SYN-M-01': '0.5', 'SYN-M-02': '0.5'},
+            'SYN-DIM-B': {'SYN-M-01': '0.5', 'SYN-M-02': '0.5'},
+        },
+        'provenance': {
+            'kind': 'AHP_ONLY',
+            'whatif_run_id': 'SYN-WHATIF-RUN',
+            'approved_by': 'SYN-APPROVER',
+            'approved_date': '2026-01-05',
+            'ahp': {'comparison_matrices': {'SYN-DIM-A': 'SYN-MATRIX-PAYLOAD'},
+                    'cr': '0.25'},
+        },
     }
 
 
@@ -317,18 +328,20 @@ def _clean_redlines():
 
 
 def _clean_grade_rules():
-    return {
-        'levels': [
-            {'grade_code': 'L1', 'attainment_floor': 'SYN-FLOOR-L1',
-             'evidence_class_min': 'SYN-EVIDENCE-CLASS-MIN',
-             'promotion_streak': 'SYN-PROMOTION-STREAK',
-             'action': 'SYN-ACTION-L1'},
-            {'grade_code': 'L2', 'attainment_floor': 'SYN-FLOOR-L2',
-             'evidence_class_min': 'SYN-EVIDENCE-CLASS-MIN',
-             'promotion_streak': 'SYN-PROMOTION-STREAK',
-             'action': 'SYN-ACTION-L2'},
-        ],
-    }
+    '''ORCH-25 G1: the clean grade_rules tree must satisfy the semantic gate
+    landed by B4 in dsm/config.py (rulings 10 / 11 / 14): exactly four grades
+    L1..L4, attainment_floor strictly decreasing, and every level carries a
+    non-empty actions list. The construction is copied verbatim from the
+    existing synthetic tree tests/test_config_properties.py::_t06_grade_rules
+    (its T06_Q_GRADES / T06_Q_FLOORS values), so no new number and no new
+    governance value is invented here (H-5).'''
+    levels = []
+    for code, floor in zip(('L1', 'L2', 'L3', 'L4'),
+                           ('0.9', '0.75', '0.6', '0.4')):
+        levels.append({'grade_code': code, 'attainment_floor': floor,
+                       'actions': ['SYN-ACTION-01'],
+                       'action_gate': 'SYN-ACTION-GATE'})
+    return {'levels': levels}
 
 
 def _clean_anchor_set():
@@ -1249,9 +1262,14 @@ def test_t05_i04_scan_config_trees_takes_exactly_one_argument():
 
 
 def test_t05_i05_load_all_takes_only_config_dir():
-    '''Ruling 11: the T05 signature is minimal; T06 adds --period / --run-at as
-    optional keywords, which is not a breaking change.'''
-    assert list(inspect.signature(cfg('load_all')).parameters) == ['config_dir']
+    '''ORCH-25 G2: the T05-era minimal-signature assertion is stale. The
+    contract authority is ORCH-24 ruling 19 / line 320, which pins
+    load_all(config_dir, *, period=None, run_at=None); T06-G g08 and
+    test_config_weight_version.py::test_t06_h19_load_all_without_period_
+    still_blocks_a_frozen_gap already proves the two keyword parameters.
+    Assert the full pinned signature instead.'''
+    assert list(inspect.signature(cfg('load_all')).parameters) == [
+        'config_dir', 'period', 'run_at']
 
 
 @pytest.mark.parametrize('name', PURE_FUNCTIONS)
