@@ -1,1343 +1,1424 @@
 {
- "orch_version": "ORCH-v3.0-PARALLEL",
- "run_prompt": "docs/RUN-UNATTENDED-v3.0-PARALLEL.md",
- "supersedes": [
-  "docs/RUN-UNATTENDED-v1.0.md（执行序列）",
-  "docs/ORCHESTRATION-v1.0.md §5（串行波次编排）"
- ],
- "inherits": [
-  "docs/RUN-UNATTENDED-v2.0.md §0~§7 全部",
-  "docs/ORCHESTRATION-v1.0.md §1 §2 §3 §4 §6 §7.1 §8 §10"
- ],
- "sdd_fingerprint": {
-  "file": "开发设计文档-策略评价可辩护评分模型DSM-v1.1.md",
-  "sha256_12": "708679e9a83d",
-  "lines": 2003,
-  "readonly_docs_dir": "/mnt/d/ws/codex_rd/ss_campaignlab/工行参考文件/"
- },
- "repo": {
-  "path": "/home/szf/dev/strategy-eval-dsm",
-  "branch": "main",
-  "remote": "git@github.com:shaozhongfei001/strategy-eval-dsm.git",
-  "venv_python": "/home/szf/venvs/dsm/bin/python"
- },
- "readonly_neighbors": [
-  {
-   "path": "/home/szf/dev/CampaignLab",
-   "check": "porcelain 必须为空 + HEAD 不得被本 run 移动；不一致立即停机上报",
-   "note": "B-001：交接方给的 tag R19-S14add 实测不存在，故只比 porcelain + HEAD"
-  }
- ],
- "goal": {
-  "scope": "S1→S9 全量，含 S7 方法层 + S8 权重构造链（档 2 不得砍）",
-  "serial_equivalent_h": 21.8,
-  "agent_workload_min": 1825,
-  "phase1_h": 5.5,
-  "phase2_h": 1.25,
-  "phase3_h": 1.0,
-  "planned_finish_h": 7.75,
-  "buffer_h": 2.25,
-  "hard_stop_h": 10.0,
-  "phase1_bound": "依赖约束（Lane A 的 fixtures→combine→calibrate→whatif 315min + combine 等 ahp/entropy），非资源约束；加 lane 无用",
-  "non_negotiable": [
-   "V-9 数值口径",
-   "V-14 无静默降级",
-   "V-6+G-03+P-2 红线非补偿",
-   "G-02+P-6 证据门禁+分池禁混排"
-  ]
- },
- "concurrency_probed": 6,
- "concurrency_actual": 6,
- "concurrency_probe": {
-  "date": "2026-11-24",
-  "method": "同时 spawn 8 个探针 agent，每个只跑 date +%s%N → sleep 45 → date +%s%N，回收后做区间重叠分析",
-  "spawn_limit": 6,
-  "rejection_message": "collab spawn failed: agent thread limit reached（第 7、8 个）",
-  "intervals_rel_s": {
-   "P1": [
-    0.0,
-    52.92
-   ],
-   "P2": [
-    5.14,
-    62.73
-   ],
-   "P3": [
-    8.14,
-    63.9
-   ],
-   "P4": [
-    9.44,
-    69.24
-   ],
-   "P6": [
-    15.09,
-    75.52
-   ],
-   "P5": [
-    43.91,
-    97.29
-   ]
-  },
-  "peak_overlap": 6,
-  "peak_overlap_window_s": [
-   43.91,
-   52.92
+  "orch_version": "ORCH-v3.0-PARALLEL",
+  "run_prompt": "docs/RUN-UNATTENDED-v3.0-PARALLEL.md",
+  "supersedes": [
+    "docs/RUN-UNATTENDED-v1.0.md（执行序列）",
+    "docs/ORCHESTRATION-v1.0.md §5（串行波次编排）"
   ],
-  "wall_s": 97.29,
-  "serial_sum_s": 339.87,
-  "speedup": 3.49,
-  "notes": [
-   "主控（父会话）不占这 6 个槽",
-   "已完成未 close 的 agent 仍占槽，必须及时 close_agent",
-   "各探针 START 相差 0~43.9s 属 bootstrap 抖动而非排队：P5 的 START 43.91s 早于 P1 的 END 52.92s",
-   "run 启动时必须重新实测，不得沿用本值"
-  ]
- },
- "concurrency_fallback": {
-  "6": "7.75h 达标，缓冲 2.25h",
-  "5": "8.6h 达标（F 的 4 包回填 D/C，entropy 移到 E 首位且仍与 ahp 同批）",
-  "4": "10.3h 撞线，砍 P3b 改期，不得砍 S7/S8",
-  "3-": "停机上报"
- },
- "t0_wall_clock": null,
- "phase_current": "P1",
- "phase_order": [
-  "P1",
-  "P2",
-  "P3"
- ],
- "lanes": {
-  "A": {
-   "role": "权重链下游（关键路径，依赖约束 5.50h）",
-   "priority": 1,
-   "queue": [
-    "A1",
-    "A2",
-    "A3",
-    "A4"
-   ],
-   "window_h": [
-    0.0,
-    5.5
-   ],
-   "done": []
+  "inherits": [
+    "docs/RUN-UNATTENDED-v2.0.md §0~§7 全部",
+    "docs/ORCHESTRATION-v1.0.md §1 §2 §3 §4 §6 §7.1 §8 §10"
+  ],
+  "sdd_fingerprint": {
+    "file": "开发设计文档-策略评价可辩护评分模型DSM-v1.1.md",
+    "sha256_12": "708679e9a83d",
+    "lines": 2003,
+    "readonly_docs_dir": "/mnt/d/ws/codex_rd/ss_campaignlab/工行参考文件/"
   },
-  "B": {
-   "role": "入分主干 + 契约收尾",
-   "priority": 4,
-   "queue": [
-    "B1",
-    "B2",
-    "B3",
-    "B4"
-   ],
-   "window_h": [
-    0.0,
-    4.25
-   ],
-   "done": []
+  "repo": {
+    "path": "/home/szf/dev/strategy-eval-dsm",
+    "branch": "main",
+    "remote": "git@github.com:shaozhongfei001/strategy-eval-dsm.git",
+    "venv_python": "/home/szf/venvs/dsm/bin/python"
   },
-  "C": {
-   "role": "加载 + 门禁旁路",
-   "priority": 6,
-   "queue": [
-    "C1",
-    "C2",
-    "C3",
-    "C4",
-    "C5"
-   ],
-   "window_h": [
-    0.0,
-    4.5
-   ],
-   "done": []
+  "readonly_neighbors": [
+    {
+      "path": "/home/szf/dev/CampaignLab",
+      "check": "porcelain 必须为空 + HEAD 不得被本 run 移动；不一致立即停机上报",
+      "note": "B-001：交接方给的 tag R19-S14add 实测不存在，故只比 porcelain + HEAD"
+    }
+  ],
+  "goal": {
+    "scope": "S1→S9 全量，含 S7 方法层 + S8 权重构造链（档 2 不得砍）",
+    "serial_equivalent_h": 21.8,
+    "agent_workload_min": 1825,
+    "phase1_h": 5.0,
+    "phase2_h": 1.25,
+    "phase3_h": 1.0,
+    "planned_finish_h": 7.25,
+    "buffer_h": 2.75,
+    "hard_stop_h": 10.0,
+    "phase1_bound": "依赖约束非资源约束。理论下限 1630min/6lane = 4.53h，本方案 5.00h（+10%）。Amdahl：6lane×5.00h = 30.0 lane·h 产能 vs 需求 27.2，空转 2.8 lane·h = 9.3% 且无法用于加速依赖链 → 排程优化到此为止，继续 Tetris 的边际收益 <0.1h",
+    "non_negotiable": [
+      "V-9 数值口径",
+      "V-14 无静默降级",
+      "V-6+G-03+P-2 红线非补偿",
+      "G-02+P-6 证据门禁+分池禁混排"
+    ],
+    "phase1_floor_h": 4.53,
+    "nesting_possible": false
   },
-  "D": {
-   "role": "权重链上游 + 方法旁路 + CLI",
-   "priority": 2,
-   "queue": [
-    "D1",
-    "D2",
-    "D3",
-    "D4",
-    "D5"
-   ],
-   "window_h": [
-    0.0,
-    5.0
-   ],
-   "done": []
+  "concurrency_probed": 6,
+  "concurrency_actual": 6,
+  "concurrency_probe": {
+    "date": "2026-11-24",
+    "method": "同时 spawn 8 个探针 agent，每个只跑 date +%s%N → sleep 45 → date +%s%N，回收后做区间重叠分析",
+    "spawn_limit": 6,
+    "rejection_message": "collab spawn failed: agent thread limit reached（第 7、8 个）",
+    "intervals_rel_s": {
+      "P1": [
+        0.0,
+        52.92
+      ],
+      "P2": [
+        5.14,
+        62.73
+      ],
+      "P3": [
+        8.14,
+        63.9
+      ],
+      "P4": [
+        9.44,
+        69.24
+      ],
+      "P6": [
+        15.09,
+        75.52
+      ],
+      "P5": [
+        43.91,
+        97.29
+      ]
+    },
+    "peak_overlap": 6,
+    "peak_overlap_window_s": [
+      43.91,
+      52.92
+    ],
+    "wall_s": 97.29,
+    "serial_sum_s": 339.87,
+    "speedup": 3.49,
+    "notes": [
+      "主控（父会话）不占这 6 个槽",
+      "已完成未 close 的 agent 仍占槽，必须及时 close_agent",
+      "各探针 START 相差 0~43.9s 属 bootstrap 抖动而非排队：P5 的 START 43.91s 早于 P1 的 END 52.92s",
+      "run 启动时必须重新实测，不得沿用本值"
+    ],
+    "nesting_probe": {
+      "date": "2026-11-24",
+      "method": "spawn 1 个 agent，要求它连续 spawn 3 个子 agent 并逐个 wait + close",
+      "result": "子 agent 报告 spawn_agent 工具不存在，CHILD_REPLIES=0",
+      "subagent_toolset": [
+        "web_search",
+        "web_extractor",
+        "exec_command",
+        "write_stdin",
+        "request_user_input",
+        "view_image",
+        "get_goal",
+        "create_goal",
+        "update_goal"
+      ],
+      "conclusions": [
+        "嵌套不可能 → 6 槽绝对天花板，31 包由主控单层扁平派发",
+        "子 agent 有 exec_command → 写文件/pytest/git commit 可行，§8 模板成立",
+        "子 agent 有 request_user_input → 无人值守挂死风险，R-17 明令禁止",
+        "子 agent 无 multi_agent 工具 → R4 复核只能主控派"
+      ]
+    }
   },
-  "E": {
-   "role": "验证与交付（独立性 = 反作弊控制）",
-   "priority": 5,
-   "queue": [
-    "E1",
-    "E2",
-    "E3",
-    "E4",
-    "E5"
-   ],
-   "window_h": [
-    0.0,
-    5.25
-   ],
-   "done": []
+  "concurrency_fallback": {
+    "6": "达标：ORCH-07 时算得 7.75h/缓冲 2.25h；ORCH-09 后实际 7.25h/缓冲 2.75h（当前采用）",
+    "5": "8.6h 达标（F 的 4 包回填 D/C，entropy 移到 E 首位且仍与 ahp 同批）",
+    "4": "10.3h 撞线，砍 P3b 改期，不得砍 S7/S8",
+    "3-": "停机上报",
+    "_note": "本表在 ORCH-07（5 lane→6 lane）时算得，未逐档重算。ORCH-09 使 Phase 1 -0.50h，故各档实际完成时刻应再减 0.50h（6 档已由 7.75h 修正为 7.25h/缓冲 2.75h，见 goal）；5 档标称 8.6h → 约 8.1h，仍达标。降级判据本身不变。"
   },
-  "F": {
-   "role": "机动：熵权 + 横切模块 + R4 复核 + 超时吸收",
-   "priority": 3,
-   "queue": [
-    "F1",
-    "F2",
-    "F3",
-    "F4"
-   ],
-   "window_h": [
-    0.0,
-    2.92
-   ],
-   "done": [],
-   "float_after_F4": "F5 机动槽（非工作包）：承接同步点 R4 复核 agent、吸收任一 lane 超时包、Phase 2 缺陷第一顺位；复核 agent 用完必须立即 close 释放槽位"
-  }
- },
- "sync_points": {
-  "SP-1": {
-   "at_h": 1.0,
-   "done": false,
-   "must": [
-    "fixtures 冻结",
-    "D1+F1 双确认（ORCH-07）",
-    "执行 ORCH-03",
-    "E1 skip 清单入账"
-   ]
-  },
-  "SP-2": {
-   "at_h": 2.75,
-   "done": false,
-   "must": [
-    "【关键放行点】B3+D2+E1 全绿才放行 A3",
-    "抽查 B4 的 211 RED triage 理由（RK-P5）",
-    "若 Lane A 落后≥0.5h 则读 M10 评估 ORCH-07b"
-   ]
-  },
-  "SP-3": {
-   "at_h": 4.25,
-   "done": false,
-   "must": [
-    "A3 完成确认",
-    "C4/C5/D3/D4 确认",
-    "E2/E3 golden 首轮入账",
-    "契约缺口批量裁决 #2"
-   ]
-  },
-  "SP-4": {
-   "at_h": 5.5,
-   "done": false,
-   "must": [
-    "Phase 1 收口全量 pytest",
-    "Phase 2 缺陷切片分派（F 第一顺位）"
-   ]
-  }
- },
- "decisions": {
-  "ORCH-01": "fixtures_gen 从 SDD §3.17.2 step 8 提前到 Phase 1 首包（只改顺序不改口径）",
-  "ORCH-02": "CEL-0 预留按 7 字段（interpretation_limit 是 T4 正式字段，SDD 行 1172）",
-  "ORCH-03": "新增 dsm/entropy.py 于 L1，模块数 23→24。依据 SDD 行 537「熵权六步两个计算者共用同一实现」，而 INV-1 禁止 L5(diagnostics) import L0a(weights_combine)，只有放 L1 同时满足两者。不塞进 numeric.py（它是唯一数值口径实现点，且会让 6 lane 抢同一写集）。不改任何算法步骤与口径",
-  "ORCH-04": "成本护栏：实测 C3/max = 23/31 = 74%（Phase 1 21/27 = 78%）。认定 ORCH §3.1 打分表与 §3.4 占比护栏（flash ≥60% 任务数 / max ≤40%）在 DSM 上不可同时满足 → 占比护栏作废，改用 token 硬上限（lane 2,340k + 主控 660k = 3,000k）；effort 作第二旋钮（xhigh 3 / high 20 / medium 6 / low 2）。超支降级候选 E2→C2、F4→C1、D5→C1、C1→C1、B2→C1（全降后 max 58%、上限 1,890k）。详见 §5.2",
-  "ORCH-05": "串行 DAG 改为 6 lane 并行；ORCH §6 阶段门禁不变，仍在 Phase 2/3 逐条核",
-  "ORCH-06": "全量 pytest 只在 4 个同步点 + Phase 2 跑（tests/ 已 9963 行，每包跑全量会吃掉并行收益）",
-  "ORCH-07": "并发槽位实测 = 6（真并行，非多槽单跑）→ 排程由 5 lane 改为 6 lane（新增机动 lane F）。entropy.py(F1) 与 weights_ahp.py(D1) 同批 T+0 起跑，依据 §2.4.3 的 combine(ahp, entropy, opts) 签名证明二者是并列输入；combine 起跑点 T+1.67→T+1.00，Phase 1 由 5.92h 降到 5.50h。audit/diagnostics/reports 由 B、C 移入 F",
-  "ORCH-07b": "【条件触发，未启用】whatif ∥ calibrate。M42 行 1073「重跑 Step 1–7（可选 Step 8）」支持此读法，可再省 1.25h（Phase 1→4.25h）。未采纳原因：ORCH §5.9 明令 S8 严格串行且注明 whatif 复用两者。触发条件：SP-2 时 Lane A 落后计划 ≥0.5h，且主控读 M10 digest 确认 Step 8 可选",
-  "ORCH-08": "模型路由落地绑定：v3.0 初版 0 处出现 qwen3.8-max/flash、§8 与 §12 未要求 spawn 传 model，而 spawn_agent 默认继承父模型 → 照初版执行会使 31 包全跑父模型、档位标注沦为装饰。修补 = 新增 R-16 + §5.4 配对表 + §8【模型】段 + §12 逐包标注 + §13 三行对账 + 升降级并行语义；并按 §3.1 打分表修正 9 处档位错误（7 升 C3、E3 降 C2、P3b 降 C1），C3 由 17→23。详见 §5.4 与附 B"
- },
- "pkg_id_remap_from_5lane": {
-  "B5 audit": "F2",
-  "B6 diagnostics": "F3",
-  "C6 reports": "F4",
-  "D2 entropy": "F1",
-  "D3 sensitivity": "D2",
-  "D4 normalize": "D3",
-  "D5 triangulation": "D4",
-  "D6 cli": "D5"
- },
- "cards_ref": "digests / writeset / guards / 时间窗全文见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §4（状态文件不重复存）",
- "work_packages": {
-  "A1": {
-   "lane": "A",
-   "module": "fixtures_gen.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 60,
-   "prod_max": 600,
-   "tf_max": 16,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "A2": {
-   "lane": "A",
-   "module": "weights_combine.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "A1",
-    "D1",
-    "F1"
-   ],
-   "budget_min": 90,
-   "prod_max": 700,
-   "tf_max": 25,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "xhigh",
-   "token_budget_k": 90
-  },
-  "A3": {
-   "lane": "A",
-   "module": "weights_calibrate.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "A2",
-    "E1",
-    "B3",
-    "D2"
-   ],
-   "budget_min": 90,
-   "prod_max": 600,
-   "tf_max": 25,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "xhigh",
-   "token_budget_k": 90
-  },
-  "A4": {
-   "lane": "A",
-   "module": "whatif.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "A3"
-   ],
-   "budget_min": 75,
-   "prod_max": 450,
-   "tf_max": 20,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "xhigh",
-   "token_budget_k": 90
-  },
-  "B1": {
-   "lane": "B",
-   "module": "attainment.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 60,
-   "prod_max": 450,
-   "tf_max": 20,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "B2": {
-   "lane": "B",
-   "module": "aggregate.py",
-   "cx": "C2",
-   "model": "flash",
-   "status": "pending",
-   "deps": [
-    "B1"
-   ],
-   "budget_min": 45,
-   "prod_max": 300,
-   "tf_max": 18,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-flash",
-   "effort": "medium",
-   "token_budget_k": 40
-  },
-  "B3": {
-   "lane": "B",
-   "module": "grading.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "B2"
-   ],
-   "budget_min": 60,
-   "prod_max": 400,
-   "tf_max": 20,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "B4": {
-   "lane": "B",
-   "module": "config.py 语义+权重版本校验（211 RED→绿，R-8 triage）",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 90,
-   "prod_max": 400,
-   "tf_max": 0,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "C1": {
-   "lane": "C",
-   "module": "io_loaders.py",
-   "cx": "C2",
-   "model": "flash",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 45,
-   "prod_max": 300,
-   "tf_max": 15,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-flash",
-   "effort": "medium",
-   "token_budget_k": 40
-  },
-  "C2": {
-   "lane": "C",
-   "module": "preflight.py",
-   "cx": "C3",
-   "model": "flash",
-   "status": "pending",
-   "deps": [
-    "C1"
-   ],
-   "budget_min": 60,
-   "prod_max": 400,
-   "tf_max": 20,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "C3": {
-   "lane": "C",
-   "module": "evidence.py",
-   "cx": "C3",
-   "model": "flash",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 45,
-   "prod_max": 300,
-   "tf_max": 18,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "C4": {
-   "lane": "C",
-   "module": "redline.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 60,
-   "prod_max": 400,
-   "tf_max": 20,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "C5": {
-   "lane": "C",
-   "module": "pooling.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "C3",
-    "C4"
-   ],
-   "budget_min": 60,
-   "prod_max": 400,
-   "tf_max": 20,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "D1": {
-   "lane": "D",
-   "module": "weights_ahp.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 60,
-   "prod_max": 450,
-   "tf_max": 20,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "D2": {
-   "lane": "D",
-   "module": "sensitivity.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 75,
-   "prod_max": 500,
-   "tf_max": 22,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "D3": {
-   "lane": "D",
-   "module": "normalize.py",
-   "cx": "C3",
-   "model": "flash",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 45,
-   "prod_max": 350,
-   "tf_max": 18,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "D4": {
-   "lane": "D",
-   "module": "triangulation.py",
-   "cx": "C3",
-   "model": "flash",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 60,
-   "prod_max": 450,
-   "tf_max": 22,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "D5": {
-   "lane": "D",
-   "module": "cli.py",
-   "cx": "C2",
-   "model": "flash",
-   "status": "pending",
-   "deps": [
-    "D4"
-   ],
-   "budget_min": 60,
-   "prod_max": 450,
-   "tf_max": 16,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-flash",
-   "effort": "medium",
-   "token_budget_k": 40
-  },
-  "E1": {
-   "lane": "E",
-   "module": "tests/test_integration_spine.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "A1"
-   ],
-   "budget_min": 60,
-   "prod_max": 0,
-   "tf_max": 12,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "E2": {
-   "lane": "E",
-   "module": "golden G-01~G-08",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "E1"
-   ],
-   "budget_min": 75,
-   "prod_max": 0,
-   "tf_max": 20,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "E3": {
-   "lane": "E",
-   "module": "golden G-09~G-15",
-   "cx": "C2",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "E2"
-   ],
-   "budget_min": 75,
-   "prod_max": 0,
-   "tf_max": 20,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-flash",
-   "effort": "medium",
-   "token_budget_k": 40
-  },
-  "E4": {
-   "lane": "E",
-   "module": "properties P-1~P-15",
-   "cx": "C2",
-   "model": "flash",
-   "status": "pending",
-   "deps": [
-    "E3"
-   ],
-   "budget_min": 65,
-   "prod_max": 0,
-   "tf_max": 15,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-flash",
-   "effort": "medium",
-   "token_budget_k": 40
-  },
-  "E5": {
-   "lane": "E",
-   "module": "tests/test_architecture.py",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "E4"
-   ],
-   "budget_min": 40,
-   "prod_max": 0,
-   "tf_max": 12,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "F1": {
-   "lane": "F",
-   "module": "entropy.py（L1 新增，ORCH-03）",
-   "cx": "C3",
-   "model": "flash",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 40,
-   "prod_max": 200,
-   "tf_max": 14,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "F2": {
-   "lane": "F",
-   "module": "audit.py",
-   "cx": "C3",
-   "model": "flash",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 45,
-   "prod_max": 300,
-   "tf_max": 15,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "F3": {
-   "lane": "F",
-   "module": "diagnostics.py",
-   "cx": "C3",
-   "model": "flash",
-   "status": "pending",
-   "deps": [
-    "F1"
-   ],
-   "budget_min": 45,
-   "prod_max": 350,
-   "tf_max": 18,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "F4": {
-   "lane": "F",
-   "module": "reports.py",
-   "cx": "C2",
-   "model": "flash",
-   "status": "pending",
-   "deps": [],
-   "budget_min": 45,
-   "prod_max": 400,
-   "tf_max": 18,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-flash",
-   "effort": "medium",
-   "token_budget_k": 40
-  },
-  "P2": {
-   "lane": "ALL",
-   "module": "Phase 2 集成对齐 + 全量回归",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "A4",
-    "B4",
-    "C5",
-    "D5",
-    "E5",
-    "F4"
-   ],
-   "budget_min": 75,
-   "prod_max": 0,
-   "tf_max": 0,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "P3a": {
-   "lane": "A",
-   "module": "Phase 3 V-1~V-20 证据表",
-   "cx": "C3",
-   "model": "max",
-   "status": "pending",
-   "deps": [
-    "P2"
-   ],
-   "budget_min": 60,
-   "prod_max": 0,
-   "tf_max": 0,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "token_budget_k": 90
-  },
-  "P3b": {
-   "lane": "E",
-   "module": "Phase 3 第二人复跑",
-   "cx": "C1",
-   "model": "flash",
-   "status": "pending",
-   "deps": [
-    "P2"
-   ],
-   "budget_min": 30,
-   "prod_max": 0,
-   "tf_max": 0,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-flash",
-   "effort": "low",
-   "token_budget_k": 15
-  },
-  "P3c": {
-   "lane": "F",
-   "module": "Phase 3 README + tag + 交付包",
-   "cx": "C1",
-   "model": "flash",
-   "status": "pending",
-   "deps": [
-    "P2"
-   ],
-   "budget_min": 30,
-   "prod_max": 150,
-   "tf_max": 0,
-   "ev": {
-    "min": null,
-    "prod": null,
-    "tf": null,
-    "pass": null,
-    "fail": null,
-    "commit": null,
-    "token_k": null,
-    "first_pass": null,
-    "escalated_from": null
-   },
-   "model_id": "qwen3.8-flash",
-   "effort": "low",
-   "token_budget_k": 15
-  }
- },
- "legacy_tasks": [
-  {
-   "task_id": "S0-T00",
-   "status": "done",
-   "commit": "72a04b3"
-  },
-  {
-   "task_id": "S1-T01",
-   "status": "done",
-   "note": "digest 取证，产物已由 M00~M44 批量预产取代"
-  },
-  {
-   "task_id": "S1-T02",
-   "status": "done",
-   "note": "models.py 输入模型"
-  },
-  {
-   "task_id": "S1-T03",
-   "status": "done",
-   "note": "WeightProvenance + CEL-0 七字段"
-  },
-  {
-   "task_id": "S1-T04",
-   "status": "done",
-   "note": "models.py 输出模型 + 8 个中间 Frame"
-  },
-  {
-   "task_id": "S1-T05",
-   "status": "done",
-   "commit": "336e1ad",
-   "note": "config.py PLACEHOLDER 递归拦截"
-  },
-  {
-   "task_id": "S1-T06",
-   "status": "red_rescue",
-   "commit": "2d4be36",
-   "failed_tests": 211,
-   "note": "211 个 RED 测试原样入库（test_config_semantic 108 / test_config_weight_version 96 / test_config_properties 7），由 B4 承接，R-8 triage 授权"
-  },
-  {
-   "task_id": "S1-T07",
-   "status": "superseded",
-   "note": "并入 SP-1~SP-4 同步点与 Phase 2"
-  },
-  {
-   "task_id": "digest-batch",
-   "status": "done",
-   "commit": "9a8633a",
-   "note": "45 份 M00~M44 + INDEX，1864 行 / 160432 B，全部 ≤131 行，逐字带原文行号"
-  }
- ],
- "frozen_writeset": [
-  "dsm/models.py",
-  "dsm/numeric.py",
-  "dsm/reason_codes.py",
-  "dsm/config.py",
-  "dsm/__init__.py",
-  "tests/test_models_input.py",
-  "tests/test_models_output.py",
-  "tests/test_models_provenance.py",
-  "tests/test_numeric.py",
-  "tests/test_numeric_properties.py",
-  "tests/test_reason_codes.py",
-  "tests/test_config_placeholder.py",
-  "docs/digest/"
- ],
- "red_rescue_baseline": {
-  "failed": 211,
-  "files": {
-   "tests/test_config_semantic.py": 108,
-   "tests/test_config_weight_version.py": 96,
-   "tests/test_config_properties.py": 7
-  },
-  "note": "本 run 的 pytest 基线；基线不符须停机上报。由 B4 承接，R-8 triage 授权",
-  "verified_at_commit": "064fca2"
- },
- "counters": {
-  "flash_pkgs": 8,
-  "max_pkgs": 23,
-  "c3_pkgs": 23,
-  "c3_ratio_pct": 74,
-  "escalations": 0,
-  "rework_rounds": 0,
-  "quality_incidents": 0,
-  "contract_gaps": 0,
-  "budget_violations": 0,
-  "net_new_test_funcs": 0,
-  "net_new_test_funcs_cap": 120,
-  "slots_in_use": 0,
-  "slots_limit": 6,
-  "c2_pkgs": 6,
-  "c1_pkgs": 2,
-  "effort_dist": {
-   "high": 20,
-   "xhigh": 3,
-   "medium": 6,
-   "low": 2
-  },
-  "token_budget_lane_k": 2340,
-  "token_budget_orch_k": 660,
-  "token_hard_cap_k": 3000,
-  "token_used_k": {
-   "max": 0,
-   "flash": 0
-  },
-  "downgrades": 0,
-  "flash_first_pass_ok": 0,
-  "flash_first_pass_total": 0
- },
- "next_dispatch": {
-  "A": "A1",
-  "B": "B1",
-  "C": "C1",
-  "D": "D1",
-  "E": "E1",
-  "F": "F1"
- },
- "session_log": [
-  {
-   "seq": 1,
-   "date": "2026-11-23",
-   "session": "parent(交互)",
-   "did": [
-    "S0-T00 完成（commit 72a04b3）",
-    "ORCH-v1.0 入库（505 行，commit 940d683）"
-   ],
-   "next": "S1-T01"
-  },
-  {
-   "seq": 2,
-   "date": "2026-11-23/24",
-   "session": "unattended v1.0",
-   "did": [
-    "13.6h 完成 6/52 任务 = 9.6%",
-    "生产代码 1842 行 vs 非生产物 31:1",
-    "S1-T05 done（commit 336e1ad）",
-    "S1-T06 中断留下 211 RED"
-   ],
-   "next": "S1-T06"
-  },
-  {
-   "seq": 3,
-   "date": "2026-11-24",
-   "session": "parent(交互)",
-   "did": [
-    "v1.0 run 被用户停掉；诊断根因（缺产物体积/墙钟/验证深度三类上限 + 仪式不分档 + RED-first 用错场景 + 无限加固）",
-    "产出 RUN-UNATTENDED-v2.0.md（预算/分档/白名单）与 CONTEXT-BRIEF-v1.0.md",
-    "抢救 211 RED 原样入库 + ops/evidence 移出跟踪（commit 2d4be36）",
-    "批量预产 45 份 digest（commit 9a8633a）",
-    "用户否决砍 S7+S8；改为并行重设计 → 本 v3.0",
-    "重写 dag-state.json：52 串行任务 → 31 工作包 / 5 lane / 4 同步点"
-   ],
-   "next": "A1 B1 C1 D1 E1（T+0 同时派发）"
-  },
-  {
-   "seq": 4,
-   "date": "2026-11-24",
-   "session": "parent(交互)",
-   "did": [
-    "实测并发槽位：spawn 8 探针，第 7/8 被拒 agent thread limit reached → 上限 6",
-    "区间重叠分析证明 6 路真并行（峰值重叠 6，窗口 9.01s，加速比 3.49x），6 探针已全部 close 释放槽位",
-    "ORCH-07：5 lane → 6 lane（新增机动 lane F）；entropy 与 ahp 同批起跑；Phase 1 5.92h → 5.50h",
-    "重排包号并登记 5lane→6lane 映射；计划完成 8.17h → 7.75h，缓冲 1.83h → 2.25h",
-    "v3.0 文档更新到 457 行 / 50087 B；dag-state.json 重写为 6 lane / 31 包"
-   ],
-   "next": "A1 B1 C1 D1 E1 F1（T+0 同时派发，D1 与 F1 必须同批）"
-  },
-  {
-   "seq": 5,
-   "date": "2026-11-24",
-   "session": "parent(交互)",
-   "did": [
-    "用户质询「新 DAG 是否考虑 qwen3.8-max/flash 高低搭配」→ 审计发现执行断层",
-    "grep 实测：v3.0 初版全文 0 处出现 qwen3.8-max / qwen3.8-flash，§8 与 §12 均未要求 spawn_agent 传 model",
-    "ORCH-08：新增铁律 R-16 + §5.4 模型/effort 配对表（xhigh 3 / high 20 / medium 6 / low 2）+ 升降级并行语义",
-    "按 ORCH §3.1 打分表逐包复核档位，修正 9 处错误（7 升 2 降）（7 升 C3、E3 降 C2、P3b 降 C1），C3 由 17 → 23",
-    "ORCH-04 补完：认定 §3.1 打分表与 §3.4 占比护栏不可同时满足，占比护栏作废，改用 token 硬上限 3.0M",
-    "dag-state 每包新增 model_id / effort / token_budget_k / ev.token_k / ev.first_pass / ev.escalated_from"
-   ],
-   "next": "A1 B1 C1 D1 E1 F1（T+0 同时派发，spawn 必须显式带 model+effort）"
-  }
- ],
- "model_routing": {
-  "rule": "R-16 / ORCH-08：spawn_agent 必须显式传 model + reasoning_effort，禁止省略（省略 = 继承父模型 = 高低搭配失效）",
-  "pairs": {
-   "C3": "qwen3.8-max",
-   "C2": "qwen3.8-flash",
-   "C1": "qwen3.8-flash"
-  },
-  "effort_map": {
-   "xhigh": [
-    "A2",
-    "A3",
-    "A4"
-   ],
-   "high": [
-    "A1",
-    "B1",
-    "B3",
-    "B4",
-    "C2",
-    "C3",
-    "C4",
-    "C5",
-    "D1",
-    "D2",
-    "D3",
-    "D4",
-    "E1",
-    "E2",
-    "E5",
-    "F1",
-    "F2",
-    "F3",
+  "t0_wall_clock": null,
+  "phase_current": "P1",
+  "phase_order": [
+    "P1",
     "P2",
-    "P3a"
-   ],
-   "medium": [
-    "B2",
-    "C1",
-    "D5",
-    "E3",
-    "E4",
-    "F4"
-   ],
-   "low": [
-    "P3b",
-    "P3c"
-   ]
-  },
-  "token_budget_per_pkg_k": {
-   "C3": 90,
-   "C2": 40,
-   "C1": 15
-  },
-  "escalation": "同一包 + 同一错误签名 + 连续 2 次未过门禁 → close 原 agent → qwen3.8-max/high 重派同一包（占 F 机动槽），附两次失败日志原文",
-  "downgrade": "max 完成的包被 R4 判定「规格逐字搬运、无推导成分」→ 主控在同步点统一裁决同族后续包降 flash；lane 内不得自行降级",
-  "forbidden": "不得为省 token 把 C3 包先派给 flash「先试试」（ORCH §3.3.3）；C3 首次派工必须是 max",
-  "flash_first_pass_gate": "某同步点内 flash 首试通过率 <50% → 下一波次先修拆分粒度或 digest 质量再继续（ORCH §3.4）",
-  "guardrail_change": "ORCH §3.4 的占比护栏（flash ≥60% 任务数 / max ≤40%）作废：与 §3.1 打分表在本项目不可同时满足（实测 max = 23/31 = 74%）。…",
-  "downgrade_candidates_if_over_budget": [
-   "E2 golden-a→C2",
-   "F4 reports→C1",
-   "D5 cli→C1",
-   "C1 io_loaders→C1",
-   "B2 aggregate→C1"
+    "P3"
   ],
-  "downgrade_floor": "max = 18/31 = 58%，token 上限降到 1,890k",
-  "detail_ref": "升降级并行语义、护栏变更依据见 §5.4 ORCH-08"
- },
- "grade_reaudit_ref": "ORCH §3.1 打分表逐包复核的过程与逐包得分见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §5.2 与附 B（ORCH-08）",
- "sync_points_detail_ref": "每个同步点的完整裁决清单与固定 5 件事见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §7"
+  "lanes": {
+    "A": {
+      "role": "权重链下游（关键路径，ORCH-09 后由 4 包缩为 3 包 + 借入 E5）",
+      "priority": 1,
+      "queue": [
+        "A1",
+        "A2",
+        "A3",
+        "E5"
+      ],
+      "window_h": [
+        0.0,
+        4.92
+      ],
+      "done": []
+    },
+    "B": {
+      "role": "入分主干 + 契约收尾",
+      "priority": 4,
+      "queue": [
+        "B1",
+        "B2",
+        "B3",
+        "B4"
+      ],
+      "window_h": [
+        0.0,
+        4.25
+      ],
+      "done": []
+    },
+    "C": {
+      "role": "加载 + 门禁旁路",
+      "priority": 6,
+      "queue": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5"
+      ],
+      "window_h": [
+        0.0,
+        4.5
+      ],
+      "done": []
+    },
+    "D": {
+      "role": "权重链上游 + 方法旁路 + CLI",
+      "priority": 2,
+      "queue": [
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "D5"
+      ],
+      "window_h": [
+        0.0,
+        5.0
+      ],
+      "done": []
+    },
+    "E": {
+      "role": "验证与交付（独立性 = 反作弊控制）",
+      "priority": 5,
+      "queue": [
+        "E1",
+        "E2",
+        "E3",
+        "E4"
+      ],
+      "window_h": [
+        0.0,
+        4.58
+      ],
+      "done": []
+    },
+    "F": {
+      "role": "机动 lane：熵权 + 横切模块 + whatif(ORCH-09) + R4 复核 + 超时吸收",
+      "priority": 3,
+      "queue": [
+        "F2",
+        "F3",
+        "F4",
+        "A4"
+      ],
+      "window_h": [
+        0.0,
+        4.17
+      ],
+      "done": [
+        "F1"
+      ],
+      "float_after_F4": "F5 机动槽（非工作包）：承接同步点 R4 复核 agent、吸收任一 lane 超时包、Phase 2 缺陷第一顺位；复核 agent 用完必须立即 close 释放槽位",
+      "float_after": "F5 机动槽（非工作包，T+4.17 后）：R4 复核 agent（子 agent 无 spawn_agent，复核只能主控派）、吸收超时包、Phase 2 缺陷第一顺位；agent 完成即 close",
+      "f1_pre_done": "F1 已于 T0 前交付（a4bd363）；T+0 时 Lane F 直接从 F2 起跑，ORCH-07 的 D1/F1 同批条件已满足，A2 combine 只等 D1"
+    }
+  },
+  "sync_points": {
+    "SP-1": {
+      "at_h": 1.0,
+      "done": false,
+      "must": [
+        "fixtures 冻结",
+        "D1 ahp 交付确认（F1 entropy 已于 T0 前先行交付 a4bd363 → ORCH-07 同批条件已满足，A2 只等 D1）",
+        "执行 ORCH-03",
+        "E1 skip 清单入账",
+        "★ 吞吐重基线（ORCH-11，§7.1）：k = 6 个首包实际墙钟中位数 ÷ 预算墙钟中位数，按 k 重排 T+1.00 后全部时间窗"
+      ]
+    },
+    "SP-2": {
+      "at_h": 2.75,
+      "done": false,
+      "must": [
+        "【关键放行点】B3+D2+E1 全绿才放行 A3",
+        "抽查 B4 的 211 RED triage 理由（RK-P5）",
+        "若 Lane A 落后≥0.5h 则读 M10 评估 ORCH-07b"
+      ]
+    },
+    "SP-3": {
+      "at_h": 4.17,
+      "done": false,
+      "must": [
+        "A3 calibrate 与 A4 whatif 双完成确认（已并行，ORCH-09）",
+        "C4/C5 与 D3/D4 确认",
+        "E2/E3 golden 首轮入账",
+        "契约缺口批量裁决 #2"
+      ]
+    },
+    "SP-4": {
+      "at_h": 5.0,
+      "done": false,
+      "must": [
+        "Phase 1 收口全量 pytest",
+        "Phase 2 缺陷切片分派（F 第一顺位）"
+      ]
+    }
+  },
+  "decisions": {
+    "ORCH-01": "见 docs/ORCHESTRATION-v1.0.md §5.1 裁决原文（继承，未变更）",
+    "ORCH-02": "见 docs/ORCHESTRATION-v1.0.md §5.1 裁决原文（继承，未变更）",
+    "ORCH-03": "新增 dsm/entropy.py 于 L1，模块数 23→24。依据 SDD 行537「熵权六步两个计算者共用同一实现」，而 INV-1 禁止 L5(diagnostics) import L0a(weights_combine)，只有放 L1 同时满足两者。不改任何算法步骤与口径",
+    "ORCH-04": "成本护栏：实测 C3/max = 23/31 = 74%。认定 ORCH §3.1 打分表与 §3.4 占比护栏（max ≤40%）在 DSM 上不可同时满足 → 占比护栏作废，改用 token 硬上限 3,000k（lane 2,340k + 主控 660k）；effort 作第二旋钮（xhigh 3 / high 20 / medium 6 / low 2）。超支降级候选 E2→C2、F4→C1、D5→C1、C1 io_loaders→C1、B2→C1（全降后 max 58%、上限 1,890k）。详见 §5.2",
+    "ORCH-05": "串行 DAG 改为 6 lane 并行；ORCH §6 阶段门禁不变，仍在 Phase 2/3 逐条核",
+    "ORCH-06": "全量 pytest 只在 4 个同步点 + Phase 2 跑（tests/ 已 9963 行，每包跑全量会吃掉并行收益）",
+    "ORCH-07": "并发实测 = 6（真并行）→ 5 lane 改 6 lane（新增机动 F）。entropy(F1) 与 weights_ahp(D1) 同批 T+0 起跑（依据 §2.4.3 的 combine(ahp, entropy, opts) 签名证明二者是并列入参），combine 起跑点 T+1.67→T+1.00。audit/diagnostics/reports 由 B、C 移入 F",
+    "ORCH-07b": "【条件触发，未启用】whatif ∥ calibrate。M42 行 1073「重跑 Step 1–7（可选 Step 8）」支持此读法，可再省 1.25h（Phase 1→4.25h）。未采纳原因：ORCH §5.9 明令 S8 严格串行且注明 whatif 复用两者。触发条件：SP-2 时 Lane A 落后计划 ≥0.5h，且主控读 M10 digest 确认 Step 8 可选",
+    "ORCH-08": "模型路由落地绑定：初版 v3.0 全文 0 处出现 qwen3.8-max/flash、§8 与 §12 未要求 spawn 传 model，而 spawn_agent 默认继承父模型 → 照初版执行会使 31 包全跑父模型。修补 = R-16 + §5.4 配对表 + §8【模型】段 + §12 逐包标注 + §13 三行对账 + 升降级并行语义；并按 §3.1 打分表修正 9 处档位错误（7 升 C3、E3 降 C2、P3b 降 C1），C3 由 17→23。详见 §5.4",
+    "ORCH-09": "更正 ORCH-v1.0 §5.9「whatif 复用 combine 与 calibrate」。SDD 实证：M29 行1350 Step 8 = sensitivity（非 calibrate）；M10 行647「重跑 Step 1–7…可选再跑 Step 8」；行645 --include-sensitivity 开关；行660 sensitivity_delta 可空。→ whatif 前置 = A2 combine + Step 1–7 全链 + D2 sensitivity（仅开关打开时），不含 A3。S8 内只有 combine→calibrate 真串行。效果：A4 移 Lane F，Phase1 5.50→5.00h，Lane A 4 包→3 包，计划 7.75→7.25h，缓冲 2.25→2.75h。边界：D2 未落地则 A4 只跑不带开关的路径并登记「sensitivity_delta 未验证」，不得用 None 冒充（V-14）。详见 §5.5",
+    "ORCH-10": "嵌套派工不可能：子 agent 工具集无 spawn_agent → 6 槽是绝对天花板，无 6x6 放大，31 包由主控单层扁平派发。子 agent 有 request_user_input → 新增 R-17（禁用）与 R-18（禁自行 spawn）。R4 复核只能主控用 F 机动槽派，用完即 close。详见 §3.1b",
+    "ORCH-11": "新增 §7.1 吞吐重基线：卡片表分钟预算来源是 v2.0 §1 上限值而非实测吞吐，是本方案唯一无数据支撑的假设。SP-1 用 6 个首包实测 k = 实际中位数 ÷ 预算中位数并重排后续时间窗；k>1.6 停机上报，不得自行砍 S7+S8。详见 §7.1"
+  },
+  "pkg_id_remap_from_5lane": {
+    "B5 audit": "F2",
+    "B6 diagnostics": "F3",
+    "C6 reports": "F4",
+    "D2 entropy": "F1",
+    "D3 sensitivity": "D2",
+    "D4 normalize": "D3",
+    "D5 triangulation": "D4",
+    "D6 cli": "D5"
+  },
+  "cards_ref": "digests / writeset / guards / 时间窗全文见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §4（状态文件不重复存）",
+  "work_packages": {
+    "A1": {
+      "lane": "A",
+      "module": "fixtures_gen.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 60,
+      "prod_max": 600,
+      "tf_max": 16,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "A2": {
+      "lane": "A",
+      "module": "weights_combine.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "A1",
+        "D1",
+        "F1"
+      ],
+      "budget_min": 90,
+      "prod_max": 700,
+      "tf_max": 25,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "xhigh",
+      "token_budget_k": 90
+    },
+    "A3": {
+      "lane": "A",
+      "module": "weights_calibrate.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "A2",
+        "E1",
+        "B3",
+        "D2"
+      ],
+      "budget_min": 90,
+      "prod_max": 600,
+      "tf_max": 25,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "xhigh",
+      "token_budget_k": 90
+    },
+    "A4": {
+      "lane": "F",
+      "module": "whatif.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "A2",
+        "D2",
+        "B3"
+      ],
+      "budget_min": 75,
+      "prod_max": 450,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "xhigh",
+      "token_budget_k": 90,
+      "note": "ORCH-09：不依赖 A3 calibrate（SDD M29 行1350 Step8=sensitivity；M10 行647「可选再跑 Step 8」；行645 --include-sensitivity；行660 sensitivity_delta 可空）"
+    },
+    "B1": {
+      "lane": "B",
+      "module": "attainment.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 60,
+      "prod_max": 450,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "B2": {
+      "lane": "B",
+      "module": "aggregate.py",
+      "cx": "C2",
+      "model": "flash",
+      "status": "pending",
+      "deps": [
+        "B1"
+      ],
+      "budget_min": 45,
+      "prod_max": 300,
+      "tf_max": 18,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 40
+    },
+    "B3": {
+      "lane": "B",
+      "module": "grading.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "B2"
+      ],
+      "budget_min": 60,
+      "prod_max": 400,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "B4": {
+      "lane": "B",
+      "module": "config.py 语义+权重版本校验（211 RED→绿，R-8 triage）",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 90,
+      "prod_max": 400,
+      "tf_max": 0,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "C1": {
+      "lane": "C",
+      "module": "io_loaders.py",
+      "cx": "C2",
+      "model": "flash",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 45,
+      "prod_max": 300,
+      "tf_max": 15,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 40
+    },
+    "C2": {
+      "lane": "C",
+      "module": "preflight.py",
+      "cx": "C3",
+      "model": "flash",
+      "status": "pending",
+      "deps": [
+        "C1"
+      ],
+      "budget_min": 60,
+      "prod_max": 400,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "C3": {
+      "lane": "C",
+      "module": "evidence.py",
+      "cx": "C3",
+      "model": "flash",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 45,
+      "prod_max": 300,
+      "tf_max": 18,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "C4": {
+      "lane": "C",
+      "module": "redline.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 60,
+      "prod_max": 400,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "C5": {
+      "lane": "C",
+      "module": "pooling.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "C3",
+        "C4"
+      ],
+      "budget_min": 60,
+      "prod_max": 400,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "D1": {
+      "lane": "D",
+      "module": "weights_ahp.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 60,
+      "prod_max": 450,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "D2": {
+      "lane": "D",
+      "module": "sensitivity.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 75,
+      "prod_max": 500,
+      "tf_max": 22,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "D3": {
+      "lane": "D",
+      "module": "normalize.py",
+      "cx": "C3",
+      "model": "flash",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 45,
+      "prod_max": 350,
+      "tf_max": 18,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "D4": {
+      "lane": "D",
+      "module": "triangulation.py",
+      "cx": "C3",
+      "model": "flash",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 60,
+      "prod_max": 450,
+      "tf_max": 22,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "D5": {
+      "lane": "D",
+      "module": "cli.py",
+      "cx": "C2",
+      "model": "flash",
+      "status": "pending",
+      "deps": [
+        "D4"
+      ],
+      "budget_min": 60,
+      "prod_max": 450,
+      "tf_max": 16,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 40
+    },
+    "E1": {
+      "lane": "E",
+      "module": "tests/test_integration_spine.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "A1"
+      ],
+      "budget_min": 60,
+      "prod_max": 0,
+      "tf_max": 12,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "E2": {
+      "lane": "E",
+      "module": "golden G-01~G-08",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "E1"
+      ],
+      "budget_min": 75,
+      "prod_max": 0,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "E3": {
+      "lane": "E",
+      "module": "golden G-09~G-15",
+      "cx": "C2",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "E2"
+      ],
+      "budget_min": 75,
+      "prod_max": 0,
+      "tf_max": 20,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 40
+    },
+    "E4": {
+      "lane": "E",
+      "module": "properties P-1~P-15",
+      "cx": "C2",
+      "model": "flash",
+      "status": "pending",
+      "deps": [
+        "E3"
+      ],
+      "budget_min": 65,
+      "prod_max": 0,
+      "tf_max": 15,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 40
+    },
+    "E5": {
+      "lane": "A",
+      "module": "tests/test_architecture.py",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "E4"
+      ],
+      "budget_min": 40,
+      "prod_max": 0,
+      "tf_max": 12,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90,
+      "note": "ORCH-09 后排程：填补 A3 之后的空档（4.25→4.92）。已知时序限制：执行时 cli.py 等可能未落地，覆盖不完整，Phase 2 全量回归时必须重跑一次"
+    },
+    "F1": {
+      "lane": "F",
+      "module": "entropy.py（L1 新增，ORCH-03）",
+      "cx": "C3",
+      "model": "flash",
+      "status": "done",
+      "deps": [],
+      "budget_min": 40,
+      "prod_max": 200,
+      "tf_max": 14,
+      "ev": {
+        "min": 21,
+        "prod": 196,
+        "tf": 14,
+        "pass": 14,
+        "fail": 0,
+        "commit": "a4bd363",
+        "token_k": null,
+        "first_pass": true,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90,
+      "agent_self_reported_min": 15,
+      "k_single": 0.53,
+      "note": "ORCH-11 吞吐探针，T0 前先行交付。写集合规（未碰 dsm/__init__.py，ORCH-03 仍由主控在 SP-1 单点执行）"
+    },
+    "F2": {
+      "lane": "F",
+      "module": "audit.py",
+      "cx": "C3",
+      "model": "flash",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 45,
+      "prod_max": 300,
+      "tf_max": 15,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "F3": {
+      "lane": "F",
+      "module": "diagnostics.py",
+      "cx": "C3",
+      "model": "flash",
+      "status": "pending",
+      "deps": [
+        "F1"
+      ],
+      "budget_min": 45,
+      "prod_max": 350,
+      "tf_max": 18,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "F4": {
+      "lane": "F",
+      "module": "reports.py",
+      "cx": "C2",
+      "model": "flash",
+      "status": "pending",
+      "deps": [],
+      "budget_min": 45,
+      "prod_max": 400,
+      "tf_max": 18,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "medium",
+      "token_budget_k": 40
+    },
+    "P2": {
+      "lane": "ALL",
+      "module": "Phase 2 集成对齐 + 全量回归",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "A4",
+        "B4",
+        "C5",
+        "D5",
+        "E5",
+        "F4"
+      ],
+      "budget_min": 75,
+      "prod_max": 0,
+      "tf_max": 0,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "P3a": {
+      "lane": "A",
+      "module": "Phase 3 V-1~V-20 证据表",
+      "cx": "C3",
+      "model": "max",
+      "status": "pending",
+      "deps": [
+        "P2"
+      ],
+      "budget_min": 60,
+      "prod_max": 0,
+      "tf_max": 0,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-max",
+      "effort": "high",
+      "token_budget_k": 90
+    },
+    "P3b": {
+      "lane": "E",
+      "module": "Phase 3 第二人复跑",
+      "cx": "C1",
+      "model": "flash",
+      "status": "pending",
+      "deps": [
+        "P2"
+      ],
+      "budget_min": 30,
+      "prod_max": 0,
+      "tf_max": 0,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "low",
+      "token_budget_k": 15
+    },
+    "P3c": {
+      "lane": "F",
+      "module": "Phase 3 README + tag + 交付包",
+      "cx": "C1",
+      "model": "flash",
+      "status": "pending",
+      "deps": [
+        "P2"
+      ],
+      "budget_min": 30,
+      "prod_max": 150,
+      "tf_max": 0,
+      "ev": {
+        "min": null,
+        "prod": null,
+        "tf": null,
+        "pass": null,
+        "fail": null,
+        "commit": null,
+        "token_k": null,
+        "first_pass": null,
+        "escalated_from": null
+      },
+      "model_id": "qwen3.8-flash",
+      "effort": "low",
+      "token_budget_k": 15
+    }
+  },
+  "legacy_tasks": [
+    {
+      "task_id": "S0-T00",
+      "status": "done",
+      "commit": "72a04b3"
+    },
+    {
+      "task_id": "S1-T01",
+      "status": "done",
+      "note": "digest 取证，产物已由 M00~M44 批量预产取代"
+    },
+    {
+      "task_id": "S1-T02",
+      "status": "done",
+      "note": "models.py 输入模型"
+    },
+    {
+      "task_id": "S1-T03",
+      "status": "done",
+      "note": "WeightProvenance + CEL-0 七字段"
+    },
+    {
+      "task_id": "S1-T04",
+      "status": "done",
+      "note": "models.py 输出模型 + 8 个中间 Frame"
+    },
+    {
+      "task_id": "S1-T05",
+      "status": "done",
+      "commit": "336e1ad",
+      "note": "config.py PLACEHOLDER 递归拦截"
+    },
+    {
+      "task_id": "S1-T06",
+      "status": "red_rescue",
+      "commit": "2d4be36",
+      "failed_tests": 211,
+      "note": "211 个 RED 测试原样入库（test_config_semantic 108 / test_config_weight_version 96 / test_config_properties 7），由 B4 承接，R-8 triage 授权"
+    },
+    {
+      "task_id": "S1-T07",
+      "status": "superseded",
+      "note": "并入 SP-1~SP-4 同步点与 Phase 2"
+    },
+    {
+      "task_id": "digest-batch",
+      "status": "done",
+      "commit": "9a8633a",
+      "note": "45 份 M00~M44 + INDEX，1864 行 / 160432 B，全部 ≤131 行，逐字带原文行号"
+    }
+  ],
+  "frozen_writeset": [
+    "dsm/models.py",
+    "dsm/numeric.py",
+    "dsm/reason_codes.py",
+    "dsm/config.py",
+    "dsm/__init__.py",
+    "tests/test_models_input.py",
+    "tests/test_models_output.py",
+    "tests/test_models_provenance.py",
+    "tests/test_numeric.py",
+    "tests/test_numeric_properties.py",
+    "tests/test_reason_codes.py",
+    "tests/test_config_placeholder.py",
+    "docs/digest/"
+  ],
+  "red_rescue_baseline": {
+    "failed": 211,
+    "files": {
+      "tests/test_config_semantic.py": 108,
+      "tests/test_config_weight_version.py": 96,
+      "tests/test_config_properties.py": 7
+    },
+    "note": "本 run 的 pytest 基线；基线不符须停机上报。由 B4 承接，R-8 triage 授权",
+    "verified_at_commit": "064fca2"
+  },
+  "counters": {
+    "flash_pkgs": 8,
+    "max_pkgs": 23,
+    "c3_pkgs": 23,
+    "c3_ratio_pct": 74,
+    "escalations": 0,
+    "rework_rounds": 0,
+    "quality_incidents": 0,
+    "contract_gaps": 0,
+    "budget_violations": 0,
+    "net_new_test_funcs": 14,
+    "net_new_test_funcs_cap": 120,
+    "slots_in_use": 0,
+    "slots_limit": 6,
+    "c2_pkgs": 6,
+    "c1_pkgs": 2,
+    "effort_dist": {
+      "high": 20,
+      "xhigh": 3,
+      "medium": 6,
+      "low": 2
+    },
+    "token_budget_lane_k": 2340,
+    "token_budget_orch_k": 660,
+    "token_hard_cap_k": 3000,
+    "token_used_k": {
+      "max": 0,
+      "flash": 0
+    },
+    "downgrades": 0,
+    "flash_first_pass_ok": 0,
+    "flash_first_pass_total": 0,
+    "pkgs_done": 1,
+    "pkgs_total": 31,
+    "stale_number_sweep": "2026-11-24 已清除 doc 内 ORCH-09 前过期口径 8 处（头部答案/§1目标2/P2·P3a·P3b·P3c 时间窗/内嵌状态模板 plan·lanes·sync_points·counters）"
+  },
+  "next_dispatch": {
+    "A": "A1",
+    "B": "B1",
+    "C": "C1",
+    "D": "D1",
+    "E": "E1",
+    "F": "F2"
+  },
+  "session_log": [
+    {
+      "seq": 1,
+      "date": "2026-11-23",
+      "session": "parent(交互)",
+      "n_items": 2,
+      "next": "S1-T01"
+    },
+    {
+      "seq": 2,
+      "date": "2026-11-23/24",
+      "session": "unattended v1.0",
+      "n_items": 4,
+      "next": "S1-T06"
+    },
+    {
+      "seq": 3,
+      "date": "2026-11-24",
+      "session": "parent(交互)",
+      "n_items": 6,
+      "next": "A1 B1 C1 D1 E1（T+0 同时派发）"
+    },
+    {
+      "seq": 4,
+      "date": "2026-11-24",
+      "session": "parent(交互)",
+      "n_items": 5,
+      "next": "A1 B1 C1 D1 E1 F1（T+0 同时派发，D1 与 F1 必须同批）"
+    },
+    {
+      "seq": 5,
+      "date": "2026-11-24",
+      "session": "parent(交互)",
+      "n_items": 6,
+      "next": "A1 B1 C1 D1 E1 F1（T+0 同时派发，spawn 必须显式带 model+effort）"
+    },
+    {
+      "seq": 6,
+      "date": "2026-11-24",
+      "session": "parent(交互)",
+      "n_items": 7,
+      "next": "A1 B1 C1 D1 E1（T+0 派发）；F1 已先行完成中"
+    },
+    {
+      "seq": 7,
+      "date": "2026-11-24",
+      "session": "parent(交互)",
+      "n_items": 4,
+      "items": [
+        "F1 entropy.py 作为 ORCH-11 吞吐探针先行交付并独立核实（21min vs 预算 40min，k=0.53，一次过门禁）",
+        "throughput_calibration 回填单样本 + extrapolation_guard（禁单样本外推）",
+        "Lane F 首派改 F2；ORCH-07 同批条件已满足，A2 只等 D1",
+        "§6 SP-1 / §7.1 / §12 / §13 / 附B ORCH-11 五处口径同步"
+      ],
+      "next": "A1 B1 C1 D1 E1 F2（T+0 派发，spawn 必须显式带 model+effort）"
+    }
+  ],
+  "model_routing": {
+    "rule": "R-16 / ORCH-08：spawn_agent 必须显式传 model + reasoning_effort，禁止省略（省略 = 继承父模型 = 高低搭配失效）",
+    "pairs": {
+      "C3": "qwen3.8-max",
+      "C2": "qwen3.8-flash",
+      "C1": "qwen3.8-flash"
+    },
+    "effort_map": {
+      "xhigh": [
+        "A2",
+        "A3",
+        "A4"
+      ],
+      "high": [
+        "A1",
+        "B1",
+        "B3",
+        "B4",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "E1",
+        "E2",
+        "E5",
+        "F1",
+        "F2",
+        "F3",
+        "P2",
+        "P3a"
+      ],
+      "medium": [
+        "B2",
+        "C1",
+        "D5",
+        "E3",
+        "E4",
+        "F4"
+      ],
+      "low": [
+        "P3b",
+        "P3c"
+      ]
+    },
+    "token_budget_per_pkg_k": {
+      "C3": 90,
+      "C2": 40,
+      "C1": 15
+    },
+    "escalation": "同一包 + 同一错误签名 + 连续 2 次未过门禁 → close 原 agent → qwen3.8-max/high 重派同一包（占 F 机动槽），附两次失败日志原文",
+    "downgrade": "max 完成的包被 R4 判定「规格逐字搬运、无推导成分」→ 主控在同步点统一裁决同族后续包降 flash；lane 内不得自行降级",
+    "forbidden": "不得为省 token 把 C3 包先派给 flash「先试试」（ORCH §3.3.3）；C3 首次派工必须是 max",
+    "flash_first_pass_gate": "某同步点内 flash 首试通过率 <50% → 下一波次先修拆分粒度或 digest 质量再继续（ORCH §3.4）",
+    "guardrail_change": "ORCH §3.4 的占比护栏（flash ≥60% 任务数 / max ≤40%）作废：与 §3.1 打分表在本项目不可同时满足（实测 max = 23/31 = 74%）。…",
+    "downgrade_candidates_if_over_budget": [
+      "E2 golden-a→C2",
+      "F4 reports→C1",
+      "D5 cli→C1",
+      "C1 io_loaders→C1",
+      "B2 aggregate→C1"
+    ],
+    "downgrade_floor": "max = 18/31 = 58%，token 上限降到 1,890k",
+    "detail_ref": "升降级并行语义、护栏变更依据见 §5.4 ORCH-08"
+  },
+  "grade_reaudit_ref": "ORCH §3.1 打分表逐包复核的过程与逐包得分见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §5.2 与附 B（ORCH-08）",
+  "sync_points_detail_ref": "每个同步点的完整裁决清单与固定 5 件事见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §7",
+  "iron_rules": "R-1 ~ R-18，全文见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §5；R-16 spawn 必须显式带 model+effort，R-17 禁 request_user_input，R-18 禁自行 spawn",
+  "throughput_calibration": {
+    "status": "measured_single_sample",
+    "formula": "k = median(实际墙钟) / median(预算墙钟)，样本 = SP-1 时已交付的 6 个首包",
+    "samples": [
+      {
+        "pkg": "F1",
+        "module": "dsm/entropy.py",
+        "cx": "C3",
+        "model": "qwen3.8-max",
+        "effort": "high",
+        "budget_min": 40,
+        "agent_self_reported_min": 15,
+        "independently_verified_min": 21,
+        "k_single": 0.53,
+        "prod_lines": 196,
+        "prod_cap": 200,
+        "test_funcs": 14,
+        "tf_cap": 14,
+        "pass": 14,
+        "fail": 0,
+        "first_pass": true,
+        "escalations": 0,
+        "commit": "a4bd363",
+        "writeset_ok": true,
+        "writeset": [
+          "dsm/entropy.py",
+          "tests/test_entropy.py"
+        ],
+        "dispatched": "pre_T0_probe(ORCH-11)",
+        "verified_by": "主控独立核实：git show --stat + pytest 增量 + L1 禁 import 自查 + 全量回归 failed 数不变；不采信 agent 自报 15min"
+      }
+    ],
+    "k": 0.53,
+    "action_taken": "F1 作为吞吐探针已于 T0 前先行交付并入库（commit a4bd363）。SP-1 只需补 A1/B1/C1/D1/E1 五个样本即凑满 6，仍按 §7.1 用中位数重算 k。未按 k=0.53 重排时间窗：单样本不可外推（F1 是 C3/max 纯新增包，不代表 A1 契约冻结包 / E1 骨架包 / C1 flash 包的吞吐），且 run 尚未启动、5.00h 计划仍有余量。",
+    "thresholds": {
+      "k<=0.8": "转缓冲，不追加范围",
+      "0.8<k<=1.2": "计划不变，只更新时间窗",
+      "1.2<k<=1.6": "启用 §5.2 降级候选，仍不得砍 S7/S8",
+      "k>1.6": "停机上报，不得自行砍范围"
+    },
+    "k_basis": "单样本（F1）k = 21/40 = 0.53。中位数样本量 = 1，不具外推效力",
+    "extrapolation_guard": "禁止用单样本 k 重排计划。触发重排的唯一条件 = SP-1 拿到 6 样本中位数（§7.1）。若用户明确要求提前按 k=0.53 外推，必须先在对账单里写明「基于 1 个样本」并由用户确认。"
+  },
+  "decisions_ref": "全部裁决的完整论证与 SDD 逐字证据见 docs/RUN-UNATTENDED-v3.0-PARALLEL.md §5.1~§5.5 与附 B；本文件只存结论",
+  "session_log_ref": "全文见 ops/session-log-archive.md（v2.0 §6 瘦身规则）",
+  "next_dispatch_note": "F1 已完成（a4bd363），Lane F 首派改为 F2 audit.py（qwen3.8-max, high）"
 }
