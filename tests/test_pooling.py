@@ -26,9 +26,9 @@ import pytest
 from dsm import pooling
 from dsm.config import AppConfig
 from dsm.models import (EvidenceFrame, EvidenceRow, GradeFrame, GradeRow,
-                        PoolKey, PoolStats, ScoreFrame, ScoreRow,
-                        SensitivityReport, SensitivitySchemeResult,
-                        StrategyMasterRow)
+                        NormalizedFrame, NormalizedRow, PoolKey, PoolStats,
+                        ScoreFrame, ScoreRow, SensitivityReport,
+                        SensitivitySchemeResult, StrategyMasterRow)
 from dsm.numeric import D
 from dsm.reason_codes import RC
 
@@ -108,10 +108,14 @@ def parts(specs, period=P):
     return scores, grades, ev, master
 
 
-def go(scores, grades, ev, master, *, sensitivity=CLEAN, params=PARAMS, config=None):
+def go(scores, grades, ev, master, *, sensitivity=CLEAN, params=PARAMS, config=None,
+       normalized=None):
+    '''normalized 是 SEAM-1 加的 Step 2 标注载体（pooling 缺口 6）：默认 None，
+    即「无从举证」，既有 19 条断言的语义一字不改。'''
     return pooling.build(ScoreFrame(rows=tuple(scores)), GradeFrame(rows=tuple(grades)),
                          EvidenceFrame(rows=tuple(ev)), tuple(master), config,
-                         sensitivity=sensitivity, params=params)
+                         sensitivity=sensitivity, normalized=normalized,
+                         params=params)
 
 
 def run(specs, **kw):
@@ -475,3 +479,148 @@ def test_build_is_deterministic_and_order_independent():
     assert frame_a.model_dump() == frame_b.model_dump()
     assert stats_a.model_dump() == stats_b.model_dump()
     assert stats_by_pool(stats_b)[('CARD', 'B')].count == 2
+
+
+# ---------------------------------------------------------------------------
+# SEAM-1 / ORCH-28 裁决 3：composite_relative 为 null 的已参评行分两种
+#   有 normalize 的 [L943] 标注（SMALL_POOL / INACTIVE_METRIC / RANK_REVERSAL_RISK）
+#     -> 显式降级留痕：reject_reason 承载该码、pool_rank = null、不予一级库准入，
+#        但**照旧计入占比双报的分母**（C5 冻结口径），Step 7 不中断；
+#   没有任何标注 -> 真契约违规，照 V-14 抛 PoolingInputError。
+# 标注载体是 keyword-only 的 normalized（缺口 6）；不给载体 = 无从举证 = 抛错。
+# ---------------------------------------------------------------------------
+# 手算（SEAM_NULL：S3 的 composite_relative 为 null，其余同 SCENARIO）：
+#   已参评 4 -> 池 (CARD,A) 1 / (CARD,B) 2 / (LOAN,C) 1；CARD 域 3、LOAN 域 1
+#   share_in_pool = 1/3 = 0.333333333333、2/3 = 0.666666666667、1/1 = 1
+#   share_overall = 1/4 = 0.25、2/4 = 0.5、1/4 = 0.25
+#   名次：S1 = 1、S2 = 1（(CARD,B) 里只有它可比）、S3 = null、S4 = 1
+#   若把 S3 剔出分母则会得到 1/2 与 1/3，下面的断言把这两个值显式判为错误
+SEAM_NULL = (('S1', 'CARD', 'A', '0.90', 'L1'),
+             ('S2', 'CARD', 'B', '0.80', 'L1'),
+             ('S3', 'CARD', 'B', None, 'L2'),
+             ('S4', 'LOAN', 'C', '0.95', 'L2'))
+
+
+def nrow(sid, mid, code=None, domain='CARD', cls='B', period=P, ver=VER):
+    '''Step 2 的载体行（R-2：字段名逐字抄 dsm/models.py NormalizedRow）。'''
+    return NormalizedRow(
+        strategy_id=sid, version_id=ver, period=period, metric_id=mid,
+        pool_key=PoolKey(biz_domain=domain, evidence_class=cls),
+        norm_value=D('0.5'), method='min_max', anchor_used=True, reason_code=code)
+
+
+def nframe(*rows):
+    return NormalizedFrame(rows=tuple(rows))
+
+
+def test_seam1_annotated_null_is_carried_by_reject_reason_not_raised():
+    """ORCH-28 裁决 3 正面：normalize 已标注 SMALL_POOL -> Step 7 不中断。"""
+    carrier = nframe(nrow('S3', 'M1', RC.SMALL_POOL.value))
+    frame, stats = run(SEAM_NULL, normalized=carrier)
+    got = by_sid(frame)
+    # 该行：码落在 reject_reason 单槽上，pool_rank = null，一级库不予准入（举证制）
+    assert got['S3'].pool_rank is None
+    assert got['S3'].reject_reason == RC.SMALL_POOL
+    assert got['S3'].primary_pool_eligible is False
+    assert got['S3'].pool_key == PoolKey(biz_domain='CARD', evidence_class='B')
+    # 其余行不受影响：名次、准入、拒绝理由全部照旧（手算见上）
+    assert [r.strategy_id for r in frame.rows] == ['S1', 'S2', 'S3', 'S4']
+    assert (got['S1'].pool_rank, got['S2'].pool_rank, got['S4'].pool_rank) == (1, 1, 1)
+    assert got['S1'].reject_reason is None and got['S2'].reject_reason is None
+    assert got['S4'].reject_reason == RC.PRIMARY_POOL_REJECTED_EVIDENCE
+    assert [(s, got[s].primary_pool_eligible) for s in ('S1', 'S2', 'S4')] == [
+        ('S1', True), ('S2', True), ('S4', False)]
+    # 占比双报的分母**仍含** S3（已参评口径，[L1004] 只剔 NOT_ASSESSED）
+    rows = stats_by_pool(stats)
+    assert rows[('CARD', 'B')].count == 2
+    assert rows[('CARD', 'B')].share_in_pool == D('0.666666666667')   # 2/3，不是 1/2
+    assert rows[('CARD', 'B')].share_overall == D('0.5')             # 2/4，不是 2/3
+    assert rows[('CARD', 'A')].share_in_pool == D('0.333333333333')   # 1/3，不是 1/2
+    assert rows[('CARD', 'A')].share_overall == D('0.25')
+    assert rows[('LOAN', 'C')].share_in_pool == D('1')
+    assert rows[('LOAN', 'C')].share_overall == D('0.25')
+    assert stats.not_assessed_count == 0
+    assert stats.evidence_structure == {'A': 1, 'B': 2, 'C': 1, 'D': 0}
+
+
+def test_seam1_unannotated_null_is_still_a_contract_breach():
+    """ORCH-28 裁决 3 反面：没有 SMALL_POOL / INACTIVE_METRIC / RANK_REVERSAL_RISK
+    任一标注的 null 仍必须抛（V-14）。四种「无从举证」的情形逐条判：
+    不给载体、载体里该行 reason_code 为空、只标了 ANCHOR_SET_STALE（不在裁决三码内）、
+    载体里根本没有该策略的行。"""
+    with pytest.raises(pooling.PoolingInputError):
+        run(SEAM_NULL)                                            # normalized=None
+    with pytest.raises(pooling.PoolingInputError):
+        run(SEAM_NULL, normalized=nframe(nrow('S3', 'M1', None)))
+    with pytest.raises(pooling.PoolingInputError):
+        run(SEAM_NULL, normalized=nframe(
+            nrow('S3', 'M1', RC.ANCHOR_SET_STALE.value)))
+    with pytest.raises(pooling.PoolingInputError):
+        run(SEAM_NULL, normalized=nframe(nrow('S2', 'M1', RC.SMALL_POOL.value)))
+    # 载体类型不对也抛，不静默当成「没有标注」
+    with pytest.raises(pooling.PoolingInputError):
+        run(SEAM_NULL, normalized=[nrow('S3', 'M1', RC.SMALL_POOL.value)])
+
+
+def test_seam1_incomparable_code_precedence_in_the_single_slot():
+    """R6 的取码优先序：同一策略多枚标注时取 INACTIVE_METRIC > RANK_REVERSAL_RISK
+    > SMALL_POOL（与 normalize 自己的单槽优先序一致，同一条 null 两模块读出同码）。
+    手算：S3 两行标注 (M1 INACTIVE_METRIC, M2 SMALL_POOL) -> reject_reason =
+    INACTIVE_METRIC；换序构造 (M1 SMALL_POOL, M2 RANK_REVERSAL_RISK) ->
+    RANK_REVERSAL_RISK。"""
+    frame, _ = run(SEAM_NULL, normalized=nframe(
+        nrow('S3', 'M2', RC.SMALL_POOL.value),
+        nrow('S3', 'M1', RC.INACTIVE_METRIC.value)))
+    assert by_sid(frame)['S3'].reject_reason == RC.INACTIVE_METRIC
+    frame2, _ = run(SEAM_NULL, normalized=nframe(
+        nrow('S3', 'M1', RC.SMALL_POOL.value),
+        nrow('S3', 'M2', RC.RANK_REVERSAL_RISK.value)))
+    assert by_sid(frame2)['S3'].reject_reason == RC.RANK_REVERSAL_RISK
+    assert by_sid(frame2)['S3'].pool_rank is None
+
+
+def test_seam1_incomparable_outranks_the_evidence_gate_but_not_a_hard_hit():
+    """R4 + R6 的单槽优先序：BLOCK 先于 WARN，WARN 内部「不可比」这一事实判定先于
+    「即使可比也不准入」的政策判定（否则裁决要求的码会被门禁码盖掉，等于没承载）。
+
+    手算 A：S3 改成 C 类 + null + RANK_REVERSAL_RISK 标注 -> reject_reason =
+      RANK_REVERSAL_RISK（不是 PRIMARY_POOL_REJECTED_EVIDENCE），eligible False；
+      池变为 (CARD,A) 1 / (CARD,B) 1 / (CARD,C) 1 / (LOAN,C) 1，CARD 域 3、全体 4
+      -> 三个 CARD 池的 share_in_pool 都是 1/3 = 0.333333333333，share_overall 1/4。
+    手算 B：S1 命中 HARD（grade_reason_path 带 GR_REDLINE_FORCED）+ null +
+      SMALL_POOL 标注 -> reject_reason = REDLINE_HARD_HIT（BLOCK 压过 WARN），
+      pool_rank = null，(CARD,A) 仍计 1 条进分母。
+    """
+    c_specs = (('S1', 'CARD', 'A', '0.90', 'L1'),
+               ('S2', 'CARD', 'B', '0.80', 'L1'),
+               ('S3', 'CARD', 'C', None, 'L2'),
+               ('S4', 'LOAN', 'C', '0.95', 'L2'))
+    frame, stats = run(c_specs, normalized=nframe(
+        nrow('S3', 'M1', RC.RANK_REVERSAL_RISK.value, domain='CARD', cls='C')))
+    got = by_sid(frame)
+    assert got['S3'].reject_reason == RC.RANK_REVERSAL_RISK
+    assert got['S3'].primary_pool_eligible is False
+    assert got['S3'].pool_key.evidence_class == 'C'      # C 类仍禁入一级库（G-02）
+    assert got['S4'].reject_reason == RC.PRIMARY_POOL_REJECTED_EVIDENCE
+    rows = stats_by_pool(stats)
+    for key in (('CARD', 'A'), ('CARD', 'B'), ('CARD', 'C')):
+        assert rows[key].count == 1
+        assert rows[key].share_in_pool == D('0.333333333333')
+        assert rows[key].share_overall == D('0.25')
+
+    hard_specs = (('S1', 'CARD', 'A', None, 'L4'),
+                  ('S2', 'CARD', 'B', '0.80', 'L1'),
+                  ('S3', 'CARD', 'B', '0.70', 'L2'),
+                  ('S4', 'LOAN', 'C', '0.95', 'L2'))
+    scores, grades, ev, master = parts(hard_specs)
+    grades = [grade_row('S1', 'L4', path=(RC.GR_REDLINE_FORCED,))] + grades[1:]
+    frame2, stats2 = go(scores, grades, ev, master,
+                        normalized=nframe(nrow('S1', 'M1', RC.SMALL_POOL.value,
+                                               domain='CARD', cls='A')))
+    got2 = by_sid(frame2)
+    assert got2['S1'].reject_reason == RC.REDLINE_HARD_HIT
+    assert got2['S1'].pool_rank is None
+    assert got2['S1'].primary_pool_eligible is False
+    assert (got2['S2'].pool_rank, got2['S3'].pool_rank) == (1, 2)
+    assert stats_by_pool(stats2)[('CARD', 'A')].count == 1     # 仍计入分母
+    assert stats_by_pool(stats2)[('CARD', 'B')].share_in_pool == D('0.666666666667')

@@ -5,10 +5,23 @@
   * 三方法 min_max / z_score / rank_percentile（[L940]）由配置**显式**切换，
     绝不按数据形状隐式推断；三者的公式是教科书定义，不是业务参数。
   * 锚定集优先（[L941] / [L237]）：min_max 的 min/max、z_score 的 mean/sd、
-    rank_percentile 的参考分布都优先取自 anchor_set 成员在**本池本期**的取值；
-    锚定集失效才回退当期池内统计，并且必须落码，不静默。
-  * 池内归一（[L942]）：参考统计量只在 (period, pool_key, metric_id) 组内计算，
-    跨池混算在本模块里没有入口——组键里带着 pool_key。
+    rank_percentile 的参考分布都优先取自 anchor_set 成员在**本期**的取值。
+    ORCH-28 裁决 1：锚定参考尺**不按池裁剪**。[L237] 的锚定集是签认过的固定基准
+    队列，把它窄化到「本池」会让单例池的锚定子集只剩策略自己那一个值，于是
+    [L943] 的 sd = 0 判据作用在错误的统计量上，整条相对轨被判 INACTIVE、
+    composite_relative 变 null（D-SEAM-01 的根因）。锚定集失效才回退当期池内统计，
+    并且必须落码，不静默。
+  * [L942] 池内归一约束的是**被标准化的对象**与**回退用的统计量**：分组键里带着
+    pool_key，回退永远只取本池当期统计，任何两池都不会被合并成一个参照集
+    （P-6 / G-02 禁混排照旧守护）。锚定集不是「他池」，它是 [L237] 的基准尺。
+  * [L943] 的两条边界互相独立（ORCH-28 裁决 1 / 2）：sd = 0 判的是**实际用于
+    标准化的那一组统计量**（锚定集有效时即锚定集统计量）；池内样本数 <
+    min_pool_size 只 WARN + 落 SMALL_POOL，既不抛错、不置 null，也不剔除该策略。
+    WARN 这一级由注册表给（reason_codes.severity(SMALL_POOL) = WARN），披露面在
+    reports / audit 读 reason_code，本模块不另设告警通道（NormalizedFrame 无该列）。
+  * 池内归一（[L942]）：**被标准化的行**按 (period, pool_key, metric_id) 分组，
+    回退用的参考统计量只在组内计算，跨池混算在本模块里没有入口——组键里带着
+    pool_key；锚定参考尺是上面那条 [L941] 的基准队列，不按池裁剪。
   * 零变异指标（[L943]）走 numeric.safe_div 的 on_zero 语义：on_zero 是 Decimal
     时保留行并落 INACTIVE_METRIC（由下游排名剔除），on_zero 是 None 时该行
     不存在（NormalizedRow.norm_value 非空，契约里没有可落空值的位置）。
@@ -19,7 +32,7 @@
 
 reason_code 只有一个槽位，四条码的优先级固定为：
 INACTIVE_METRIC > ANCHOR_SET_STALE > RANK_REVERSAL_RISK > SMALL_POOL。
-其中 ANCHOR_SET_STALE 表示锚定集本身失效（为空 / 本池本期没有成员），
+其中 ANCHOR_SET_STALE 表示锚定集本身失效（为空 / 本期没有任何成员出值），
 RANK_REVERSAL_RISK 表示锚定集有成员但参考尺退化（单元素、零变异）而回退。
 
 digest 未给、因此作为入参并登记为缺口的口径（R-12）：
@@ -241,22 +254,28 @@ def _norm_value(method: str, scale, x: Decimal, on_zero):
     return numeric.safe_div(rank - ONE, D(len(scale)), on_zero=on_zero)
 
 
-def _choose_scale(values, anchor_ids, method: str, sd_dof: int):
+def _choose_scale(pool_vals, anchor_vals, method: str, sd_dof: int):
     '''Anchor first ([L941]), current-period pool only as a disclosed fallback.
 
-    values is a list of (strategy_id, Decimal). Returns
-    (scale, anchor_used, fallback_code); scale is None when even the pool
-    cannot serve, i.e. the metric is INACTIVE ([L943]).
+    pool_vals are the attainment values of ONE (period, pool, metric) group;
+    anchor_vals are the anchor_set members' values for the same
+    (period, metric) -- the whole signed-off cohort, deliberately NOT narrowed
+    to the pool (ORCH-28 ruling 1, see the module docstring). Narrowing it
+    would make the [L943] sd = 0 test run on the pool's own single value in a
+    singleton pool, i.e. on the wrong statistic set, and would drop the whole
+    relative track instead of ranking it against the benchmark scale.
+
+    Returns (scale, anchor_used, fallback_code); scale is None when even the
+    pool cannot serve, i.e. the metric is INACTIVE ([L943]).
     '''
-    pool_vals = [v for _, v in values]
-    anchor_vals = [v for sid, v in values if sid in anchor_ids]
     if anchor_vals:
         scale = _build_scale(method, anchor_vals, sd_dof)
         if scale is not None:
             return scale, True, None
         # 锚定集有成员但参考尺退化（单元素 / 零变异）-> 回退并标注秩反转风险。
+        # 回退只取本池当期统计（[L942]），此时单例池才会 sd = 0 -> INACTIVE。
         return _build_scale(method, pool_vals, sd_dof), False, CODE_REVERSAL
-    # 锚定集为空，或本池本期一个成员都没有 -> 锚定集失效（[L239]）。
+    # 锚定集为空，或本期一个成员都没有出值 -> 锚定集失效（[L239]）。
     return _build_scale(method, pool_vals, sd_dof), False, CODE_STALE
 
 
@@ -303,10 +322,11 @@ def compute(facts: Sequence[AttainmentRow] | AttainmentFrame,
 
     dictionary = _index_metric_dict(metric_dict)
     rows = _fact_rows(facts)
-    anchor_ids = tuple(anchor_set.strategy_ids)
+    anchor_ids = frozenset(anchor_set.strategy_ids)
 
     groups: dict = {}
     members_of_pool: dict = {}
+    anchor_ref: dict = {}
     for row in rows:
         metric = dictionary.get(row.metric_id)
         if metric is None:
@@ -322,13 +342,21 @@ def compute(facts: Sequence[AttainmentRow] | AttainmentFrame,
             # that does not exist cannot be normalised and is not imputed.
             continue
         groups.setdefault((row.period, pool_key, row.metric_id), []).append(row)
+        if row.strategy_id in anchor_ids:
+            # [L941] 锚定参考尺：同期同指标的**全部**锚定集成员取值，不按池裁剪
+            # （ORCH-28 裁决 1）。排序只为确定性，min/max/mean/sd 与序无关。
+            anchor_ref.setdefault((row.period, row.metric_id), []).append(
+                D(row.attainment))
+    for ref_values in anchor_ref.values():
+        ref_values.sort()
 
     sample_count = {k: len(set(v)) for k, v in members_of_pool.items()}
     out = []
     for (period, pool_key, metric_id), members in groups.items():
-        values = [(r.strategy_id, D(r.attainment)) for r in members]
+        values = [D(r.attainment) for r in members]
         scale, anchor_used, fallback = _choose_scale(
-            values, anchor_ids, resolved.method, resolved.sd_dof)
+            values, anchor_ref.get((period, metric_id), ()),
+            resolved.method, resolved.sd_dof)
         code = _reason_code(scale is None, fallback,
                             sample_count[(period, pool_key)] < resolved.min_pool_size)
         for row in members:

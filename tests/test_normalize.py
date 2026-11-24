@@ -20,7 +20,7 @@ from dsm import grading, normalize
 from dsm.models import (AnchorSetDoc, AttainmentFrame, AttainmentRow,
                         MetricDictRow, NormalizedFrame, NormalizedRow, PoolKey)
 from dsm.numeric import D, eq_tol
-from dsm.reason_codes import RC
+from dsm.reason_codes import RC, Severity, severity
 
 POOL_A = PoolKey(biz_domain='RETAIL', evidence_class='A')
 POOL_B = PoolKey(biz_domain='WHOLESALE', evidence_class='B')
@@ -403,3 +403,118 @@ def test_params_from_config_demands_an_explicit_normalize_block():
     with pytest.raises(Exception):
         normalize.NormalizeParams(method='min_max', min_pool_size=1,
                                   on_zero=D('0'), sd_dof=2)
+
+
+# --------------------------------------------------------------------------
+# SEAM-1 / ORCH-28 裁决 1+2：锚定参考尺不按池裁剪；[L943] 两条边界互相独立
+#
+# 构造（两个池，锚定集跨池）：
+#     POOL_A = (RETAIL, A) : S1 = 0.8, S2 = 1.0, S3 = 1.2      样本数 3
+#     POOL_C = (RETAIL, C) : T1 = 0.6                            样本数 1（单例池）
+#     锚定集 = (S1, S2, T1) -> 本期锚定取值 {0.8, 1.0, 0.6}
+# 锚定尺（[L941]，min_max）：lo = 0.6、hi = 1.0、width = 0.4，全部手算：
+#     S1 = (0.8 - 0.6)/0.4 = 0.5      S2 = (1.0 - 0.6)/0.4 = 1.0
+#     S3 = (1.2 - 0.6)/0.4 = 1.5      T1 = (0.6 - 0.6)/0.4 = 0.0
+# 池内回退尺（[L942]，只在锚定集失效时用，严格池内）：
+#     POOL_A lo = 0.8 hi = 1.2 width = 0.4 -> S1 = 0、S2 = 0.5、S3 = 1.0
+#     POOL_C 只有一个值 -> width = 0 -> sd = 0 -> INACTIVE
+#     （若把两池合并成单一参照集则 lo = 0.6 hi = 1.2、S2 = 0.666666666667，
+#      下面的断言把这个值显式判为**错误**，P-6 禁混排照旧）
+# --------------------------------------------------------------------------
+POOL_C = PoolKey(biz_domain='RETAIL', evidence_class='C')
+SEAM_FACTS = BASE[:3] + [fact('T1', 'M1', D('0.6'))]
+SEAM_POOLS = dict(pool_map(('S1', 'S2', 'S3'), POOL_A))
+SEAM_POOLS.update(pool_map(('T1',), POOL_C))
+SEAM_ANCHOR = anchor(('S1', 'S2', 'T1'))
+
+
+def test_seam1_singleton_pool_is_scaled_by_the_anchor_set_not_by_its_own_value():
+    """ORCH-28 裁决 1：锚定集有效时，单例池**不产生** sd = 0，仍出 norm 值。
+
+    [L943] 的 sd = 0 判据作用在「实际用于标准化的那一组统计量」上；按 [L941]
+    锚定集有效时那组统计量取自锚定集（本期全部锚定成员，不按池裁剪），所以
+    (RETAIL, C) 这个单例池用 lo = 0.6 / hi = 1.0 的锚定尺，T1 = 0.0，不是 INACTIVE。
+    """
+    got = normalize.compute(SEAM_FACTS, [metric('M1')], SEAM_ANCHOR,
+                            params=prm('min_max', min_pool_size=2),
+                            pools=SEAM_POOLS)
+    want = {'S1': D('0.5'), 'S2': D('1'), 'S3': D('1.5'), 'T1': D('0')}
+    norms = norm_of(got)
+    assert sorted(norms) == ['S1', 'S2', 'S3', 'T1'], '单例池的行不得被剔除'
+    for sid, expect in sorted(want.items()):
+        assert norms[sid] == expect, sid            # V-9：逐位精确
+        assert eq_tol(norms[sid], expect), sid      # 且满足 1e-12 容差
+    rows = by_strategy(got)
+    assert all(r.anchor_used is True for r in got.rows)
+    # 裁决 2：样本数 1 < min_pool_size = 2 -> WARN + 标注 SMALL_POOL，不抛错不置空
+    assert rows['T1'].reason_code == RC.SMALL_POOL.value
+    assert severity(RC.SMALL_POOL) is Severity.WARN
+    assert rows['T1'].norm_value is not None
+    # POOL_A 样本数 3 >= 2 且锚定尺有效 -> 不落任何码
+    assert all(rows[s].reason_code is None for s in ('S1', 'S2', 'S3'))
+    # 池键仍逐行携带（[L942]），单例池没有被并进 POOL_A
+    assert rows['T1'].pool_key == POOL_C
+    assert all(rows[s].pool_key == POOL_A for s in ('S1', 'S2', 'S3'))
+
+
+def test_seam1_fallback_is_pool_local_and_only_then_goes_inactive():
+    """ORCH-28 裁决 1 的另一半：只有回退到当期池内统计时，单例池才 sd = 0。
+
+    (a) 锚定集为空（[L239] 失效）-> ANCHOR_SET_STALE + 回退**池内**统计：
+        POOL_A 用 0.8~1.2（不是合并后的 0.6~1.2），POOL_C 宽度 0 -> INACTIVE。
+    (b) 锚定集有成员但本期只有一个成员出值 -> 参考尺退化 -> RANK_REVERSAL_RISK
+        + 同样回退池内统计，单例池仍 INACTIVE。
+    INACTIVE_METRIC 在单槽优先序里高于两枚锚定码，所以 (a)(b) 的单例池行都读
+    INACTIVE_METRIC；on_zero = None 时该行不存在（剔除），[L943]「剔除并预警」。
+    """
+    md = [metric('M1')]
+    merged_s2 = D('0.4') / D('0.6')             # 0.666666666667，跨池合并的错误答案
+
+    # ---- (a) 锚定集为空 ---------------------------------------------------
+    tagged = normalize.compute(SEAM_FACTS, md, anchor(()),
+                               params=prm('min_max', min_pool_size=2, on_zero=D('0')),
+                               pools=SEAM_POOLS)
+    rows = by_strategy(tagged)
+    assert eq_tol(rows['S2'].norm_value, D('0.5'))          # 池内尺 0.8~1.2
+    assert not eq_tol(rows['S2'].norm_value, merged_s2)     # P-6：绝不跨池合并
+    assert rows['S1'].reason_code == RC.ANCHOR_SET_STALE.value
+    assert rows['T1'].reason_code == RC.INACTIVE_METRIC.value
+    assert eq_tol(rows['T1'].norm_value, D('0'))            # on_zero = 0 的显式语义
+    dropped = normalize.compute(SEAM_FACTS, md, anchor(()),
+                                params=prm('min_max', min_pool_size=2, on_zero=None),
+                                pools=SEAM_POOLS)
+    assert 'T1' not in by_strategy(dropped)                 # 剔除，不编值
+    assert {r.reason_code for r in dropped.rows} == {RC.ANCHOR_SET_STALE.value}
+
+    # ---- (b) 锚定尺退化（只有 T1 一个锚定成员出值）------------------------
+    one = normalize.compute(SEAM_FACTS, md, anchor(('T1',)),
+                            params=prm('min_max', min_pool_size=2, on_zero=D('0')),
+                            pools=SEAM_POOLS)
+    rows_b = by_strategy(one)
+    assert rows_b['S2'].reason_code == RC.RANK_REVERSAL_RISK.value
+    assert eq_tol(rows_b['S2'].norm_value, D('0.5'))        # 回退池内尺，仍不跨池
+    assert rows_b['T1'].reason_code == RC.INACTIVE_METRIC.value
+    assert severity(RC.INACTIVE_METRIC) is Severity.WARN    # 预警级别来自注册表
+    assert all(r.anchor_used is False for r in one.rows)
+
+
+def test_seam1_small_pool_never_nulls_drops_or_raises_the_strategy():
+    """ORCH-28 裁决 2：池内样本数 < min_pool_size 的处置只是 WARN + SMALL_POOL。
+
+    同一条单例池的行在 min_pool_size = 1 / 2 / 99 三种治理值下都必须**存在**、
+    norm 值**逐位相同**（min_pool_size 只影响标注，不影响参照尺），差别只在码。
+    """
+    md = [metric('M1')]
+    frames = {n: normalize.compute(SEAM_FACTS, md, SEAM_ANCHOR,
+                                   params=prm('min_max', min_pool_size=n),
+                                   pools=SEAM_POOLS)
+              for n in (1, 2, 99)}
+    for n, frame in sorted(frames.items()):
+        assert len(frame.rows) == 4, 'min_pool_size = %d 不得剔除任何策略' % n
+        assert norm_of(frame) == norm_of(frames[1]), 'min_pool_size 不得改变参照尺'
+    assert all(r.reason_code is None for r in frames[1].rows)
+    small = by_strategy(frames[2])
+    assert small['T1'].reason_code == RC.SMALL_POOL.value       # 1 < 2
+    assert small['S1'].reason_code is None                      # 3 >= 2
+    assert all(r.reason_code == RC.SMALL_POOL.value
+               for r in frames[99].rows)                        # 3 与 1 都 < 99

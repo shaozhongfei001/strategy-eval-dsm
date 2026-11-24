@@ -17,12 +17,22 @@ M31 [L1404]、M26 [L1063]-[L1064]、M43 [L943]、M29 [L1346]。
      会低估不可评价占比；但 share_* 的分母只含已参评（[L1004] 不计入分母）。
   R4 reject_reason 单槽优先序（照 redline.py 的单槽办法，BLOCK 先于 WARN）：
      HARD 命中 > 不可评价（D 类用其自身 evidence_reason，其余用 NOT_ASSESSED）>
-     PRIMARY_POOL_REJECTED_EVIDENCE > PRIMARY_POOL_REJECTED_ROBUST > None
+     不可比标注（R6，事实判定先于政策判定）> PRIMARY_POOL_REJECTED_EVIDENCE >
+     PRIMARY_POOL_REJECTED_ROBUST > None
      （只差 grade != L1 时落 None：[L1005] 没有对应注册码，见缺口 2）。
   R5 一级库准入是**举证制**：[L1002] 四条件必须全部正面成立才准入。第 4 条的载体
      （Step 8 的 SensitivityReport）在 [L1346]/[L1350] 的主流程里排在 Step 7 之后，
      首过必然缺；缺载体**不给准入**（V-14 禁兜底默认），落
      PRIMARY_POOL_REJECTED_ROBUST，待 Step 8 出结论后由主流程重跑本步。
+  R6 composite_relative 为 null 的**已参评**行分两种（ORCH-28 裁决 3，D-SEAM-01）：
+     normalize 已按 M43 [L943] 显式标注 SMALL_POOL / INACTIVE_METRIC /
+     RANK_REVERSAL_RISK 之一的，是**显式降级留痕**，不属 V-14 的静默降级 ->
+     本步不抛错、不中断 M29 Step 7，改用 [L1006] 的输出契约承载：reject_reason =
+     该码（单槽优先序见 R6 在 R4 里的位置）、pool_rank = null、一级库**不予准入**
+     （举证制：无法证明池内可比即无法举证）；但该行**照旧计入占比双报的分母**
+     （C5 冻结口径：同域已参评 / 全体已参评，均只剔 NOT_ASSESSED）。
+     没有任何标注的 null 才是真契约违规 -> 照旧抛 PoolingInputError（V-14）。
+     标注只能从 Step 2 的载体读，pooling 绝不自己代 normalize 拟一个码（不猜）。
 
 契约缺口（R-1 / R-15：不改 models.py / config.py，逐条上报主控裁决）：
   1. [L1005] 要 POOL_TOO_SMALL，但 [L1006] 的 PoolFrame / PoolStats 没有任何 flags
@@ -33,6 +43,9 @@ M31 [L1404]、M26 [L1063]-[L1064]、M43 [L943]、M29 [L1346]。
      不为 pooling 另立第二个治理值（H-5）。
   5. MIX_QUALITY_DEGRADED 需要上期 PoolStats 作基线，签名里没有 -> 独立函数
      mix_quality_verdict()，基线缺失即抛（V-14）。
+  6. R6 要读 Step 2 的 [L943] 标注，但 [L1000] 的签名里没有 NormalizedFrame 的载体
+     -> 与缺口 3 同一办法：加 keyword-only normalized。缺载体 = 无从举证 = 按无标注
+     处理（抛错），绝不反过来假定「大概是被标注过的」。
 
 纯函数层：无时钟、无 I/O、无全局状态、无随机（H-8）；一切阈值只从入参或配置来。
 '''
@@ -44,9 +57,9 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from dsm import numeric
 from dsm.config import AppConfig, is_placeholder_value
-from dsm.models import (EvidenceFrame, GradeFrame, PoolFrame, PoolKey, PoolRow,
-                        PoolStatRow, PoolStats, ScoreFrame, SensitivityReport,
-                        StrategyMasterRow, StrictInt)
+from dsm.models import (EvidenceFrame, GradeFrame, NormalizedFrame, PoolFrame,
+                        PoolKey, PoolRow, PoolStatRow, PoolStats, ScoreFrame,
+                        SensitivityReport, StrategyMasterRow, StrictInt)
 from dsm.reason_codes import RC
 
 KEY_SEP = '|'
@@ -64,6 +77,11 @@ NOT_ASSESSED = 'NOT_ASSESSED'                 # [L1004] 单独计数，不进任
 # grading Step 4 命中 HARD 时在 grade_reason_path 上留下的唯一痕迹（[L989] 非补偿）。
 CODE_HARD_FORCED = RC.GR_REDLINE_FORCED.value
 CODE_UNUSABLE = RC.FLIP_RATE_UNUSABLE.value
+# ORCH-28 裁决 3：只有这三码能证明一个 null 的 composite_relative 是 normalize 按
+# [L943] 显式降级留痕的结果。ANCHOR_SET_STALE 不在裁决列出的三码之内，不自行放宽。
+# 元组顺序 = R6 单槽优先序，沿用 normalize 自己的 INACTIVE > REVERSAL > SMALL_POOL，
+# 保证同一条 null 在两个模块里读出同一个码。全部走注册表符号（P-8 禁裸字面量）。
+COMPARABILITY_CODES = (RC.INACTIVE_METRIC, RC.RANK_REVERSAL_RISK, RC.SMALL_POOL)
 
 
 class PoolingError(ValueError):
@@ -206,6 +224,32 @@ def mix_quality_verdict(current: PoolStats, previous: PoolStats | None):
     return None
 
 
+def _comparability_tags(normalized) -> dict:
+    '''R6 的举证材料：定位三元组 -> normalize 落在该策略本期的可比性标注。
+
+    只收 COMPARABILITY_CODES 里的三码；一行有多码时取优先序最靠前的那一枚
+    （NormalizedRow 本身只有一个 reason_code 槽，多码只可能来自同一策略的不同
+    指标行，例如零变异指标 INACTIVE + 单例池 SMALL_POOL）。normalized 为 None
+    时返回空表：没有载体就是没有举证，由调用处按 V-14 抛错，不代拟。
+    '''
+    if normalized is None:
+        return {}
+    if not isinstance(normalized, NormalizedFrame):
+        raise PoolingInputError('normalized 必须是 NormalizedFrame 或 None')
+    order = tuple(getattr(c, 'value', c) for c in COMPARABILITY_CODES)
+    tags = {}
+    for row in normalized.rows:
+        name = getattr(row.reason_code, 'value', row.reason_code)
+        if name not in order:
+            continue
+        loc = (row.strategy_id, row.version_id, row.period)
+        best = tags.get(loc)
+        if best is None or order.index(name) < order.index(best):
+            tags[loc] = name
+    return {loc: COMPARABILITY_CODES[order.index(name)]
+            for loc, name in tags.items()}
+
+
 def _share(count: int, base: int, key: PoolKey):
     '''R2 的一套口径。分母为 0 属不可比：safe_div 回 None，这里把它变成显式异常，
     绝不退回 0（V-14）。返回的 Decimal 已 q12。'''
@@ -243,10 +287,13 @@ def build(scores: ScoreFrame,
           config: AppConfig | None = None,
           *,
           sensitivity: SensitivityReport | None,
+          normalized: NormalizedFrame | None = None,
           params: PoolingParams | None = None) -> tuple[PoolFrame, PoolStats]:
-    '''[L1000] 的签名 + 两个 keyword-only 补充（缺口 3）：sensitivity 是 [L1002]
-    第 4 条的载体，必须显式给出（None = Step 8 尚未跑，按 R5 举证制不给准入）；
-    config 与 params 必须且只能给一个（同 evidence.classify 的办法）。
+    '''[L1000] 的签名 + 三个 keyword-only 补充（缺口 3 / 缺口 6）：sensitivity 是
+    [L1002] 第 4 条的载体，必须显式给出（None = Step 8 尚未跑，按 R5 举证制不给
+    准入）；normalized 是 Step 2 的 [L943] 标注载体，R6 靠它区分「有留痕的 null」
+    与「真契约违规的 null」（None = 无载体 = 无从举证 = 抛错）；config 与 params
+    必须且只能给一个（同 evidence.classify 的办法）。
 
     输出恒为 (PoolFrame, PoolStats)：PoolFrame 逐策略给 pool_key / pool_rank /
     primary_pool_eligible / reject_reason，行序按池分组（P-6）；PoolStats 给各池
@@ -260,6 +307,8 @@ def build(scores: ScoreFrame,
         raise PoolingInputError('ev 必须是 EvidenceFrame')
     if sensitivity is not None and not isinstance(sensitivity, SensitivityReport):
         raise PoolingInputError('sensitivity 必须是 SensitivityReport 或 None')
+    if normalized is not None and not isinstance(normalized, NormalizedFrame):
+        raise PoolingInputError('normalized 必须是 NormalizedFrame 或 None')
     if (config is None) == (params is None):
         raise PoolingError('pass exactly one of config or params')
     resolved = params if params is not None else params_from_config(config)
@@ -294,12 +343,25 @@ def build(scores: ScoreFrame,
         universe.append((score, grade, ev_row, key))
 
     assessed = tuple(u for u in universe if u[1].grade != NOT_ASSESSED)
+    tags = _comparability_tags(normalized)
     by_pool = {}
+    incomparable = {}
     for score, grade, ev_row, key in assessed:
         if score.composite_relative is None:
-            raise PoolingInputError(
-                '已参评但 composite_relative 为 null，池内不可比：'
-                + KEY_SEP.join(_locator(score)))
+            tag = tags.get(_locator(score))
+            if tag is None:
+                # 无标注的 null：Step 2 没有为这个不可比留任何痕迹 -> V-14 显式抛。
+                # 异常原文自带「缺哪一枚标注」，运维不必回头读源码（码名走 RC.*，P-8）。
+                raise PoolingInputError(
+                    '已参评但 composite_relative 为 null，池内不可比：'
+                    + KEY_SEP.join(_locator(score))
+                    + '（Step 2 未给出可比性标注 '
+                    + ' / '.join(c.value for c in COMPARABILITY_CODES)
+                    + ' 之一，或未传 normalized 载体 -> 无从举证，不兜底）')
+            # R6：normalize 已按 [L943] 标注 -> 不中断 Step 7，用 reject_reason 承载。
+            # 该行不进池内排名（无从比较），但仍留在 assessed 里计入占比双报分母。
+            incomparable[_locator(score)] = tag
+            continue
         by_pool.setdefault(key, []).append((score, grade, ev_row, key))
     ranks = {}
     for items in by_pool.values():
@@ -310,11 +372,14 @@ def build(scores: ScoreFrame,
     rows = []
     not_assessed_reasons = {}
     for score, grade, ev_row, key in universe:
+        loc = _locator(score)
         na = grade.grade == NOT_ASSESSED
         evidence_ok = ev_row.evidence_class in GATE_EVIDENCE_CLASSES
         redline_ok = not any(code == CODE_HARD_FORCED
                              for code in grade.grade_reason_path)
-        eligible = (not na and evidence_ok and redline_ok
+        # R6：池内不可比 = 举证制的反面，一级库当然不予准入。
+        comparable = loc not in incomparable
+        eligible = (not na and comparable and evidence_ok and redline_ok
                     and grade.grade == GATE_GRADE and not robust_blocked)
         # R4 单槽优先序：BLOCK 先于 WARN，最后才是"只差等级"的 None。
         if not redline_ok:
@@ -322,6 +387,8 @@ def build(scores: ScoreFrame,
         elif na:
             reason = (ev_row.evidence_reason if ev_row.evidence_class == 'D'
                       else RC.NOT_ASSESSED)
+        elif not comparable:
+            reason = incomparable[loc]
         elif not evidence_ok:
             reason = RC.PRIMARY_POOL_REJECTED_EVIDENCE
         elif robust_blocked:
@@ -334,7 +401,7 @@ def build(scores: ScoreFrame,
         rows.append(PoolRow(
             strategy_id=score.strategy_id, version_id=score.version_id,
             period=score.period, pool_key=key,
-            pool_rank=None if na else ranks[_locator(score)],
+            pool_rank=None if (na or not comparable) else ranks[loc],
             primary_pool_eligible=eligible, reject_reason=reason))
 
     # P-6：输出按池分组，池内按名次；并列时按定位二元组，绝不合成单一序。
