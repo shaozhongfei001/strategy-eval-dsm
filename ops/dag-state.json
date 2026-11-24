@@ -309,30 +309,31 @@
   "ORCH-10": "嵌套派工不可能：子 agent 工具集无 spawn_agent → 6 槽是绝对天花板，无 6x6 放大，31 包由主控单层扁平派发。子 agent 有 request_user_input → 新增 R-17（禁用）与 R-18（禁自行 spawn）。R4 复核只能主控用 F 机动槽派，用完即 close。详见 §3.1b",
   "ORCH-11": "新增 §7.1 吞吐重基线：卡片表分钟预算来源是 v2.0 §1 上限值而非实测吞吐，是本方案唯一无数据支撑的假设。SP-1 用 6 个首包实测 k = 实际中位数 ÷ 预算中位数并重排后续时间窗；k>1.6 停机上报，不得自行砍 S7+S8。详见 §7.1",
   "ORCH-31": {
-   "at_epoch": 1795559486.19,
-   "clock": "T+5.23h",
-   "title": "ARCH-1 ???? + ?????????A1CPREP / R15B2?+ P2 ?? delta ??",
-   "context": "T+5.1h?? ~4.9h???? 10h??31 ??? 27 done?? ARCH-1???? E3/SEAM-1/A1CPREP/R15B2?pending P2/P3a/P3b/P3c?A1c ???????????? SEAM-1 -> MODELS-1 -> A1c -> E2b -> E3b -> R15B2 -> P2 -> P3a/b/c?????????",
+   "at_epoch": 1795559678.89,
+   "clock": "T+5.28h",
+   "title": "ARCH-1 收口入账 + 关键路径并行加速（A1CPREP / R15B2）+ P2 签名 delta 登记【本条为 dbe96aa 的编码修正版，文本以本条为权威】",
+   "context": "T+5.2h，余约 4.8h（硬停线 10h）。31 计划包中 27 已 done（含 ARCH-1），在飞 E3 / SEAM-1（已提交 8f2eca3 待上报）/ A1CPREP / R15B2；pending P2 / P3a / P3b / P3c；A1c 为最长杆。剩余是长串行链 SEAM-1 -> MODELS-1 -> A1c -> E2b -> E3b -> R15B2 -> P2 -> P3a/b/c，纯串行必然超时，故插入并行加速件。",
    "rulings": [
-    "1) ARCH-1 ? done ??????Epicurus??D-A2-01/D-A3-01 ???ORCH-26/27/29 ????????????????? + kw-only ????????? TYPE_CHECKING/importlib/???????",
-    "2) ? 2 ?????????????????????????A1CPREP??????? A1c ??????? R15B2??????? reason_code ?????????????????? SEAM-1 ??????????????",
-    "3) R15B2 ??????? dsm/reason_codes.py + tests/test_reason_codes.py?tests/test_architecture.py ???? ratchet ??????????r15_batch_2.models_questions 4 ????????? MODELS-1 ? dsm/models.py ?????????? reason_codes?????????? R15B2 ??????????????????",
-    "4) R15B2 ???? SEAM-1 ???ORCH-28?????<min_pool_size -> WARN+SMALL_POOL ????sd=0 -> INACTIVE?pooling ????? null ??????????",
-    "5) A1c ??? blocked??? SEAM-1 ????? fixtures?B-011??A1CPREP ?????? fixtures???? B-011?",
-    "6) ORCH-30 ??????A1c ??? reproducibility_hash ????? 8083efc9...?????????P3b ? A1c ????????",
-    "7) SEAM-1 ??? 8f2eca3 ??????????????????? MODELS-1?normalize.py ??????",
-    "8) docs/deliverables/K-SIGNOFF-CHECKLIST.md ? P3c-prep?Mendel??????? untracked?? P3c ????????????"
+    "1) ARCH-1 判 done 并关闭槽位（Epicurus）。D-A2-01 / D-A3-01 关闭；ORCH-26 / 27 / 29 的层间依赖终审已全部落地为「快照数据 + keyword-only 必填依赖注入」，无 TYPE_CHECKING / importlib / 鸭子类型绕过；test_t05_m03 与 INV-1 方向扫描全绿，combine/calibrate 46 条断言零弱化，全量 failed 13 -> 8。",
+    "2) 用 2 个空槽插入「不改变依赖拓扑、只压缩执行时长」的两件：A1CPREP（只读设计包，把 A1c 降为纯实现者）与 R15B2（把原本排在主控尾部的 reason_code 批量注册提前到并行窗口）。二者写集与 SEAM-1（normalize / pooling 及其测试）完全不相交，符合单写者纪律。",
+    "3) R15B2 边界收紧：本批只碰 dsm/reason_codes.py + tests/test_reason_codes.py（tests/test_architecture.py 仅限「码碰撞 ratchet」常量且须书面论证改前改后值）。r15_batch_2.models_questions 的 4 项一律推迟，避免与 MODELS-1 抢 dsm/models.py 写集。原纪律「主控统一改 reason_codes」的意图是单写者，现由 R15B2 独占该写集，主控不再并发改同一文件。",
+    "4) R15B2 须预吸收 SEAM-1 的需求（ORCH-28 口径：锚定统计量优先取自 anchor_set；sd=0 -> INACTIVE；池内样本 < min_pool_size -> WARN + SMALL_POOL 而非抛错；pooling 只对「无标注的 null」抛错），以免 SEAM-1 落地后二次返工。",
+    "5) A1c 仍严格 blocked_on_inflight：禁在 SEAM-1 在飞验证期间动 fixtures（B-011）。A1CPREP 为只读、不触碰 fixtures，故不违反 B-011。",
+    "6) ORCH-30 的预声明重申：A1c 受控解冻后 reproducibility_hash 必变（当前 8083efc940c648c460516291efe61ae35b6093671ae9b68f93fbab8bbc3a26b8），属预期而非回归；P3b 以 A1c 之后重测的哈希为准。",
+    "7) MODELS-1 的解锁条件是「SEAM-1 上报并关闭槽位」，而非「SEAM-1 提交」——因其写集含 dsm/normalize.py，与 SEAM-1 重叠。SEAM-1 已于 8f2eca3 提交，但上报未到，故暂不派 MODELS-1。",
+    "8) docs/deliverables/K-SIGNOFF-CHECKLIST.md 为 P3c-prep（Mendel）的前移件，当前 untracked，由 P3c 正式提交，主控不代提交（避免写集混淆）。",
+    "9) 自我纠错：主控上一次入账 dbe96aa 因 PowerShell Set-Content -Encoding ASCII 把中文转写为问号，导致该提交的提交信息与 dag-state 内 ORCH-31 文本不可读。本条为修正版并追加教训 L-06；dbe96aa 不做 amend（避免与在飞 lane 抢 index.lock 及改写历史），其结构性字段（work_packages / active_agents / next_dispatch 的 ASCII 部分）本身正确有效。"
    ],
    "p2_signature_deltas_from_ARCH1": [
-    "dsm/cli.py cmd_combine_build: build_draft(...) ?? keyword-only ?? elicit_hierarchy: Callable??? (dim_mats, metric_mats_by_dim, interview_dates) -> wc.AhpHierarchySnapshot?????? L0a->L0a ????? wc.AhpLevelSnapshot.from_payload(res.segment_payload(), res.findings) ??",
-    "dsm/cli.py cmd_calibrate: calibrate(grid,window,inputs,config) marshal ???? CalibrationInputs(...) ???? 4 ? kw-only ?? combine_fn=wc.combine / options_fn=wc.CombineOptions / entropy_window_fn=wc.calibrate_entropy_window / insufficient_sample_error=wc.EntropyInsufficientSample???? HookRequiredError?V-14?? import ???",
-    "???? wc.combine / wc.step1_ahp_gate ?? weights_ahp.AhpHierarchy ??????? wc.AhpHierarchySnapshot?tests/test_properties_all.py ?? EFIX-1 c8f3fb6 ? ahp_snapshot() ??????"
+    "dsm/cli.py 的 cmd_combine_build：build_draft(...) 新增 keyword-only 必填 elicit_hierarchy: Callable，签名 (dim_mats, metric_mats_by_dim, interview_dates) -> wc.AhpHierarchySnapshot；调用方自持 L0a->L0a 这条边，逐层用 wc.AhpLevelSnapshot.from_payload(res.segment_payload(), res.findings) 转换。",
+    "dsm/cli.py 的 cmd_calibrate：calibrate(grid, window, inputs, config) 的 marshal 不变；仅 CalibrationInputs(...) 构造新增 4 个 keyword-only 必填注入 combine_fn=wc.combine / options_fn=wc.CombineOptions / entropy_window_fn=wc.calibrate_entropy_window / insufficient_sample_error=wc.EntropyInsufficientSample；缺失抛 HookRequiredError（V-14 无静默降级、无 import 兜底）。",
+    "任何仍向 wc.combine / wc.step1_ahp_gate 传裸 weights_ahp.AhpHierarchy 的调用方须改传 wc.AhpHierarchySnapshot；tests/test_properties_all.py 已由 EFIX-1（c8f3fb6）的 ahp_snapshot() 适配，16 条属性测试全绿。"
    ],
    "arch1_residual_gaps": [
-    "P2 ??? dsm/cli.py ??? 3 ? delta",
-    "Windows ? D:/ws/codex_rd/ss_campaignlab/_arch1??????????????????????????"
+    "P2 必须在 dsm/cli.py 接上述 3 处 delta（cmd_combine_build / cmd_calibrate / 裸 AhpHierarchy 调用方）。",
+    "Windows 侧 D:/ws/codex_rd/ss_campaignlab/_arch1（仓库外，仅补丁脚本）因沙箱策略拒绝 Remove-Item 未能删除，不影响仓库内容。"
    ],
-   "adr_note": "??? dag-state.decisions[ORCH-31] ???????? ADR ??? P3a ?????????????????????P3a ??????? 2/3 ????????"
+   "adr_note": "本条以 dag-state.decisions[ORCH-31] 为权威记录；独立 ADR 文件与 P3a 证据表一并归档（时间预算优先给关键路径）。P3a 必须逐条披露第 2 / 3 项的边界收紧理由与第 9 项的编码事故。"
   }
  },
  "pkg_id_remap_from_5lane": {
@@ -3558,6 +3559,10 @@
    "at": "T+5.1h",
    "observation": "主控 ORCH-29 第 3 条自行补出「C-08 表级缺失→整轮 BLOCK」，M22 L907 原文 C-08 严重度列只有『降级』；同时 P2a 把 severity=BLOCK 误读为阻断整轮，两者同源——都把『严重度标签』当成『阻断行为』",
    "rule_added": "①裁决涉及新增阻断/降级行为时，必须先取该检查项在 M22/M28 的**严重度列与动作列逐字原文**，原文未写 BLOCK 一律不得新增 BLOCK；②severity 与 blocks_run 分离：severity 是签认属性（禁改写），阻断只看 blocks_run；③lane 依『原文优先』推翻主控裁决属正确行为，主控须公开纠错并记教训，不得压回"
+  },
+  {
+   "id": "L-06",
+   "lesson": "主控写盘必须 UTF-8 无 BOM；ASCII 会静默把中文转问号，UTF8 会加 BOM 破坏 bash 首行。"
   }
  ],
  "gap_adjudications_SP1": {
@@ -3684,9 +3689,9 @@
   }
  },
  "clock_now": {
-  "epoch": 1795559486.19,
-  "t_hours": 5.23,
-  "remaining_hours": 4.77
+  "epoch": 1795559678.89,
+  "t_hours": 5.284,
+  "remaining_hours": 4.716
  },
  "gap_adjudications_SP2": {
   "new_gaps_reported_wave1_2": {
