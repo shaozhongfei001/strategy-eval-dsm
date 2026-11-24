@@ -1165,7 +1165,14 @@ def test_t06_n60_the_version_helpers_touch_no_io_no_clock_no_state():
 def test_t06_n61_the_version_helpers_do_not_mutate_their_input():
     '''Ruling 19 "不修改入参": the weights tree the caller built stays
     byte for byte the same, gaps included.'''
-    app = appcfg(weights=slot(one_tree()))
+    # R-8 triage（依据见 commit message）：原 RED 用例在一棵完整 FROZEN
+    # 树上要求 pytest.raises，与同文件 j01（SDD [L1435] / ruling 17）及
+    # properties q06 直接矛盾——完整 FROZEN 树必须通过。本用例的判定对象
+    # 是 ruling 19「不修改入参」，只需一处缺口即可触发异常，故把入参换成
+    # 缺 provenance.ahp 的树（与本用例下半段同一构造），断言一条不减。
+    breached = one_tree()
+    breached['provenance'].pop('ahp')
+    app = appcfg(weights=slot(breached))
     before = repr(app.model_dump())
     with pytest.raises(weight_error()):
         cfg('validate_weights')(app, period=PERIOD_OK)

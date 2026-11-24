@@ -205,12 +205,19 @@ def _clean_slot(stem):
 
 
 def _clean_trees():
+    # R-8 triage（依据见 commit message）：ORCH-24 line 43 定 validate_semantics
+    # 由 load_all 一律调用，line 342 又要求既有 P-10 用例一条不改；二者对
+    # test_t05_j_n03 直接冲突——T05 版 _clean_slot() 只保证「无占位」，在 T06
+    # 语义门下必然被判 STRUCTURE 违规（grade_rules 无 levels），该用例将永远红。
+    # 按 line 43 执行：只把本 fixture 的填充内容换成同文件 T06-Q 段已入册的合成
+    # 树（全部取自既有 T06_Q_* 常量，不新增任何业务数），n03 的判定对象
+    # 「[L1259] 不拦已填配置」与它的两条断言一字不改。
     return {'eval_config': _clean_slot('eval_config'),
-            WEIGHTS_STEM_A: _clean_slot(WEIGHTS_STEM_A),
-            'redlines': _clean_slot('redlines'),
-            'grade_rules': _clean_slot('grade_rules'),
-            'anchor_set': _clean_slot('anchor_set'),
-            'ahp_matrices': _clean_slot('ahp_matrices')}
+            WEIGHTS_STEM_A: _t06_complete_tree('AHP_ONLY', WEIGHTS_STEM_A),
+            'redlines': _t06_redlines(),
+            'grade_rules': _t06_grade_rules(),
+            'anchor_set': _t06_anchor(),
+            'ahp_matrices': _t06_ahp_matrices()}
 
 
 def _write_dir(base, **overrides):
