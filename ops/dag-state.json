@@ -504,6 +504,20 @@
     },
     "verified_by": "MODELS-1（cc18a38）全量实测，未叠 -q"
    }
+  },
+  "ORCH-39": {
+   "at_epoch": 1795563414.66,
+   "clock": "T+6.32h",
+   "title": "P3C-draft 收口(2313857) + KNOWN-GAPS 阻塞数裁 24 + CLI 入口事实入册 + 新权威基线 11/2190/2201 登记 + ADJ-G07 派发 + 进度压缩六项裁定(E2b/E3b 并行、E2PREP/E3PREP 前移、P3b 提前、P2-wire 拆 A/B、P3a/P3c 并行)",
+   "rulings": [
+    "1) P3C-draft 判 done @ 2313857，Ampere 已 close_agent 腾槽。交付 = README 443 行/11 节 + docs/deliverables/P3c-DELIVERY-PACKAGE.md 212 行；未打 tag、未 push（tag 须待全量转绿后由主控统一执行，符合 R-13）。",
+    "2) KNOWN-GAPS 阻塞计数不符：文件汇总节自称 19，实测逐行 grep（含 F-1/F-2 加粗『是』）= 24。裁定 24 为权威值；文件更正归 P3c 正式包写集，主控不代改。立 D-DOC-01（severity=low, OPEN）。",
+    "3) CLI 入口事实：pyproject.toml 无 [project.scripts] -> SDD L805/L836 的 dsm 可执行入口未落成，唯一入口 python -m dsm.cli（8 条叶子命令与 L1080-L1087 逐条对应，公共 6 参数 + --schemes，退出码 0/2/3/4/5/6/7）。裁定本 RUN 不补 console script（避免写集扩散并与 P2-cli/P2-wire-A 抢 pyproject.toml）。立 D-CLI-01（severity=medium, ACCEPTED-DISCLOSED）。另 Ampere 披露 --help 误报 exit=5 INTERNAL 但进程 rc=0 -> 归 P2-cli 在飞范围，不另立缺陷。",
+    "4) pytest_baseline 新增节点 after_MODELS1 = commit cc18a38 / failed 11 / passed 2190 / collected 2201 / error 0 / skip 0 / xfail 0，取代 358b4ea 的 13/2182/2195 成为当前权威基线。11 红逐条拆分标 PLACEHOLDER，待 P2-wire-B 权威重测登记（避免主控凭记忆填数，符合 R-12）。",
+    "5) ADJ-G07 已派（Schrodinger / qwen3.8-flash / medium / 12min / 全程只读，写集仅 dsm_stage/ADJ-G07/ 不入库）：裁 g07 与 D-D2-01 的 LOO『影响力』量度是否有契约原文依据。若原文把 LOO 绑定 flip_rate + 稳定性标签（L1350 线索），则 E3 的『按剔除后综合分跨度排序取 max』无据 -> 改判测试（同 ORCH-35 对 g10 的定性）；若原文确有该量度 -> D-D2-01 从 WONTFIX 改待修并给最小修法。证据由主控转录进 ORCH-40。",
+    "6) 进度压缩裁定（余量 3.68h；原串行关键路径 A1c->A1d->E2b->E3b->P2-wire->P3a/b/c 估算 >4.3h 必超线；S7 方法层与 S8 权重链即档 2 不得砍，故只压编排不砍范围）：6.1 E2b 与 E3b 由串行改并行（写集不相交：golden_a 载体+test_golden_a.py vs golden_b 载体+test_golden_b.py）；6.2 新增只读预备包 E2PREP/E3PREP，在 A1c 在飞期间并行完成按原文独立手算 expects，A1c+A1d 落地后 E2b/E3b 只做移植+跑测+归因（45min->15min），R-14 边界不变且 PREP 阶段禁取实现数值作为期望来源；6.3 P3b 提前到 A1d 落地即派（其判据只依赖哈希自等，不依赖 expects/接线）；6.4 P2-wire 拆为 P2-wire-A（接线，不依赖 expects，前置 P2-cli+ATT-1+EVID-1+G14FIX）与 P2-wire-B（ratchet 32->28 + 全量 0 failed 判定 + 哈希重登记，前置 A+E2b+E3b+ADJ-G07）；6.5 P3a 与 P3c 并行（写集不相交）；6.6 槽位 6 硬上限不变，空槽优先补关键路径 A1d > E2b/E3b > P2-wire-A > P3b > P3a/P3c。",
+    "7) 只读邻仓 CampaignLab 复核一致：m0-framework / 0cccb76 / porcelain 0 / rev-list 154（未触碰）。DSM 本地领先 origin/main = 35 @ ac12ed5，tags = 0，未 push。DSM porcelain = 5（dsm/attainment.py、dsm/cli.py、dsm/evidence.py、dsm/fixtures_gen.py、tests/test_evidence.py，属 ATT-1/P2-cli/EVID-1/A1c 在飞未提交改动，预期内非事故；主控不 stash/不 checkout/不 commit 他包写集）。"
+   ]
   }
  },
  "pkg_id_remap_from_5lane": {
@@ -1440,7 +1454,7 @@
    "model": "max",
    "status": "pending",
    "deps": [
-    "P2"
+    "P2-wire-B"
    ],
    "budget_min": 60,
    "prod_max": 0,
@@ -1458,7 +1472,8 @@
    },
    "model_id": "qwen3.8-max",
    "effort": "high",
-   "token_budget_k": 90
+   "token_budget_k": 90,
+   "parallel_with": "P3c（ORCH-39 第6.5条：写集不相交）"
   },
   "P3b": {
    "lane": "E",
@@ -1467,7 +1482,8 @@
    "model": "flash",
    "status": "pending",
    "deps": [
-    "P2"
+    "A1c",
+    "A1d"
    ],
    "budget_min": 30,
    "prod_max": 0,
@@ -1485,7 +1501,8 @@
    },
    "model_id": "qwen3.8-flash",
    "effort": "low",
-   "token_budget_k": 15
+   "token_budget_k": 15,
+   "note": "ORCH-39 第6.3条：判据只依赖 A1c+A1d 落地后的哈希自等（全新 clone+断网+同 seed 两连跑），不依赖 expects/接线 -> 提前并行"
   },
   "P3c": {
    "lane": "F",
@@ -1494,7 +1511,7 @@
    "model": "flash",
    "status": "pending",
    "deps": [
-    "P2"
+    "P2-wire-B"
    ],
    "budget_min": 30,
    "prod_max": 150,
@@ -1897,9 +1914,14 @@
    "model": "max",
    "status": "blocked",
    "deps": [
-    "A1c"
+    "A1c",
+    "A1d",
+    "ATT-1",
+    "EVID-1",
+    "G14FIX",
+    "E2PREP"
    ],
-   "budget_min": 45,
+   "budget_min": 15,
    "prod_max": 60,
    "tf_max": 10,
    "ev": {
@@ -1918,7 +1940,8 @@
    "token_budget_k": 50,
    "adhoc": true,
    "plan_scope": false,
-   "ruling": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md 第三节"
+   "ruling": "docs/adr/RUN-ORCH-28-normalize-pooling-seam.md 第三节",
+   "parallel_with": "E3b（ORCH-39 第6.1条：写集不相交，由串行改并行）"
   },
   "ARCH-1": {
    "lane": "adhoc",
@@ -2081,9 +2104,13 @@
    "status": "blocked",
    "deps": [
     "A1c",
-    "E3"
+    "A1d",
+    "ATT-1",
+    "EVID-1",
+    "G14FIX",
+    "E3PREP"
    ],
-   "budget_min": 30,
+   "budget_min": 20,
    "prod_max": 0,
    "tf_max": 12,
    "ev": {
@@ -2102,7 +2129,8 @@
    "token_budget_k": 35,
    "adhoc": true,
    "plan_scope": false,
-   "ruling": "ORCH-29 第 5 条"
+   "ruling": "ORCH-29 第 5 条",
+   "parallel_with": "E2b（ORCH-39 第6.1条）"
   },
   "A1CPREP": {
    "status": "done",
@@ -2198,7 +2226,7 @@
    "scope": "ORCH-36 拆包产物：6 项不依赖 fixtures 的 cli delta（#5 _EXCEPTION_CODES 三族异常映射 / #8 cmd_combine_build 接 elicit_hierarchy / #9 cmd_calibrate 接 4 注入 / #10 cmd_whatif 补 run_id+input_dir+directory_hash+--include-sensitivity / #14 --help 退出码 5 修正 / #3 L193 静默 pass 治 V-14）"
   },
   "P2-wire": {
-   "status": "pending",
+   "status": "superseded_by_split",
    "depends_on": [
     "A1c",
     "MODELS-1",
@@ -2206,7 +2234,11 @@
     "P2-cli"
    ],
    "tf_max": "approved",
-   "scope": "ORCH-36 拆包产物：cli #4/#6、CONSUMPTION-TODO 第 2/3/4/5/7/9 条接线、preflight.py:209-211 等价性核验(ORCH-35 第4条)、ratchet 32->28 收缩、编码校验门禁收窄到 git ls-files、D-TOOLS-01、全量 0 failed 判定与哈希重登记（保留旧值 8083efc9 与 4de4b8cb）"
+   "scope": "ORCH-36 拆包产物：cli #4/#6、CONSUMPTION-TODO 第 2/3/4/5/7/9 条接线、preflight.py:209-211 等价性核验(ORCH-35 第4条)、ratchet 32->28 收缩、编码校验门禁收窄到 git ls-files、D-TOOLS-01、全量 0 failed 判定与哈希重登记（保留旧值 8083efc9 与 4de4b8cb）",
+   "superseded_by": [
+    "P2-wire-A",
+    "P2-wire-B"
+   ]
   },
   "G14FIX": {
    "status": "running",
@@ -2261,6 +2293,265 @@
     "tests/test_evidence.py"
    ],
    "scope": "D-EVID-01 / ORCH-37 第9条：_universe 按评价期过滤设计卡使出桥 13 -> 12。硬约束：不得给 S-005/v1 补本期事实（违 L1121/L1123/L1117 且毁 G-08）、不得删卡（G-08 的 GR_VERSION_BREAK 依赖它）；被过滤的卡必须有披露（V-14）"
+  },
+  "P3c-prep": {
+   "lane": "adhoc",
+   "module": "README 与签核清单前移件：docs/deliverables/KNOWN-GAPS.md + K-SIGNOFF-CHECKLIST.md",
+   "cx": "C2",
+   "model": "qwen3.8-flash",
+   "status": "done",
+   "deps": [
+    "P2PREP"
+   ],
+   "budget_min": 30,
+   "prod_max": 40,
+   "tf_max": 10,
+   "ev": {
+    "min": null,
+    "prod": null,
+    "tf": null,
+    "pass": null,
+    "fail": null,
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-flash",
+   "effort": "medium",
+   "token_budget_k": 50,
+   "adhoc": true,
+   "plan_scope": false,
+   "ruling": "ORCH-39 第1条（补登记）",
+   "writeset": [
+    "docs/deliverables/KNOWN-GAPS.md",
+    "docs/deliverables/K-SIGNOFF-CHECKLIST.md"
+   ],
+   "commit": "fb68af8"
+  },
+  "P3C-draft": {
+   "lane": "adhoc",
+   "module": "P3c 前移件：README 定稿(443行/11节) + docs/deliverables/P3c-DELIVERY-PACKAGE.md(212行)；不打 tag、不 push",
+   "cx": "C3",
+   "model": "qwen3.8-max",
+   "status": "done",
+   "deps": [
+    "P3c-prep",
+    "P3b-prep"
+   ],
+   "budget_min": 40,
+   "prod_max": 60,
+   "tf_max": 10,
+   "ev": {
+    "min": 28,
+    "prod": "2文件/655行",
+    "tf": 2201,
+    "pass": 2190,
+    "fail": 11,
+    "commit": "2313857",
+    "token_k": null,
+    "first_pass": true,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 50,
+   "adhoc": true,
+   "plan_scope": false,
+   "ruling": "ORCH-39 第1条",
+   "writeset": [
+    "README.md",
+    "docs/deliverables/P3c-DELIVERY-PACKAGE.md"
+   ],
+   "commit": "2313857",
+   "agent": "Ampere",
+   "agent_id": "01a20fcf-62f1-77b2-a416-25853b3b1b34",
+   "spawned_at_epoch": 1795561887.78,
+   "closed_at_epoch": 1795563414.66
+  },
+  "ADJ-G07": {
+   "lane": "adhoc",
+   "module": "只读取证：LOO『影响力』量度的契约原文定义——裁 tests/test_golden_b.py::test_g07_loo_impact_max_* 与 D-D2-01（0-failed 门禁最后一个未裁决项）",
+   "cx": "C1",
+   "model": "qwen3.8-flash",
+   "status": "running",
+   "deps": [],
+   "budget_min": 12,
+   "prod_max": 0,
+   "tf_max": 10,
+   "ev": {
+    "min": null,
+    "prod": null,
+    "tf": null,
+    "pass": null,
+    "fail": null,
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-flash",
+   "effort": "medium",
+   "token_budget_k": 50,
+   "adhoc": true,
+   "plan_scope": false,
+   "ruling": "ORCH-39 第5条",
+   "writeset": [
+    "dsm_stage/ADJ-G07/（不入库）"
+   ],
+   "agent": "Schrodinger",
+   "agent_id": "01a20fe6-930b-7692-a917-a7ca739fbbca",
+   "spawned_at_epoch": 1795563414.66,
+   "readonly": true,
+   "note": "证据由主控转录进 ORCH-40；不得改 dsm/tests/fixtures/docs/ops"
+  },
+  "E2PREP": {
+   "lane": "adhoc",
+   "module": "只读预备：按契约原文独立手算 golden_a 全部 expects（禁照抄实现输出，禁取实现数值），产出落 dsm_stage/E2PREP/",
+   "cx": "C3",
+   "model": "qwen3.8-max",
+   "status": "pending",
+   "deps": [
+    "ORCH-39"
+   ],
+   "budget_min": 40,
+   "prod_max": 0,
+   "tf_max": 10,
+   "ev": {
+    "min": null,
+    "prod": null,
+    "tf": null,
+    "pass": null,
+    "fail": null,
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 50,
+   "adhoc": true,
+   "plan_scope": false,
+   "ruling": "ORCH-39 第6.2条",
+   "writeset": [
+    "dsm_stage/E2PREP/（不入库）"
+   ],
+   "readonly": true,
+   "note": "A1c+A1d 落地后由 E2b 移植，45min 压到 15min"
+  },
+  "E3PREP": {
+   "lane": "adhoc",
+   "module": "只读预备：按契约原文独立手算 golden_b 全部 expects（含 ORCH-35 的 g10 判据、ORCH-36 的 G-14 分子=C类占比、ORCH-37 第6条占比分母裁 11），产出落 dsm_stage/E3PREP/",
+   "cx": "C3",
+   "model": "qwen3.8-max",
+   "status": "pending",
+   "deps": [
+    "ORCH-39"
+   ],
+   "budget_min": 40,
+   "prod_max": 0,
+   "tf_max": 10,
+   "ev": {
+    "min": null,
+    "prod": null,
+    "tf": null,
+    "pass": null,
+    "fail": null,
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 50,
+   "adhoc": true,
+   "plan_scope": false,
+   "ruling": "ORCH-39 第6.2条",
+   "writeset": [
+    "dsm_stage/E3PREP/（不入库）"
+   ],
+   "readonly": true,
+   "note": "A1c+A1d 落地后由 E3b 移植"
+  },
+  "P2-wire-A": {
+   "lane": "adhoc",
+   "module": "接线（不依赖 expects）：CONSUMPTION-TODO 第2/3/4/5/7/9 条 + preflight.py:209-211 等价性核验(ORCH-35 第4条) + 编码校验门禁收窄 git ls-files(D-TOOLS-01)",
+   "cx": "C3",
+   "model": "qwen3.8-max",
+   "status": "pending",
+   "deps": [
+    "P2-cli",
+    "ATT-1",
+    "EVID-1",
+    "G14FIX"
+   ],
+   "budget_min": 35,
+   "prod_max": 80,
+   "tf_max": 10,
+   "ev": {
+    "min": null,
+    "prod": null,
+    "tf": null,
+    "pass": null,
+    "fail": null,
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 50,
+   "adhoc": true,
+   "plan_scope": false,
+   "ruling": "ORCH-39 第6.4条",
+   "writeset": [
+    "dsm/reports.py",
+    "dsm/cli.py",
+    "tools/*.py（门禁脚本）",
+    "tests/test_reports.py",
+    "tests/test_cli.py"
+   ]
+  },
+  "P2-wire-B": {
+   "lane": "adhoc",
+   "module": "门禁收口：ratchet 32->28 收缩 + 全量 0 failed 判定 + 复现哈希重登记（保留旧值，禁修回）",
+   "cx": "C3",
+   "model": "qwen3.8-max",
+   "status": "pending",
+   "deps": [
+    "P2-wire-A",
+    "E2b",
+    "E3b",
+    "ADJ-G07"
+   ],
+   "budget_min": 30,
+   "prod_max": 60,
+   "tf_max": 10,
+   "ev": {
+    "min": null,
+    "prod": null,
+    "tf": null,
+    "pass": null,
+    "fail": null,
+    "commit": null,
+    "token_k": null,
+    "first_pass": null,
+    "escalated_from": null
+   },
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "token_budget_k": 50,
+   "adhoc": true,
+   "plan_scope": false,
+   "ruling": "ORCH-39 第6.4条",
+   "writeset": [
+    "ops/dag-state.json（由主控）",
+    "tests/（ratchet 标记）",
+    "docs/deliverables/"
+   ]
   }
  },
  "legacy_tasks": [
@@ -2340,7 +2631,7 @@
   "verified_at_commit": "064fca2"
  },
  "counters": {
-  "flash_pkgs": 8,
+  "flash_pkgs": 9,
   "max_pkgs": 23,
   "c3_pkgs": 23,
   "c3_ratio_pct": 74,
@@ -2358,7 +2649,7 @@
   "effort_dist": {
    "high": 20,
    "xhigh": 3,
-   "medium": 6,
+   "medium": 7,
    "low": 2
   },
   "token_budget_lane_k": 2340,
@@ -2371,10 +2662,10 @@
   "downgrades": 0,
   "flash_first_pass_ok": 2,
   "flash_first_pass_total": 2,
-  "pkgs_done": 12,
+  "pkgs_done": 13,
   "pkgs_total": 31,
   "stale_number_sweep": "2026-11-24 已清除 doc 内 ORCH-09 前过期口径 8 处（头部答案/§1目标2/P2·P3a·P3b·P3c 时间窗/内嵌状态模板 plan·lanes·sync_points·counters）",
-  "bookkeeping_note": "主控两次漏记在跑包状态（C2、F3）；根因是派发与状态落盘分处两个工具调用。已改为：每次 spawn 后的下一次状态写入必须核对 active_agents 与 work_packages.status 双向一致",
+  "bookkeeping_note": "主控两次漏记在跑包状态（C2、F3）；根因是派发与状态落盘分处两个工具调用。已改为：每次 spawn 后的下一次状态写入必须核对 active_agents 与 work_packages.status 双向一致 | ORCH-39：P3c-prep/P3C-draft 补登记入 work_packages（此前只在 active_agents 有记录）。",
   "work_packages_total": 48,
   "plan_scope_total": 31,
   "done": 37,
@@ -2384,18 +2675,21 @@
   "updated_at_epoch": 1795558736.6,
   "blocked": 4,
   "plan_scope_done": 26,
-  "plan_scope_complete": true
+  "plan_scope_complete": true,
+  "pkgs_total_incl_derived": 67
  },
  "next_dispatch": {
-  "immediate": "等 ATT-1 / EVID-1 落地（预算 30/25 分钟，应很快）-> 空槽即派 ADJ-G07（LOO 影响力度量取证，解 golden_b g07 与 D-D2-01，这是 0 failed 门禁的最后一个未定项）",
+  "immediate": "等 ATT-1 / EVID-1 / ADJ-G07 落地（预算 30/25/12 分钟）-> 空槽即派 E2PREP + E3PREP（只读手算 expects，ORCH-39 第6.2条）",
   "then": [
-   "A1c 落地 -> 立即派 A1d（ORCH-38 第6/7条：最小修法优先，目录布局迁移不在范围）",
-   "A1c+A1d+ATT-1+EVID-1+G14FIX 全落地 -> E2b(golden_a) -> E3b(golden_b + ORCH-35 的 g10 改名与新增 >=2 维 BLOCK 测试 + ORCH-37 第6条的 G-14 分母 12->11)",
-   "-> P2-wire（接线 + preflight:209-211 核验 + ratchet 32->28 + 编码校验门禁收窄 git ls-files + 全量 0 failed 判定 + 哈希重登记）",
-   "-> P3a/P3b/P3c 并行 -> 主控统一 push + tag v1.1.0"
+   "A1c 落地 -> 立即派 A1d（ORCH-38 第6/7条：最小修法优先，io_loaders.py:274-279 的 data/<period>/ 目录布局迁移不在范围，需要则立 D-A1-09 交 P3a）",
+   "A1d 落地 -> 立即派 P3b（提前，ORCH-39 第6.3条）",
+   "ATT-1+EVID-1+G14FIX+P2-cli 落地 -> 派 P2-wire-A（接线，不依赖 expects）",
+   "A1c+A1d+ATT-1+EVID-1+G14FIX+E2PREP+E3PREP 落地 -> E2b 与 E3b 并行（移植手算值 + 跑测 + 归因）",
+   "P2-wire-A+E2b+E3b+ADJ-G07 裁决 -> P2-wire-B（ratchet 32->28 + 全量 0 failed 判定 + 哈希重登记）",
+   "P2-wire-B -> P3a 与 P3c 并行 -> 主控统一 push + tag v1.1.0"
   ],
-  "slot_policy": "6 槽硬上限（含已完成未关闭者），收到交付先 close_agent 再补派",
-  "note": "T+6.17h"
+  "slot_policy": "6 槽硬上限（含已完成未关闭者）；收到交付先 close_agent 再补派；空槽优先级 A1d > E2b/E3b > P2-wire-A > P3b > P3a/P3c > PREP 类",
+  "note": "T+6.32h，余 3.68h"
  },
  "session_log": [
   {
@@ -2655,6 +2949,16 @@
    },
    "event": "EFIX-1/B1b 收口",
    "detail": "全量 failed 8（spine6+golden_a2）；D-B1-01/D-A2-01/D-A3-01 关闭；R-15 第2批新增 B1b 的 missing_rule 处置码需求与 4 项 models 容器问题"
+  },
+  {
+   "at": {
+    "epoch": 1795563414.66,
+    "elapsed_h": 6.321,
+    "hard_stop_h": 10.0,
+    "remaining_h": 3.679
+   },
+   "event": "ORCH-39：P3C-draft 收口 + ADJ-G07 派发 + 进度压缩六项裁定",
+   "detail": "close Ampere(2313857) 腾槽 -> 派 ADJ-G07(Schrodinger/flash/medium/12min 只读取证 LOO 影响力)；裁 KNOWN-GAPS 阻塞数 24（立 D-DOC-01）、CLI 无 console script（立 D-CLI-01）；登记 after_MODELS1 = 11/2190/2201 @ cc18a38；E2b/E3b 改并行 + 新增 E2PREP/E3PREP 前移 + P3b 提前 + P2-wire 拆 A/B + P3a/P3c 并行"
   }
  ],
  "model_routing": {
@@ -3054,14 +3358,6 @@
    "adhoc": true,
    "spawned_at_epoch": 1795561887.78
   },
-  "P3C-draft": {
-   "agent_id": "01a20fcf-62f1-77b2-a416-25853b3b1b34",
-   "nickname": "Ampere",
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "adhoc": true,
-   "spawned_at_epoch": 1795561887.78
-  },
   "A1c": {
    "agent_id": "01a20fd8-47a3-7633-b3c9-e135f0acdb96",
    "nickname": "Rawls",
@@ -3093,6 +3389,14 @@
    "effort": "high",
    "adhoc": true,
    "spawned_at_epoch": 1795562873.97
+  },
+  "ADJ-G07": {
+   "agent_id": "01a20fe6-930b-7692-a917-a7ca739fbbca",
+   "nickname": "Schrodinger",
+   "model_id": "qwen3.8-flash",
+   "effort": "medium",
+   "adhoc": true,
+   "spawned_at_epoch": 1795563414.66
   }
  },
  "self_check_T0": {
@@ -3967,6 +4271,30 @@
    "fix_package": "EVID-1",
    "ruling": "ORCH-37 第9条",
    "hard_constraints": "不得给 S-005/v1 补本期事实（违 L1121/L1123/L1117 且毁 G-08）；不得从 fixtures 删卡（G-08 的 GR_VERSION_BREAK 依赖该卡存在）；被过滤的卡必须有披露（V-14）"
+  },
+  {
+   "id": "D-DOC-01",
+   "status": "OPEN",
+   "found_at": "T+6.32h",
+   "found_by": "P3C-draft（Ampere）",
+   "file": "docs/deliverables/KNOWN-GAPS.md",
+   "symptom": "汇总节自称阻塞 19 条，但同文件逐条列举与逐行 grep（含 F-1/F-2 加粗『是』）均为 24 条，自相矛盾",
+   "fix_package": "P3c",
+   "ruling": "ORCH-39 第2条",
+   "severity": "low",
+   "hard_constraints": "裁定 24 为权威值；主控不代改（写集归 P3c）；更正后须与 README/PKG 引用一致"
+  },
+  {
+   "id": "D-CLI-01",
+   "status": "ACCEPTED-DISCLOSED",
+   "found_at": "T+6.32h",
+   "found_by": "P3C-draft（Ampere）",
+   "file": "pyproject.toml",
+   "symptom": "无 [project.scripts] -> SDD L805/L836 的 dsm 可执行入口未落成；唯一入口 /home/szf/venvs/dsm/bin/python -m dsm.cli（8 条叶子命令与 L1080-L1087 逐条对应）",
+   "fix_package": "P3c（仅披露）",
+   "ruling": "ORCH-39 第3条",
+   "severity": "medium",
+   "hard_constraints": "本 RUN 不补 console script（避免写集扩散到 pyproject.toml 并与 P2-cli/P2-wire-A 抢同一文件）；README 与交付包须如实披露入口形态"
   }
  ],
  "environment_changes": [
@@ -4187,12 +4515,25 @@
     "golden_b_g14_1": "D-A1-07 + MIX_QUALITY_DEGRADED 口径分歧（ADJ-G14 取证中，待 ORCH-35）"
    },
    "verified_by": "R15B2（db13471）与 P3a-prep（358b4ea）双向独立实测一致"
+  },
+  "after_MODELS1": {
+   "failed": 11,
+   "passed": 2190,
+   "collected": 2201,
+   "collection_errors": 0,
+   "skip": 0,
+   "xfail": 0,
+   "commit": "cc18a38",
+   "measured_by": "P3C-draft（Ampere）于 MODELS-1 落地后的干净树实测；ORCH-38 第1条已采信",
+   "split": "PLACEHOLDER（11 红逐条拆分待 P2-wire-B 权威重测登记）",
+   "attribution_source": "ORCH-38 第1条：余 spine 4 红全归 fixtures；golden_a g04/g08 + golden_b g05/g06/g14 + g07 归 A1c/ATT-1/G14FIX/ADJ-G07；io_loaders spine 红归 A1d",
+   "note": "此为当前权威基线，取代 after_P3a_prep 的 13/2182/2195"
   }
  },
  "clock_now": {
-  "epoch": 1795562873.97,
-  "t_hours": 6.171,
-  "remaining_hours": 3.829
+  "epoch": 1795563414.66,
+  "t_hours": 6.321,
+  "remaining_hours": 3.679
  },
  "gap_adjudications_SP2": {
   "new_gaps_reported_wave1_2": {
