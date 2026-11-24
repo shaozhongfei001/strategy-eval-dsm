@@ -23,7 +23,7 @@ from datetime import date
 
 import pytest
 
-from dsm import pooling
+from dsm import numeric, pooling, reason_codes
 from dsm.config import AppConfig
 from dsm.models import (AttainmentRow, EvidenceFrame, EvidenceRow, GradeFrame,
                         GradeRow, NormalizedFrame, NormalizedRow, PoolKey, PoolStats,
@@ -282,14 +282,22 @@ def test_missing_robustness_carrier_withholds_admission():
     assert stats_by_pool(stats)[('CARD', 'A')].share_in_pool == D('0.333333333333')
 
 
-def test_non_l1_rejection_leaves_the_single_slot_empty():
-    '''缺口 2 钉死：[L1002] 四条件里"grade = L1"在 [L1005] 没有对应注册码，
-    本包不编码（K-01~K-20 纪律）-> 单槽留 None，等级本身在台账里就是披露。
-    手算：S3 = B 类 + L2 + 无 HARD + 稳健性干净 -> eligible False 且 reason None。'''
+def test_non_l1_rejection_falls_to_primary_pool_rejected_grade():
+    '''G14FIX（ORCH-36 第 7 条 / CONSUMPTION-TODO 第 6 条）：本条原名
+    test_non_l1_rejection_leaves_the_single_slot_empty，钉的是「缺口 2：[L1002] 的 grade = L1
+    在 [L1005] 没有对应注册码 -> 单槽留 None」。R15B2 已注册 PRIMARY_POOL_REJECTED_GRADE，
+    主控把该接线判给本包，故断言由 None **加强**为具名码（不是弱化：同一行 S3、同一条件、
+    同一优先序，且额外钉住名次照给）。依据 verbatim: M24 [L1002] 四条件之一「grade = L1」；
+    derived: [L1005] 同族两码 PRIMARY_POOL_REJECTED_EVIDENCE / _ROBUST 均 WARN 且
+    blocks_run=False -> 同族同判。
+    手算：S3 = B 类 + L2 + 无 HARD + 稳健性干净 + 可比 -> 四条件只差「grade = L1」
+      -> eligible False、reject_reason = PRIMARY_POOL_REJECTED_GRADE、pool_rank 仍为 2。'''
     frame, _ = run(SCENARIO)
     row = by_sid(frame)['S3']
     assert row.primary_pool_eligible is False
-    assert row.reject_reason is None
+    assert row.reject_reason == RC.PRIMARY_POOL_REJECTED_GRADE
+    assert row.reject_reason is not None
+    assert row.pool_rank == 2
 
 
 # ---------------------------------------------------------------------------
@@ -663,3 +671,117 @@ def test_seam1_incomparable_outranks_the_evidence_gate_but_not_a_hard_hit():
     assert (got2['S2'].pool_rank, got2['S3'].pool_rank) == (1, 2)
     assert stats_by_pool(stats2)[('CARD', 'A')].count == 1     # 仍计入分母
     assert stats_by_pool(stats2)[('CARD', 'B')].share_in_pool == D('0.666666666667')
+# ---------------------------------------------------------------------------
+# G14FIX（ORCH-36 第 1/2/3/7 条）：G-14 分子 = C 类占比、分母与 share_* 同源并剔
+# NOT_ASSESSED、阈值保持 numeric.TOL 工程默认、只差等级时落 PRIMARY_POOL_REJECTED_GRADE。
+# 期望值全部手算（R-14）；本组一律用 R-2 的合成场景 / 直接构造的 PoolStats，不读 fixtures，
+# 故不受 A1c（fixtures）与 EVID-1（evidence 出桥 13->12）在飞改动的影响。
+# ---------------------------------------------------------------------------
+def test_g14fix_numerator_is_c_only_so_d_to_c_transfer_must_fire():
+    '''ORCH-36 第 1 条：G-14 分子 = **C 类**计数（verbatim: SDD [L1416]「构造一级库中
+    C 类占比上升的场景」），不是旧实现的 (C+D)。本条构造 D->C 搬运：(C+D) 与四类合计都
+    不变，只有 C 上升 -> 旧口径差恒为 0（漏检、守护点 vacuous，违 V-14），新口径必须警示。
+    这正是 tests/test_golden_b.py 的 g14 判据条（variants/G14_c_share_up.json 把两条 D 改判 C）
+    的单元级等价物。
+    手算：上期 A3 B3 C1 D3（四类合计 10、已参评 10、C+D = 4）；当期 A3 B3 C3 D1（同 10 / 4）。
+      旧口径 (C+D)/10 = 0.4 -> 0.4，差 0 -> None（漏检）；
+      新口径 C/10 = 0.1 -> 0.3，上升 0.2 > 1E-12 -> MIX_QUALITY_DEGRADED。
+      披露量 low_evidence_share 两期同为 0.4 -> 既有口径与既有断言一字未改。'''
+    before = stat({'A': 3, 'B': 3, 'C': 1, 'D': 3})
+    after = stat({'A': 3, 'B': 3, 'C': 3, 'D': 1})
+    assert pooling.low_evidence_share(before) == D('0.4')
+    assert pooling.low_evidence_share(after) == D('0.4')
+    assert pooling.c_class_share(before) == D('0.1')
+    assert pooling.c_class_share(after) == D('0.3')
+    assert pooling.mix_quality_verdict(after, before) == RC.MIX_QUALITY_DEGRADED
+
+
+def test_g14fix_c_to_d_transfer_must_not_fire():
+    '''反向钉死：C->D 搬运（C 下降而 (C+D) 不变）-> **不得**警示。判据是「上升」，
+    不是「变化」，也不是「不相等」（否则就变成凭空发明的双向阈值，违 R-12）。
+    手算：上期 A3 B3 C3 D1 -> 当期 A3 B3 C1 D3；C/10 = 0.3 -> 0.1，下降 -> None；
+      两期对调后（当期 C3、上期 C1）仍为 DEGRADED；两期同为 C2 -> None（相等不警示）。'''
+    before = stat({'A': 3, 'B': 3, 'C': 3, 'D': 1})
+    after = stat({'A': 3, 'B': 3, 'C': 1, 'D': 3})
+    assert pooling.mix_quality_verdict(after, before) is None
+    assert pooling.mix_quality_verdict(before, after) == RC.MIX_QUALITY_DEGRADED
+    assert pooling.c_class_share(after) < pooling.c_class_share(before)
+    assert pooling.low_evidence_share(after) == pooling.low_evidence_share(before) == D('0.4')
+    equal = stat({'A': 3, 'B': 3, 'C': 2, 'D': 2})
+    assert pooling.mix_quality_verdict(equal, equal) is None
+
+
+def test_g14fix_denominator_is_the_share_base_and_excludes_not_assessed():
+    '''ORCH-36 第 2 条 + verbatim [L1004]「NOT_ASSESSED 单独计数，不计入分母」：G-14 判据
+    的分母必须与占比双报两列 share_* **同源**（= 已参评全体），不是旧实现的「四类合计」。
+    本条只断言**关系**（外加本文件合成场景的手算值），不硬写 fixtures 计数。
+    手算（NA_SCENARIO = S1 CARD/A/L1、S2 CARD/B/L1、S3 CARD/D/NOT_ASSESSED、S4 LOAN/C/L2）：
+      四类合计 = 4；NOT_ASSESSED = 1（S3，D 类）-> 已参评 = 3；三个池各 1 条；
+      share_overall 各 = 1/3 = 0.333333333333，三列之和 = 1（= 3/3）；
+      G-14 分母 = 3 = Σ PoolStatRow.count = Σ evidence_structure - not_assessed_count；
+      C = 1 -> c_class_share = 1/3，与 (LOAN,C) 的 share_overall 逐位相同（同源的直接证据）。
+    关系断言：(a) 分母 == Σ evidence_structure - not_assessed_count（[L1004] 负向排除）；
+      (b) 分母 == Σ PoolStatRow.count（share_* 的已参评全体）；(c) Σ share_overall == 1
+      （若分母误用四类合计 4，则和为 0.75 -> 本条即红）；(d) c_class_share ==
+      q12(C / 分母) == (LOAN,C).share_overall；(e) NOT_ASSESSED 的 D 行不进任何池；
+      (f) 反向钉死：分母退回四类合计时 C 占比会是 1/4 = 0.25，与 (d) 不等。'''
+    _frame, stats = run(NA_SCENARIO)
+    structure = {k: int(v) for k, v in stats.evidence_structure.items()}
+    den = pooling.assessed_denominator(stats)
+    assert int(stats.not_assessed_count) == 1
+    assert sum(structure.values()) == 4
+    assert den == sum(structure.values()) - int(stats.not_assessed_count)
+    assert den == sum(int(r.count) for r in stats.rows)
+    assert den == 3
+    rows = stats_by_pool(stats)
+    assert sorted(rows) == [('CARD', 'A'), ('CARD', 'B'), ('LOAN', 'C')]
+    # 三个池各 1/3，q12 定量后逐列为 0.333333333333，三列之和 = 0.999999999999（= 3 x q12(1/3)），
+    # 用 numeric.eq_tol 判定它等于 1（若分母误用四类合计 4，逐列为 0.25、和为 0.75 -> 本条即红）。
+    assert sum(r.share_overall for r in stats.rows) == D('0.999999999999')
+    assert numeric.eq_tol(sum(r.share_overall for r in stats.rows), D('1'))
+    assert pooling.c_class_share(stats) == numeric.q12(D(structure['C']) / D(den))
+    assert pooling.c_class_share(stats) == rows[('LOAN', 'C')].share_overall
+    assert pooling.c_class_share(stats) == D('0.333333333333')
+    assert pooling.c_class_share(stats) != numeric.q12(
+        D(structure['C']) / D(sum(structure.values())))
+
+
+def test_g14fix_rejected_grade_code_is_warn_and_does_not_block_the_run():
+    '''CONSUMPTION-TODO 第 6 条的注册表侧核验：PRIMARY_POOL_REJECTED_GRADE 已注册、
+    severity = WARN、blocks_run = False（derived: [L1005] 同族两码均 WARN / 不中断 Step 7；
+    verbatim: [L1002] 四条件之一「grade = L1」），且**不再为 None**、名次照给。
+    手算（SCENARIO）：S3 = B/L2/0.70 -> 只差等级 -> 落该码、pool_rank = 2；
+      S1/S2 = A/B + L1 + 四条件全成立 -> reject_reason 仍为 None（准入侧一字未改）；
+      S4 = C 类 + L2 -> 证据门禁先于等级门禁（单槽优先序）-> 仍是 _EVIDENCE，不是 _GRADE。'''
+    frame, _stats = run(SCENARIO)
+    got = by_sid(frame)
+    code = RC.PRIMARY_POOL_REJECTED_GRADE
+    assert reason_codes.is_registered(code)
+    assert reason_codes.severity(code) is reason_codes.Severity.WARN
+    assert reason_codes.blocks_run(code) is False
+    assert got['S3'].reject_reason == code
+    assert got['S3'].reject_reason is not None
+    assert got['S3'].primary_pool_eligible is False
+    assert got['S3'].pool_rank == 2
+    assert got['S1'].reject_reason is None and got['S2'].reject_reason is None
+    assert got['S4'].reject_reason == RC.PRIMARY_POOL_REJECTED_EVIDENCE
+
+
+def test_g14fix_threshold_stays_numeric_tol_engineering_default():
+    '''ORCH-36 第 3 条：阈值**保持** numeric.TOL（1E-12）的工程默认不变（改阈值即发明业务
+    参数，违 R-12）；本条把该默认钉死，作为 K-21 签认前的回归护栏（K-21 提案见
+    dsm_stage/G14FIX/K-21-PROPOSAL.md，PLACEHOLDER：原文未给数字、不在 config、不属 K-01~K-20）。
+    手算（分母 = 已参评 = 10^12，用 StrictInt 精确表示，全程不经 float，V-9）：
+      上期 C = 125000000000 -> 0.125000000000；
+      当期 C = 125000000001 -> 0.125000000001，差 = 1E-12 == TOL，**不** > TOL -> None；
+      当期 C = 125000000002 -> 0.125000000002，差 = 2E-12 > TOL -> MIX_QUALITY_DEGRADED。'''
+    den = 10 ** 12
+    before = stat({'A': den - 125000000000, 'B': 0, 'C': 125000000000, 'D': 0})
+    at_tol = stat({'A': den - 125000000001, 'B': 0, 'C': 125000000001, 'D': 0})
+    over_tol = stat({'A': den - 125000000002, 'B': 0, 'C': 125000000002, 'D': 0})
+    assert pooling.assessed_denominator(before) == den
+    assert pooling.c_class_share(before) == D('0.125')
+    assert pooling.c_class_share(at_tol) - pooling.c_class_share(before) == numeric.TOL
+    assert pooling.mix_quality_verdict(at_tol, before) is None
+    assert pooling.c_class_share(over_tol) - pooling.c_class_share(before) == 2 * numeric.TOL
+    assert pooling.mix_quality_verdict(over_tol, before) == RC.MIX_QUALITY_DEGRADED

@@ -28,12 +28,13 @@ from typing import Mapping
 
 from pydantic import BaseModel, ConfigDict
 
-from dsm import audit, numeric, sensitivity
+from dsm import audit, numeric, pooling, sensitivity
 from dsm.models import (
     AuditBundle, AttainmentFrame, EntropyDiagnosticRow, EvidenceFrame,
     GradeLedgerRow, PoolFrame, PoolStats, RedlineFrame,
     ScoreCardRow, ScoreFrame, SensitivityReport, StrictBool, TriangulationReport,
     WeightProvenance)
+from dsm import reason_codes
 from dsm.reason_codes import RC, Severity
 
 LAYER = 'S6'
@@ -100,6 +101,11 @@ class AllFrames(_Frozen):
     score: ScoreFrame | None = None
     pool: PoolFrame | None = None
     pool_stats: PoolStats | None = None
+    # GAP-06 / ORCH-36 第 4 条：G-14（MIX_QUALITY_DEGRADED）需要上期 PoolStats 作基线。
+    # AllFrames 是 reports 本地声明的形参容器（ADJ-4），**不是** dsm/models.py 的冻结契约，
+    # 故本包可加该可选字段（默认 None，向后兼容）。缺基线时 _section_6 显式披露「判据不可比」，
+    # 绝不静默省略（V-14）。cli 侧的传参接线归 P2-wire，见 dsm_stage/G14FIX/HANDOFF-P2.md。
+    previous_pool_stats: PoolStats | None = None
     sensitivity: SensitivityReport | None = None
     triangulation: TriangulationReport | None = None
     entropy_diagnostics: tuple[EntropyDiagnosticRow, ...] | None = None
@@ -359,6 +365,38 @@ def _section_5(frames) -> list:
     return out
 
 
+def _mix_quality_lines(stats, previous) -> list:
+    '''G-14 的披露（GAP-06 / D-G14-01 / ORCH-36 第 4 条）：算出来就必须出现在报告里，
+    算出而不披露 = 静默降级（V-14）。
+
+    分子 verbatim: SDD [L1416]「构造一级库中 C 类占比上升的场景」；分母 derived: 与占比双报
+    share_* 同源并按 [L1004] 剔除 NOT_ASSESSED（pooling.assessed_denominator）。阈值 1E-12
+    是**工程默认、非业务签认值**（PLACEHOLDER：建议新立 K-21），报告里如实写明，不伪装成签认值。
+    上期基线缺失时不猜「没上升」：显式披露判据不可比（V-14）。
+    '''
+    now = pooling.c_class_share(stats)
+    out = ['- G-14 C 类占比（分子 = C 类计数，[L1416]；分母 = 已参评数，与占比双报 share_* 同源、'
+           '按 [L1004] 剔除 NOT_ASSESSED）：' + fmt_ratio(now)]
+    if previous is None:
+        out.append('- G-14 MIX_QUALITY_DEGRADED 判据：本期**不可比** —— 无上期 pool_stats 基线'
+                   '（V-14：不得当作「没上升」静默略过；接线见 P2-wire）')
+        return out
+    before = pooling.c_class_share(previous)
+    verdict = pooling.mix_quality_verdict(stats, previous)
+    out.append('- G-14 上期 C 类占比：' + fmt_ratio(before) + ' -> 本期 ' + fmt_ratio(now)
+               + '；判据阈值 1E-12 为**工程默认、非业务签认值**（PLACEHOLDER：建议新立 K-21）')
+    if verdict is None:
+        out.append('- G-14 判据结论：C 类占比未上升 -> 本期无 MIX_QUALITY_DEGRADED 警示')
+    else:
+        sev = reason_codes.severity(verdict)
+        out.append('- G-14 判据结论：**' + str(getattr(verdict, 'value', verdict)) + '** '
+                   + reason_codes.message(verdict) + '（severity '
+                   + str(getattr(sev, 'value', sev))
+                   + '，blocks_run=' + fmt_bool(reason_codes.blocks_run(verdict))
+                   + '，不中断 Step 7）')
+    return out
+
+
 def _section_6(frames) -> list:
     stats = frames.pool_stats
     ev = tuple(sorted(_rows(frames.evidence), key=_locator))
@@ -376,6 +414,9 @@ def _section_6(frames) -> list:
         out.append('- NOT_ASSESSED 明细（原因码 → 条数）：' + ('；'.join(
             str(code) + ' ' + fmt_int(n) for code, n in sorted((stats.not_assessed_reasons or {}).items()))
             or '本期无记录'))
+        # GAP-06 / ORCH-36 第 4 条：G-14 判据必须出现在报告里（本段就是 [L1063] 的
+        # ⑥「证据结构（A/B/C/D 计数与 NOT_ASSESSED 明细）」，与 C 类占比同段披露）。
+        out += _mix_quality_lines(stats, frames.previous_pool_stats)
     if ev:
         out += _table(('strategy_id', 'version_id', 'evidence_class', 'evidence_reason', '解释限制已填'),
                       [(r.strategy_id, r.version_id, r.evidence_class, str(r.evidence_reason),

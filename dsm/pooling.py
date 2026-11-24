@@ -2,8 +2,10 @@
 
 守护编号：**G-02**（证据门禁侧：C/D 类永不进一级库，只能在自身池内排名）、
 **P-6**（分池禁混排：pool_key = (biz_domain, evidence_class)，跨池只能并列报出，
-永不合成单一序）、**G-14**（[L1854] 把 MIX_QUALITY_DEGRADED 判给 pooling，即
-占比双报的防作弊面）。唯一事实来源 M24-pooling [L996]-[L1007]，旁证
+永不合成单一序）、**G-14**（verbatim: SDD [L1416]「构造一级库中 C 类占比上升的场景」
+是 MIX_QUALITY_DEGRADED 的唯一明文分子；[L1854] 只把该码判给 pooling、只给「防作弊」
+目的而**不给分子** -> ORCH-36 第 1 条据此把分子由 (C+D) 收窄为 C，即占比双报的防作弊面）。
+唯一事实来源 M24-pooling [L996]-[L1007]，旁证
 M31 [L1404]、M26 [L1063]-[L1064]、M43 [L943]、M29 [L1346]。
 
 本包裁决（digest 未定，按 [L1006] 的 B-020 授权定；每条都已写进缺口上报）：
@@ -18,8 +20,11 @@ M31 [L1404]、M26 [L1063]-[L1064]、M43 [L943]、M29 [L1346]。
   R4 reject_reason 单槽优先序（照 redline.py 的单槽办法，BLOCK 先于 WARN）：
      HARD 命中 > 不可评价（D 类用其自身 evidence_reason，其余用 NOT_ASSESSED）>
      不可比标注（R6，事实判定先于政策判定）> PRIMARY_POOL_REJECTED_EVIDENCE >
-     PRIMARY_POOL_REJECTED_ROBUST > None
-     （只差 grade != L1 时落 None：[L1005] 没有对应注册码，见缺口 2）。
+     PRIMARY_POOL_REJECTED_GRADE > PRIMARY_POOL_REJECTED_ROBUST > None
+     （G14FIX / ORCH-36 第 7 条 / CONSUMPTION-TODO 第 6 条：只差 grade != L1 时不再留 None，
+     落 R15B2 已注册的 PRIMARY_POOL_REJECTED_GRADE。依据 verbatim: M24 [L1002] 四条件之一
+     「grade = L1」；derived: [L1005] 同族两码 PRIMARY_POOL_REJECTED_EVIDENCE / _ROBUST 均
+     WARN 且 blocks_run=False -> 同族同判，WARN、不中断 Step 7）。
   R5 一级库准入是**举证制**：[L1002] 四条件必须全部正面成立才准入。第 4 条的载体
      （Step 8 的 SensitivityReport）在 [L1346]/[L1350] 的主流程里排在 Step 7 之后，
      首过必然缺；缺载体**不给准入**（V-14 禁兜底默认），落
@@ -47,6 +52,9 @@ M31 [L1404]、M26 [L1063]-[L1064]、M43 [L943]、M29 [L1346]。
   1. [L1005] 要 POOL_TOO_SMALL，但 [L1006] 的 PoolFrame / PoolStats 没有任何 flags
      列可承载 -> 本包用 small_pools() 显式回吐给 reports / cli，绝不静默丢弃。
   2. [L1002] 四条件 vs [L1005] 两码：grade != L1 与 HARD 命中都没有专属注册码。
+     -> G14FIX 部分收口：R15B2 已注册 PRIMARY_POOL_REJECTED_GRADE（ORCH-36 第 7 条判给
+     本包），已落进 build() 的单槽优先序；HARD 命中继续由 REDLINE_HARD_HIT 承载（不动）。
+     仍未收口的是 [L1005] 的 POOL_TOO_SMALL（见缺口 1，仍由 small_pools() 显式回吐）。
   3. [L1000] 签名里没有 FLIP_RATE_UNUSABLE 的载体 -> 加 keyword-only sensitivity。
   4. min_pool_size 的键位未签认：复用 [L943] 的 eval_config.normalize.min_pool_size，
      不为 pooling 另立第二个治理值（H-5）。
@@ -80,7 +88,17 @@ CFG_MIN_POOL_SIZE_KEY = 'min_pool_size'
 
 EVIDENCE_CLASSES = ('A', 'B', 'C', 'D')       # [L1003] 闭合四类
 GATE_EVIDENCE_CLASSES = ('A', 'B')            # [L1002] 只有 A/B 有资格进一级库
-LOW_EVIDENCE_CLASSES = ('C', 'D')             # [L1854] G-14 的"低证据等级"
+# ERRATUM-06（ADJ-G14 487 行取证实测）：本常量原注锚 [L1854]，但该行全文无「低证据等级」
+# 字样；L1854 只给 MIX_QUALITY_DEGRADED 的**承载**（判给 pooling）与**防作弊目的**，不给分子。
+# 故本常量摘掉 G-14 分子语义，只作 low_evidence_share() 的 (C+D) **披露**口径（该口径被
+# tests/test_golden_b.py 的 g14 低证据占比两条与 tests/test_pooling.py 的既有断言钉住）。
+# ORCH-36 第 1 条：常量**不改**（它另有语义，改它会连带影响别处），G-14 判据处单独取 C 类。
+LOW_EVIDENCE_CLASSES = ('C', 'D')             # (C+D) 披露口径，非 G-14 分子（见上）
+# G-14 分子的唯一明文来源 —— verbatim: SDD [L1416]（§3.16.2）「构造一级库中 C 类占比上升的
+# 场景」；全文再无第二处给出触发量，「C+D 占比」零原文依据。ERRATUM-04：L1416 的限定语
+# 「一级库中」与 [L1002]/[L137]/[L1436]（C 类不得进一级库）字面互斥 -> 不据字面实现
+# （一级库内 C 恒 0 会让判据恒不触发），按 ORCH-36 第 2 条取「已参评全体」口径，交签认。
+MIX_QUALITY_CLASS = 'C'                       # [L1416] G-14 分子 = C 类计数
 GATE_GRADE = 'L1'                             # [L1002] grade = L1
 NOT_ASSESSED = 'NOT_ASSESSED'                 # [L1004] 单独计数，不进任何分母
 # grading Step 4 命中 HARD 时在 grade_reason_path 上留下的唯一痕迹（[L989] 非补偿）。
@@ -208,7 +226,15 @@ def small_pools(stats: PoolStats, params: PoolingParams) -> tuple:
 
 def low_evidence_share(stats: PoolStats):
     '''(C + D) / 已分类总数，取自 evidence_structure（R3）。商无定义时返回 None
-    （numeric.safe_div(on_zero=None) 的既有约定），绝不返回 0（V-14）。'''
+    （numeric.safe_div(on_zero=None) 的既有约定），绝不返回 0（V-14）。
+
+    口径边界（ORCH-36 第 1 条）：本函数是**披露量**（低证据等级 = C+D 的合并占比），
+    **不是** G-14 的判据分子；G-14 的分子是 verbatim: [L1416] 的「C 类占比」-> c_class_share()。
+    两者并存不是双口径重复：一个答「C+D 合计多重」，一个答「C 类是否在上升」。拿前者度量
+    后者，在 D->C 搬运时 (C+D) 恒定不变 -> 守护点对其声称要防的情形完全失效（vacuous，违
+    V-14），这正是 tests/test_golden_b.py 的 g14 判据条长期为红的实现侧根因（ORCH-36 第 1 条）。
+    本函数的口径与全部既有断言一字未改（G14FIX 只新增 c_class_share / assessed_denominator）。
+    '''
     if not isinstance(stats, PoolStats):
         raise PoolingInputError('stats 必须是 PoolStats')
     structure = stats.evidence_structure or {}
@@ -217,17 +243,64 @@ def low_evidence_share(stats: PoolStats):
     return numeric.safe_div(low, total, on_zero=None)
 
 
+def assessed_denominator(stats: PoolStats) -> int:
+    '''G-14 判据的分母（ORCH-36 第 2 条）：与占比双报两列 share_* **同源**的已参评数。
+
+    依据等级 derived: [L1004] 只给了负向排除（verbatim:「NOT_ASSESSED 单独计数，不计入
+    分母」），分母的**正向定义原文缺位**（ERRATUM-05）；「与 share_* 同源」是原文约束下的
+    **收窄**，不是发明：同一模块对同一概念用两个分母不可辩护。本式复原的就是 build() 里
+    share_overall 用的那个 grand = len(assessed)：evidence_structure 四类合计 = len(universe)
+    （build 尾部按 universe 逐行累加），not_assessed_count = len(universe) - grand，故
+    四类合计 - not_assessed_count 恒等于 grand，不是另取的第二个数。share_in_pool 的分母
+    （同 biz_domain 已参评数）出自同一个 assessed 集合，属同一口径族。
+    '''
+    if not isinstance(stats, PoolStats):
+        raise PoolingInputError('stats 必须是 PoolStats')
+    structure = stats.evidence_structure or {}
+    universe = sum(int(structure.get(c, 0)) for c in EVIDENCE_CLASSES)
+    return universe - int(stats.not_assessed_count)
+
+
+def c_class_share(stats: PoolStats):
+    '''G-14 的判据量：**C 类占比** = C 类计数 / 已参评数（分母见 assessed_denominator）。
+
+    分子 verbatim: SDD [L1416]「构造一级库中 C 类占比上升的场景」（唯一明文触发量）。
+    分母 derived: 与 share_* 同源并按 [L1004] 剔除 NOT_ASSESSED（ERRATUM-05：正向定义缺位）。
+    商无定义（已参评数为 0）时返回 None，绝不返回 0（V-14）。
+
+    已上报的载体缺位（ORCH-36 第四部分第 5 条 -> dsm_stage/G14FIX/NEED-CONTRACT.md）：
+    分子取自 [L1003] 的 evidence_structure，而它是 R3 的**全体策略**口径；PoolStats 冻结契约
+    只给了 NOT_ASSESSED 的总条数与原因分布，**没有**其等级分布，也没有已参评口径的四类
+    分布，故当某个 NOT_ASSESSED 主体本身是 C 类时，分子会计入它而分母不计（口径差 =
+    NA 里的 C 条数）。本包不擅改 dsm/models.py（MODELS-1 独占），如实上报交主控裁。
+    '''
+    if not isinstance(stats, PoolStats):
+        raise PoolingInputError('stats 必须是 PoolStats')
+    structure = stats.evidence_structure or {}
+    numerator = int(structure.get(MIX_QUALITY_CLASS, 0))
+    return numeric.safe_div(numerator, assessed_denominator(stats), on_zero=None)
+
+
 def mix_quality_verdict(current: PoolStats, previous: PoolStats | None):
-    '''G-14 / [L1854]：低证据等级占比**上升**即 MIX_QUALITY_DEGRADED（防作弊面：
-    只报合并占比时，C 类占比上升会被 A 类的体量掩盖）。
-    基线缺失 = 不可比 -> 抛错，不猜"没上升"（V-14）。'''
+    '''G-14：C 类占比**上升**即 MIX_QUALITY_DEGRADED（[L1854] 的防作弊面：只报合并占比
+    时，C 类占比上升会被 A 类的体量掩盖）。
+
+    分子 verbatim: SDD [L1416]「构造一级库中 C 类占比上升的场景」（ORCH-36 第 1 条：
+    旧实现取 (C+D) 零原文依据，且使守护点在 D->C 搬运下 vacuous，已收窄为 C）。
+    分母 derived: 与占比双报 share_* 同源并按 [L1004] 剔 NOT_ASSESSED（ORCH-36 第 2 条）。
+    阈值 = numeric.TOL（1E-12），语义即「任何上升都警示」：这是**工程默认，不是业务签认值**
+    （PLACEHOLDER：原文未给数字、不在 config、不属 K-01~K-20，L1734-L1757 已逐条核过）。
+    ORCH-36 第 3 条禁止本包自拟阈值，故此处一律不动；建议新立 K-21「MIX_QUALITY_DEGRADED
+    触发阈值」交业务签认，见 dsm_stage/G14FIX/K-21-PROPOSAL.md（由主控并入 K-SIGNOFF-CHECKLIST）。
+    基线缺失 = 不可比 -> 抛错，不猜「没上升」（V-14）。
+'''
     if previous is None:
         raise PoolingInputError(
-            '无上期 PoolStats 基线，无法判定低证据占比是否上升（V-14 禁静默降级）')
-    now = low_evidence_share(current)
-    before = low_evidence_share(previous)
+            '无上期 PoolStats 基线，无法判定 C 类占比是否上升（V-14 禁静默降级）')
+    now = c_class_share(current)
+    before = c_class_share(previous)
     if now is None or before is None:
-        raise PoolingInputError('已分类策略数为 0，低证据占比无定义，不可比较')
+        raise PoolingInputError('已参评策略数为 0，C 类占比无定义，不可比较')
     if now - before > numeric.TOL:
         return RC.MIX_QUALITY_DEGRADED
     return None
@@ -405,7 +478,8 @@ def build(scores: ScoreFrame,
         comparable = loc not in incomparable
         eligible = (not na and comparable and evidence_ok and redline_ok
                     and grade.grade == GATE_GRADE and not robust_blocked)
-        # R4 单槽优先序：BLOCK 先于 WARN，最后才是"只差等级"的 None。
+        # R4 单槽优先序：BLOCK 先于 WARN；「只差等级」落 PRIMARY_POOL_REJECTED_GRADE，
+        # 只有 [L1002] 四条件全成立（= 准入）才是 None（G14FIX / ORCH-36 第 7 条）。
         if not redline_ok:
             reason = RC.REDLINE_HARD_HIT
         elif na:
@@ -415,6 +489,12 @@ def build(scores: ScoreFrame,
             reason = incomparable[loc]
         elif not evidence_ok:
             reason = RC.PRIMARY_POOL_REJECTED_EVIDENCE
+        elif grade.grade != GATE_GRADE:
+            # G14FIX（ORCH-36 第 7 条 / CONSUMPTION-TODO 第 6 条）：只差「grade = L1」时
+            # 单槽不再留 None。verbatim: M24 [L1002] 四条件之一「grade = L1」；derived:
+            # [L1005] 同族两码（_EVIDENCE / _ROBUST）均 WARN 且 blocks_run=False -> 同族同判，
+            # 故本码 WARN、不中断 Step 7、名次照给（R15B2 已注册，P-8 禁裸字面量 -> 走 RC.*）。
+            reason = RC.PRIMARY_POOL_REJECTED_GRADE
         elif robust_blocked:
             reason = RC.PRIMARY_POOL_REJECTED_ROBUST
         else:
