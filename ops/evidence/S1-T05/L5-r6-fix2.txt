@@ -1,0 +1,1113 @@
+<!-- evidence: S1-T05 L5 round 2 (R6 targeted fix) | authority: docs/adr/ORCH-23.md ruling 23 + ruling 24 | date: 2026-11-24 -->
+
+==============================================================================
+S1-T05  L5 round 2 -- R6 targeted fix evidence (L5-r6-fix2.txt)
+==============================================================================
+role            : R6, targeted fixer only. No self review; R4 re-checks.
+round           : S1-T05 L5 round 2. Round-1 evidence stays at L5-r6-fix.txt.
+authorization    : docs/adr/ORCH-23.md ruling 23 and ruling 24, read verbatim at
+                  lines 297-355 of the 397-line / 33914-byte revision whose
+                  sha256[:12] measures 08d5f97637e9 (SECTION G below).
+inputs read     : (1) docs/adr/ORCH-23.md lines 297-355 (rulings 23 + 24)
+                  (2) docs/adr/ORCH-23-review-S1-T05.md (R4 verdict FAIL(2),
+                      sections D5 / D12 and the R6 fix list)
+                  (3) ops/evidence/S1-T05/L4-mutation.txt (the M09 / M11 / M12
+                      injection methods and the measured survival reasons)
+inputs not read : nothing under the ICBC reference folder, no SDD full text.
+write set       : dsm/config.py
+                  tests/test_config_placeholder.py
+                  tests/test_config_properties.py
+                  ops/evidence/S1-T05/L5-r6-fix2.txt (this file)
+repository      : /home/szf/dev/strategy-eval-dsm
+HEAD            : 17dd568ff18c4e48b126b5e1a5bb72b0e0bd6ae0, unchanged. No
+                  git add / commit / push / tag was executed by R6.
+interpreter     : /home/szf/venvs/dsm/bin/python (Python 3.12.3)
+pipeline        : PowerShell staging root dsm_stage_S1-T05_r6b, then rsync -a,
+                  then tools/normalize.py, per H-2.
+
+RESULT -- every number in this file is a verbatim tool output, not a restatement
+------------------------------------------------------------------------------
+F1 CLOSED (ruling 23). dsm/config.py line 205 is now the unconditional
+  self.paths = canonical, with canonical = tuple(sorted(deduped, key=_path_key))
+  on line 204 unchanged; the double-branch docstring paragraph is replaced by the
+  single ruling 9 reading and cites ruling 23. R4 section D5 probe, re-measured:
+    ConfigPlaceholderError(['redlines.SYN-z','eval_config.SYN-m','anchor_set.SYN-a']).paths
+      pre-fix  = ('anchor_set.SYN-a', 'eval_config.SYN-m', 'redlines.SYN-z')  [L4-probe-api D5]
+      post-fix = ('eval_config.SYN-m', 'redlines.SYN-z', 'anchor_set.SYN-a')  [ruling 9 / 23]
+  b05 now expects the ruling 9 order taken from the ADR text, not from any
+  implementation output (H-11). Ruling 23 collateral impact: NONE (SECTION K).
+
+F2 CLOSED (ruling 24). Ruling 19 has a gate in both files: 3 new c12 params
+  ('' / '   ' / '\t\n ' at the value level, the leaf level and the tree level),
+  the same 3 values appended to MISS_STRINGS (c02, 3 new items) and to the
+  property alphabet FILLED_TEXTS (hypothesis side). Deduplication has a reachable
+  gate: b11 (scan_config_trees({'s': {1: 'TODO', '1': 'TBD'}}) == ('s.1',)) and
+  p11 (the same collision drawn by a strategy, count assertions). p06 was kept
+  verbatim, as ruling 24 item 3 orders.
+
+MUTANT RE-KILL (out-of-repo copy, R4 injection methods, scratch removed after)
+    M09   KILLED  by 13 test(s)   summary 13 failed, 206 passed in 8.85s
+    M12   KILLED  by  2 test(s)   summary  2 failed, 217 passed in 5.42s
+    M11R  KILLED  by  3 test(s)   summary  3 failed, 216 passed in 5.41s
+    PRISTINE control  GREEN       summary 219 passed in 5.14s
+  M11R is the inverse of A1, i.e. the pre-fix double branch restored: it is now
+  killed by b05 / b12 / b13, which is the proof that ruling 23 is pinned by tests
+  and not only by the shipped line. The repository was never written by the
+  mutation script (sha256 self-check at the end of PART 5).
+
+THREE PYTEST LAYERS
+    targeted -k (new + changed cases) : 8 passed, 211 deselected in 0.49s
+    the two config files              : 219 passed in 3.88s   (219 collected)
+    full suite                        : 1487 passed in 5.08s  (1487 collected)
+    1487 - 219 = 1268 existing items, unchanged.  219 - 209 = 10 new items, 0 removed.
+    failed / error / skipped tokens in the full-suite output: False / False / False.
+
+NO CONFLICT between ruling 23 and ruling 24 was encountered, and nothing had to
+be traded away: no assertion weakened, no test deleted, no skip / xfail added, no
+golden value moved except b05, which ruling 23 orders explicitly. dsm/config.py
+was changed for ruling 23 only, never for ruling 24.
+
+==============================================================================
+PART 0 -- exactly what this round changed, file by file and line by line
+==============================================================================
+A. dsm/config.py  (ruling 23 only; ruling 24 forbids touching this file for it)
+
+  A1  line 205 -- the single functional line of this round.
+        pre-fix  line 202 : self.paths = canonical if deduped == canonical else tuple(sorted(deduped))
+        post-fix line 205 : self.paths = canonical
+      Line 203 pre / 204 post (canonical = tuple(sorted(deduped, key=_path_key)))
+      is unchanged, so paths is now unconditionally deduplicated keeping the
+      first occurrence and then sorted by the ruling 9 key: the fixed file order
+      of [L1250]-[L1257] first, the path string ascending inside one file second.
+      The missing_files statement (lines 206-207, key=_missing_key) is byte
+      identical to the pre-fix file, as ruling 23 demands; SECTION J proves it.
+
+  A2  lines 181-199 -- the class docstring paragraph that described two branches.
+      Deleted verbatim (pre-fix lines 181-182 and 188-196):
+        "Ordering and deduplication, including the one point where the tests pin
+         more than the ADR text does:"
+        "A sequence that already arrives in the canonical ruling 9 order ... is
+         stored unchanged ... Any other iterable is normalised with a plain string
+         sort (T05-B b05): ruling 9 demands "sorted" but names no key for a caller
+         that is not walking the file list, and a plain string sort is the only
+         order independent reading of it. Both branches are deterministic for the
+         input they are given."
+      Replaced by one reading: paths is deduplicated first (first occurrence kept)
+      and then sorted unconditionally by _path_key, ruling 23 cited, plus the
+      trailing unknown-stem rank that keeps the key total (ruling 16).
+      No text defending the old two-branch behaviour survives: SECTION I greps the
+      four phrases and finds zero hits; the one surviving "plain string sort" hit
+      (line 192) is the negation ruling 23 asks for.
+
+  A3  nothing else in dsm/config.py. The unified diff of PART 4 has exactly one
+      hunk, +15 / -12 lines, all of them inside pre-fix lines 178-205. The module
+      docstring, EXIT_CONFIG, PLACEHOLDER_TOKENS / _PREFIXES, REQUIRED_CONFIG_STEMS,
+      WEIGHTS_GLOB, ConfigTree, _file_rank / _stem_of / _path_key / _missing_key /
+      _format_message / _walk / _ordered_stems, the three pure functions, load_all
+      and AppConfig are untouched. In particular NOT added, as ruling 24 forbids:
+      no ConfigSemanticError, no WeightVersionInvalidError (hasattr False for both,
+      SECTION F), no semantic or weight-version validation, no --period / --run-at
+      parameter on any public signature (SECTION F2), no _join docstring change
+      (ruling 24 item 5 is deferred to S1-T06 on purpose).
+
+B. tests/test_config_placeholder.py
+
+  B1  test_t05_b05_error_paths_are_sorted, def at line 542, docstring at lines 543-549, assertion at lines 552-553.
+        pre-fix  : assert err.paths == ('anchor_set.SYN-a', 'eval_config.SYN-m',
+                                        'redlines.SYN-z')
+        post-fix : assert err.paths == ('eval_config.SYN-m', 'redlines.SYN-z',
+                                        'anchor_set.SYN-a')
+      Docstring lines 543-549 state the source of the expectation: ruling 9 plus
+      ruling 23, i.e. eval_config is the first file of [L1250]-[L1257], redlines
+      the third and anchor_set the fifth, so anchor_set comes last even though a
+      plain string sort would put it first. The input iterable is unchanged. The
+      expectation was NOT taken from an implementation output (H-11).
+
+  B2  lines 252-254 -- '', '   ' and the tab/newline/space string appended to
+      MISS_STRINGS, which adds 3 collected items to the pre-existing c02 gate;
+      lines 227-231 -- the header comment that used to say those strings were
+      deliberately absent now says ruling 19 closed the gap and ruling 24 item 1
+      turns it into a gate.
+      lines 707-720 -- new test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders,
+      parametrized over the same 3 values, asserting is_placeholder_value(value)
+      is False AND find_placeholders(...) == () AND scan_config_trees(...) == (),
+      so the tree level is gated too. 3 new collected items.
+
+  B3  lines 598-609 -- new test_t05_b11_deduplication_is_reachable_through_a_key_collision:
+      find_placeholders({1: 'TODO', '1': 'TBD'}, root='s') == ('s.1', 's.1') while
+      scan_config_trees({'s': {1: 'TODO', '1': 'TBD'}}) == ('s.1',). This is the
+      M12 killer of ruling 24 item 2. The int 1 is a key-collision probe, not a
+      business value (H-5), and the docstring says so in situ.
+
+  B4  lines 612-621 -- new test_t05_b12_the_constructor_reorders_a_reverse_file_order_input
+      (ruling 23 allowed addition 1) and lines 624-632 -- new
+      test_t05_b13_an_unknown_stem_sorts_last_and_is_path_sorted_inside
+      (ruling 23 allowed addition 2). 2 new collected items.
+
+  B5  nothing else. No test was deleted (SECTION H: 0 removed ids), no skip /
+      xfail was added (SECTION C: zero applied markers, and the word counts of
+      skip / xfail are identical pre and post), and no other expectation was
+      touched: the unified diff of PART 4 has five hunks and every removed line in
+      it is either the b05 expectation of B1, the header comment of B2 or nothing
+      at all (the other three hunks are pure additions).
+
+C. tests/test_config_properties.py
+
+  C1  lines 138-145 -- '', '   ' and the tab/newline/space string appended to
+      FILLED_TEXTS, with a comment citing ruling 19 / ruling 24 item 1 and noting
+      that all three survive a yaml round trip byte for byte, so n03 still holds.
+      This is what lets hypothesis falsify M09 on the property side; measured: M09
+      is killed by p02 / p05 / p10 / p11 / n01 / n02 / n03 as well.
+
+  C2  test_t05_j_p06_scan_config_trees_is_sorted_and_deduplicated at lines 442-445
+      is KEPT VERBATIM, including paths == tuple(sorted(set(paths))), as ruling 24
+      item 3 orders. The reachable assertion is the new
+      test_t05_j_p11_a_key_collision_folds_into_exactly_one_path at lines 485-501:
+      a new colliding_dict strategy (lines 182-195) draws a mapping that holds the
+      int key 1 and the str key '1' side by side, both carrying a hit, plus up to
+      two random extra keys from a digit-free alphabet; p11 asserts
+      len(walked) == len(_oracle_hits(tree, SYN_STEM)), walked.count(SYN_STEM + '.1') == 2,
+      len(paths) == len(set(paths)), paths.count(SYN_STEM + '.1') == 1 and repeats
+      the p06 invariant on an input that can actually violate it. 1 new item.
+      Supporting change: the _join oracle helper (lines 95-100) now spells a
+      non-string key out textually, exactly as the implementation walk does
+      (ruling 24 item 2 / R4 observation O1). For every str key any other strategy
+      draws it is the identity, so no existing property lost strength; without it
+      the oracle could not describe the collision at all.
+
+  Nothing else: the settings / profile / derandomize / deadline block, SYN_STEM,
+  the leaf strategies, p01-p10 and n01-n03 are untouched, so the same seed still
+  reproduces byte for byte (H-14).
+
+==============================================================================
+PART 1 -- the three pytest layers, verbatim output
+==============================================================================
+Arithmetic first, then the raw runs. Every number quoted here appears verbatim in
+one of the five blocks that follow; none of them is a restatement.
+
+  LAYER 1  targeted -k on the new and the changed cases
+           8 passed, 211 deselected in 0.49s        exit code 0
+           the 8 = b05 (changed) + b11 + b12 + b13 + c12 x 3 params + p11.
+           The 3 new c02 params are outside that -k expression; they are listed
+           and counted in SECTION H (PART 6).
+  LAYER 2  the two config test files, single run
+           219 tests collected in 0.17s             (--collect-only)
+           219 passed in 3.88s                      exit code 0
+           0 failed, 0 error, no skipped line, no deselected line.
+  LAYER 3  the full suite
+           1487 tests collected in 0.39s            (--collect-only)
+           1487 passed in 5.08s                     exit code 0
+           0 failed, 0 error, no skipped line.
+
+  existing baseline  = 1487 (full) - 219 (the two config files) = 1268
+           1268 is exactly the pre-T05 baseline named in T05-M and re-measured by
+           R4 (1477 - 209 = 1268 at L4). Not one existing item was broken.
+  new collected items = 219 - 209 = 10
+           209 is the round-1 / L4 collected count, re-measured in SECTION H from
+           the reconstructed pre-fix test files, not taken on trust.
+  removed collected items = 0  (SECTION H, set difference pre-fix minus post-fix)
+  full-suite delta versus L4 = 1487 - 1477 = 10 = the new items. Consistent.
+
+==============================================================================
+LAYER 1 - targeted -k on the new / modified cases
+command : /home/szf/venvs/dsm/bin/python -m pytest -k b05 or b11 or b12 or b13 or c12 or p11 -v --no-header tests/test_config_placeholder.py tests/test_config_properties.py
+cwd     : /home/szf/dev/strategy-eval-dsm
+exit    : 0   wall: 0.9s
+------------------------------------------------------------------------------
+============================= test session starts ==============================
+collected 219 items / 211 deselected / 8 selected
+
+tests/test_config_placeholder.py .......                                 [ 87%]
+tests/test_config_properties.py .                                        [100%]
+
+====================== 8 passed, 211 deselected in 0.49s =======================
+SUMMARY LINE VERBATIM : ====================== 8 passed, 211 deselected in 0.49s =======================
+
+==============================================================================
+LAYER 2a - collect-only, the two config test files
+command : /home/szf/venvs/dsm/bin/python -m pytest --collect-only tests/test_config_placeholder.py tests/test_config_properties.py
+cwd     : /home/szf/dev/strategy-eval-dsm
+exit    : 0   wall: 0.4s
+------------------------------------------------------------------------------
+  (the full node-id listing is 219 lines long; the first id and the
+   last lines are quoted, the count line is the evidence that counts)
+tests/test_config_placeholder.py::test_t05_a01_exit_config_constant_is_three
+    ...
+tests/test_config_properties.py::test_t05_j_n03_a_fully_filled_dir_loads_into_an_appconfig
+219 tests collected in 0.17s
+COLLECTED LINE VERBATIM : 219 tests collected in 0.17s
+
+==============================================================================
+LAYER 2b - the two config test files, single run
+command : /home/szf/venvs/dsm/bin/python -m pytest tests/test_config_placeholder.py tests/test_config_properties.py
+cwd     : /home/szf/dev/strategy-eval-dsm
+exit    : 0   wall: 4.2s
+------------------------------------------------------------------------------
+........................................................................ [ 32%]
+........................................................................ [ 65%]
+........................................................................ [ 98%]
+...                                                                      [100%]
+219 passed in 3.88s
+SUMMARY LINE VERBATIM : 219 passed in 3.88s
+
+==============================================================================
+LAYER 3a - collect-only, full suite
+command : /home/szf/venvs/dsm/bin/python -m pytest --collect-only
+cwd     : /home/szf/dev/strategy-eval-dsm
+exit    : 0   wall: 0.7s
+------------------------------------------------------------------------------
+  (the full node-id listing is 1487 lines long; the first id and the
+   last lines are quoted, the count line is the evidence that counts)
+tests/test_config_placeholder.py::test_t05_a01_exit_config_constant_is_three
+    ...
+tests/test_reason_codes.py::test_all_codes_is_sorted_and_deterministic_for_hashing
+1487 tests collected in 0.39s
+COLLECTED LINE VERBATIM : 1487 tests collected in 0.39s
+
+==============================================================================
+LAYER 3b - full suite
+command : /home/szf/venvs/dsm/bin/python -m pytest
+cwd     : /home/szf/dev/strategy-eval-dsm
+exit    : 0   wall: 5.4s
+------------------------------------------------------------------------------
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+........................................................................ [ 29%]
+........................................................................ [ 33%]
+........................................................................ [ 38%]
+........................................................................ [ 43%]
+........................................................................ [ 48%]
+........................................................................ [ 53%]
+........................................................................ [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 67%]
+........................................................................ [ 72%]
+........................................................................ [ 77%]
+........................................................................ [ 82%]
+........................................................................ [ 87%]
+........................................................................ [ 91%]
+........................................................................ [ 96%]
+...............................................                          [100%]
+1487 passed in 5.08s
+SUMMARY LINE VERBATIM : 1487 passed in 5.08s
+
+==============================================================================
+PART 2 -- failed / error / skipped token booleans of the full-suite run
+==============================================================================
+SECTION B -- full-suite output token booleans (all three must be False)
+summary line of the full-suite run : 1487 passed in 5.08s
+  token 'failed'     in the summary line : False   anywhere in run stdout : False
+  token 'error'      in the summary line : False   anywhere in run stdout : False
+  token 'skipped'    in the summary line : False   anywhere in run stdout : False
+  token 'xfailed'    in the summary line : False   anywhere in run stdout : False
+  token 'xpassed'    in the summary line : False   anywhere in run stdout : False
+  token 'warning'    in the summary line : False   anywhere in run stdout : False
+  token 'deselected' in the summary line : False   anywhere in run stdout : False
+
+==============================================================================
+PART 3 -- per-file inventory, with the pre-fix sha256[:12] comparison
+==============================================================================
+SECTION A -- per-file inventory (measured on disk after rsync + normalize)
+file                                lines    bytes    sha256[:12]    BOM   CR  TAB
+dsm/config.py                         480    22873   54e6813eeaca  False    0    0
+tests/test_config_placeholder.py     1623    68178   55f28652ad1b  False    0    0
+tests/test_config_properties.py       530    21886   01b53feeee94  False    0    0
+
+pre-fix (round 1 / L4 baseline) values given by the work order:
+file                                lines    bytes    sha256[:12]
+dsm/config.py                         477    22730   d8c49a1aeecc
+tests/test_config_placeholder.py     1558    64209   a81fb14e687c
+tests/test_config_properties.py       486    19455   912eb7f672a2
+
+the pre-fix bytes were reconstructed byte-for-byte from the round-1 / round-2
+staging copies and their sha256[:12] matched all three work-order values, so
+the unified diffs in section I are diffs against the real pre-fix files:
+  PRE-FIX config.py                      lines=477   bytes=22730   sha256[:12]=d8c49a1aeecc expected=d8c49a1aeecc/477/22730 MATCH=True
+  PRE-FIX test_config_placeholder.py     lines=1558  bytes=64209   sha256[:12]=a81fb14e687c expected=a81fb14e687c/1558/64209 MATCH=True
+  PRE-FIX test_config_properties.py      lines=486   bytes=19455   sha256[:12]=912eb7f672a2 expected=912eb7f672a2/486/19455 MATCH=True
+
+delta (post - pre):
+  dsm/config.py                      lines   +3   bytes   +143   sha d8c49a1aeecc -> 54e6813eeaca
+  tests/test_config_placeholder.py   lines  +65   bytes  +3969   sha a81fb14e687c -> 55f28652ad1b
+  tests/test_config_properties.py    lines  +44   bytes  +2431   sha 912eb7f672a2 -> 01b53feeee94
+
+==============================================================================
+PART 4 -- the unified diffs, the A1 / A2 proofs and the write-set proof
+==============================================================================
+4.1  dsm/config.py, pre-fix vs post-fix. One hunk only: the A2 docstring
+     paragraph and the A1 line. Nothing else in the file moved.
+--- a/dsm/config.py (pre-fix)
++++ b/dsm/config.py (post-fix)
+@@ -178,28 +178,31 @@
+     the same raise -- V-14 leaves no room for a silent second channel.
+ 
+     Both arguments accept any iterable and are stored as tuples (ruling 11).
+-    Ordering and deduplication, including the one point where the tests pin more
+-    than the ADR text does:
++    Ordering and deduplication have exactly one reading each, and both of them
++    are ruling 9:
+ 
+       * missing_files is always deduplicated and sorted by the ruling 9 file
+         order, the weights gap sitting at its [L1252] position (ruling 18). The
+         result therefore never depends on the order the caller listed the gaps
+         in (T05-G g11 determinism).
+-      * paths is deduplicated first, keeping the first occurrence. A sequence
+-        that already arrives in the canonical ruling 9 order -- file order, path
+-        string ascending inside a file, exactly what scan_config_trees and hence
+-        load_all produce -- is stored unchanged, so the [L1250]-[L1257] file
+-        order survives into the message (T05-F f02). Any other iterable is
+-        normalised with a plain string sort (T05-B b05): ruling 9 demands
+-        "sorted" but names no key for a caller that is not walking the file
+-        list, and a plain string sort is the only order independent reading of
+-        it. Both branches are deterministic for the input they are given.
++      * paths is deduplicated first, keeping the first occurrence, and then
++        sorted unconditionally by _path_key: the fixed file order of
++        [L1250]-[L1257] first, the path string ascending inside one file second.
++        That is ruling 9, and ruling 23 makes it literal for the constructor as
++        well -- one order, not two, and no plain string sort anywhere in this
++        class. Ruling 9 does name its key, _path_key is that key, and it is the
++        very key scan_config_trees already applies, so a caller-supplied
++        iterable and a load_all result now come out in one and the same order
++        (T05-B b04 / b05 / b12, T05-F f02). A stem outside the
++        [L1250]-[L1257] list keeps the last file rank and stays path-sorted
++        inside its own block, which keeps the key total for the synthetic stems
++        a property test hands in (ruling 16, T05-B b13, T05-I i13).
+     '''
+ 
+     def __init__(self, paths: Iterable[str], missing_files: Iterable[str] = ()):
+         deduped = tuple(dict.fromkeys(paths))
+         canonical = tuple(sorted(deduped, key=_path_key))
+-        self.paths = canonical if deduped == canonical else tuple(sorted(deduped))
++        self.paths = canonical
+         self.missing_files = tuple(
+             sorted(dict.fromkeys(missing_files), key=_missing_key))
+         # An instance attribute on purpose, so a caller can read err.exit_code
+
+
+
+==============================================================================
+SECTION I -- A2 proof: the two-branch defence text is gone from dsm/config.py
+==============================================================================
+the four phrases the pre-fix docstring used to justify the plain string sort:
+$ grep -n names no key dsm/config.py
+(empty output)
+  exit code 1  (grep: 0 == match found, 1 == zero matches)
+
+$ grep -n order independent reading dsm/config.py
+(empty output)
+  exit code 1  (grep: 0 == match found, 1 == zero matches)
+
+$ grep -n Both branches dsm/config.py
+(empty output)
+  exit code 1  (grep: 0 == match found, 1 == zero matches)
+
+$ grep -n the tests pin more dsm/config.py
+(empty output)
+  exit code 1  (grep: 0 == match found, 1 == zero matches)
+
+the one surviving hit of the phrase "plain string sort" is the negation that
+ruling 23 asks for, not a defence of the old branch:
+$ grep -n plain string sort dsm/config.py
+192:        well -- one order, not two, and no plain string sort anywhere in this
+  exit code 0  (grep: 0 == match found, 1 == zero matches)
+
+ruling 23 / ruling 24 citations inside the three files of the write set:
+$ grep -rn ruling 23 dsm/config.py tests/test_config_placeholder.py tests/test_config_properties.py
+dsm/config.py:191:        That is ruling 9, and ruling 23 makes it literal for the constructor as
+tests/test_config_placeholder.py:543:    '''Ruling 9 + ruling 23: "sorted" means the ruling 9 key -- the fixed file
+  exit code 0  (grep: 0 == match found, 1 == zero matches)
+
+$ grep -rn ruling 24 dsm/config.py tests/test_config_placeholder.py tests/test_config_properties.py
+tests/test_config_placeholder.py:232:# mention them; ruling 19 has since closed that gap and ruling 24 item 1 turns
+tests/test_config_placeholder.py:709:    '''Ruling 19 / ruling 24 item 1: the ruling 5 if-and-only-if is closed, so
+tests/test_config_properties.py:97:    # out textually, so the oracle does the same (ruling 24 item 2 / observation
+tests/test_config_properties.py:138:# Ruling 19 / ruling 24 item 1: the empty string and whitespace-only strings are
+tests/test_config_properties.py:188:    the ruling 9 deduplication falsifiable at all (ruling 24 items 2 and 3,
+  exit code 0  (grep: 0 == match found, 1 == zero matches)
+
+==============================================================================
+SECTION J -- A1 proof: the missing_files branch is byte identical pre / post
+==============================================================================
+pre-fix  dsm/config.py lines 200-205, verbatim:
+    200|         deduped = tuple(dict.fromkeys(paths))
+    201|         canonical = tuple(sorted(deduped, key=_path_key))
+    202|         self.paths = canonical if deduped == canonical else tuple(sorted(deduped))
+    203|         self.missing_files = tuple(
+    204|             sorted(dict.fromkeys(missing_files), key=_missing_key))
+    205|         # An instance attribute on purpose, so a caller can read err.exit_code
+
+post-fix dsm/config.py lines 203-208, verbatim:
+    203|         deduped = tuple(dict.fromkeys(paths))
+    204|         canonical = tuple(sorted(deduped, key=_path_key))
+    205|         self.paths = canonical
+    206|         self.missing_files = tuple(
+    207|             sorted(dict.fromkeys(missing_files), key=_missing_key))
+    208|         # An instance attribute on purpose, so a caller can read err.exit_code
+
+the two missing_files statements compared as strings : identical = True
+
+4.4  tests/test_config_placeholder.py, pre-fix vs post-fix. Five hunks: the
+     MISS_STRINGS header comment (B2), the three new MISS_STRINGS entries (B2),
+     the b05 docstring + expectation (B1), the three new functions b11 / b12 /
+     b13 (B3 + B4) and the new c12 (B2). Every other line is context.
+--- a/tests/test_config_placeholder.py (pre-fix)
++++ b/tests/test_config_placeholder.py (post-fix)
+@@ -227,9 +227,11 @@
+     'XXX_SYN',
+ )
+ 
+-# ruling 5: none of these may hit. Empty and whitespace-only strings are
+-# deliberately absent - the ADR iff does not mention them, so this file does
+-# not decide them either (flagged to the orchestrator).
++# ruling 5: none of these may hit. This table used to leave the empty and the
++# whitespace-only string out on purpose, because the ruling 5 iff did not
++# mention them; ruling 19 has since closed that gap and ruling 24 item 1 turns
++# it into a test gate, so both now sit at the end of the table and are pinned
++# again, with their tree level consequences, by test_t05_c12 below.
+ MISS_STRINGS = (
+     'OK',
+     'ACTIVE',
+@@ -247,6 +249,9 @@
+     'TO_DO',
+     'TO-DO',
+     'SYN-OK',
++    '',
++    '   ',
++    '\t\n ',
+ )
+ MISS_SCALARS = (TYPE_PROBE_ZERO, TYPE_PROBE_ONE, TYPE_PROBE_MINUS_ONE,
+                 TYPE_PROBE_FLOAT, True, False)
+@@ -535,10 +540,17 @@
+ 
+ 
+ def test_t05_b05_error_paths_are_sorted():
++    '''Ruling 9 + ruling 23: "sorted" means the ruling 9 key -- the fixed file
++    order of [L1250]-[L1257] first, the path string ascending inside one file
++    second. The expectation below is taken from the ADR text and NOT from what
++    an implementation happens to return (H-11): eval_config is the first file of
++    the list, redlines the third and anchor_set the fifth, so anchor_set comes
++    last here even though a plain string sort would put it first. Ruling 23
++    makes this the only order the constructor is allowed to produce.'''
+     err = placeholder_error()(['redlines.SYN-z', 'eval_config.SYN-m',
+                                'anchor_set.SYN-a'])
+-    assert err.paths == ('anchor_set.SYN-a', 'eval_config.SYN-m',
+-                         'redlines.SYN-z')
++    assert err.paths == ('eval_config.SYN-m', 'redlines.SYN-z',
++                         'anchor_set.SYN-a')
+ 
+ 
+ def test_t05_b06_the_message_first_line_carries_the_total_count():
+@@ -583,6 +595,43 @@
+     assert count == len(str(excinfo.value).splitlines()) - 1
+ 
+ 
++def test_t05_b11_deduplication_is_reachable_through_a_key_collision():
++    '''Ruling 24 item 2 / ruling 9: one path appears once. Under str keys alone
++    two positions can never render to the same path string, so deduplication
++    stays unfalsifiable there; yaml does let the int key 1 and the str key '1'
++    sit in one mapping, and the walk spells a non-string key out textually, so
++    those two hit positions collapse onto one path. The raw walk still reports
++    both, because ruling 11 makes find_placeholders neither sort nor
++    deduplicate, while scan_config_trees reports the path exactly once. The 1
++    below is a key-collision probe, not a business value (H-5).'''
++    tree = {1: 'TODO', '1': 'TBD'}
++    assert cfg('find_placeholders')(tree, root='s') == ('s.1', 's.1')
++    assert cfg('scan_config_trees')({'s': tree}) == ('s.1',)
++
++
++def test_t05_b12_the_constructor_reorders_a_reverse_file_order_input():
++    '''Ruling 23 allowed addition 1: the ruling 9 key applies to any iterable,
++    so a caller that lists the paths in the reverse file order still gets the
++    [L1250]-[L1257] order out -- eval_config, weights, grade_rules,
++    ahp_matrices. Every weights_*.yaml stem shares the single weights rank and
++    is separated inside it by its path string (ruling 9).'''
++    err = placeholder_error()(['ahp_matrices.SYN-q', 'grade_rules.SYN-p',
++                               'weights_WV-SYN-01.SYN-o', 'eval_config.SYN-n'])
++    assert err.paths == ('eval_config.SYN-n', 'weights_WV-SYN-01.SYN-o',
++                         'grade_rules.SYN-p', 'ahp_matrices.SYN-q')
++
++
++def test_t05_b13_an_unknown_stem_sorts_last_and_is_path_sorted_inside():
++    '''Ruling 23 allowed addition 2: a stem outside the [L1250]-[L1257] list
++    keeps the last file rank, which keeps the ruling 9 key total for the
++    synthetic stems a property test hands in (ruling 16, T05-I i13), and inside
++    that trailing block the paths stay string ascending.'''
++    err = placeholder_error()(['SYN-unknown.SYN-b', 'eval_config.SYN-a',
++                               'SYN-unknown.SYN-a', 'redlines.SYN-c'])
++    assert err.paths == ('eval_config.SYN-a', 'redlines.SYN-c',
++                         'SYN-unknown.SYN-a', 'SYN-unknown.SYN-b')
++
++
+ # ---------------------------------------------------------------------------
+ # T05-C. Ruling 5 hit table: strip, case insensitive, whole value or prefix.
+ # ---------------------------------------------------------------------------
+@@ -653,6 +702,22 @@
+     tree = {'weight_construction': {'alpha_floor': 'PLACEHOLDER_K-15'}}
+     assert cfg('find_placeholders')(tree, root='eval_config') == (
+         'eval_config.weight_construction.alpha_floor',)
++
++
++@pytest.mark.parametrize('value', ['', '   ', '\t\n '])
++def test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders(value):
++    '''Ruling 19 / ruling 24 item 1: the ruling 5 if-and-only-if is closed, so
++    the empty string and a whitespace-only string are filled values rather than
++    placeholders -- stripping them leaves nothing, which is neither one of the
++    four tokens nor a prefix of one. Pinning is_placeholder_value alone would
++    leave the tree level behaviour ungated, so the same value is walked as a
++    leaf too: it must produce no path at all, neither in the raw walk nor after
++    the ruling 9 sort. This is the gate that falsifies an over-tightened hit
++    rule (mutant M09 of the L4 mutation run).'''
++    assert cfg('is_placeholder_value')(value) is False
++    tree = {'SYN-note': value, 'SYN-deeper': {'SYN-leaf': value}}
++    assert cfg('find_placeholders')(tree, root='eval_config') == ()
++    assert cfg('scan_config_trees')({'eval_config': tree}) == ()
+ 
+ 
+ # ---------------------------------------------------------------------------
+
+4.5  tests/test_config_properties.py, pre-fix vs post-fix. Four hunks: the
+     _join oracle helper (C2 support), FILLED_TEXTS (C1), the colliding_dict
+     strategy (C2) and the new p11 (C2). p06 is not in the diff: it is kept.
+--- a/tests/test_config_properties.py (pre-fix)
++++ b/tests/test_config_properties.py (post-fix)
+@@ -93,7 +93,11 @@
+ # The oracle: rulings 5 / 6 / 8 written out independently of dsm.config.
+ # ---------------------------------------------------------------------------
+ def _join(prefix, key):
+-    return key if prefix == '' else prefix + '.' + key
++    # A yaml mapping may carry a non-string key and the implementation spells it
++    # out textually, so the oracle does the same (ruling 24 item 2 / observation
++    # O1). For the str keys every other strategy draws this is the identity.
++    name = key if isinstance(key, str) else str(key)
++    return name if prefix == '' else prefix + '.' + name
+ 
+ 
+ def _is_hit_oracle(value):
+@@ -131,9 +135,14 @@
+ # substring matching stays off).
+ # ---------------------------------------------------------------------------
+ KEY_ALPHABET = 'abcdefghijklmnopqrstuvwxyz_'
++# Ruling 19 / ruling 24 item 1: the empty string and whitespace-only strings are
++# FILLED values, so they belong to the non-hitting alphabet. Carrying them here
++# is what lets hypothesis falsify an over-tightened hit rule (mutant M09) on the
++# property side as well; all three survive a yaml round trip byte for byte
++# (safe_dump quotes them, safe_load returns them unchanged), so n03 still holds.
+ FILLED_TEXTS = ('SYN-OK', 'SYN-ACTIVE', 'SYN-SIGNED', 'SYN-FROZEN',
+                 'SYN-NOTE-01', 'SYN-abcTODOdef-not-a-token',
+-                'SYN-XPLACEHOLDER-not-a-token')
++                'SYN-XPLACEHOLDER-not-a-token', '', '   ', '\t\n ')
+ PLACEHOLDER_VALUES = ('PLACEHOLDER', 'placeholder', '  PLACEHOLDER  ',
+                       'PLACEHOLDER_K-01', 'TODO', 'TBD', 'XXX', None)
+ 
+@@ -167,6 +176,22 @@
+     below can pass vacuously and no assume() filter is needed.'''
+     tree = draw(mixed_dict)
+     tree[draw(keys)] = {'SYN-forced': draw(hit_leaf)}
++    return tree
++
++
++@st.composite
++def colliding_dict(draw):
++    '''A mapping that holds the int key 1 and the str key '1' side by side, both
++    carrying a hit, plus up to two random extra keys so the shape stays random
++    instead of fixed. That collision is the only reachable way two distinct
++    positions can render to one and the same path string, which is what makes
++    the ruling 9 deduplication falsifiable at all (ruling 24 items 2 and 3,
++    mutant M12). The 1 is a key-collision probe, not a business value (H-5);
++    the extra keys come from an alphabet without digits, so they can never
++    collide with it by accident.'''
++    tree = draw(st.dictionaries(keys, mixed_leaf, max_size=2))
++    tree[1] = draw(hit_leaf)
++    tree['1'] = draw(hit_leaf)
+     return tree
+ 
+ 
+@@ -457,6 +482,25 @@
+     assert cfg('is_placeholder_value')(value) is _is_hit_oracle(value)
+ 
+ 
++@OPTS
++@given(tree=colliding_dict())
++def test_t05_j_p11_a_key_collision_folds_into_exactly_one_path(tree):
++    '''Ruling 24 item 3, the reachable assertion p06 cannot make on its own.
++    Two hit positions render to the same path string, so the raw walk reports
++    both while scan_config_trees reports the path once: len(paths) ==
++    len(set(paths)) is then a statement about deduplication and no longer a
++    structural truism. The invariant of p06 is repeated here on an input that
++    can actually violate it, which is what kills the "deduplication removed
++    from scan_config_trees" mutant (M12).'''
++    walked = cfg('find_placeholders')(tree, root=SYN_STEM)
++    paths = cfg('scan_config_trees')({SYN_STEM: tree})
++    assert len(walked) == len(_oracle_hits(tree, SYN_STEM))
++    assert walked.count(SYN_STEM + '.1') == 2
++    assert len(paths) == len(set(paths))
++    assert paths.count(SYN_STEM + '.1') == 1
++    assert paths == tuple(sorted(set(paths)))
++
++
+ # ---------------------------------------------------------------------------
+ # The reverse direction: a fully filled configuration must load. Without it
+ # the interceptor could pass by rejecting everything.
+
+SECTION G -- write-set proof: git state and files outside the write set
+$ git rev-parse HEAD
+17dd568ff18c4e48b126b5e1a5bb72b0e0bd6ae0
+
+$ git diff --numstat
+(empty output)
+
+$ git diff --stat
+(empty output)
+
+$ git status --porcelain
+?? docs/adr/ORCH-23-review-S1-T05.md
+?? docs/adr/ORCH-23.md
+?? docs/adr/ORCH-24.md
+?? docs/digest/S1-T06.md
+?? dsm/config.py
+?? ops/evidence/S1-T05/
+?? tests/test_config_placeholder.py
+?? tests/test_config_properties.py
+
+$ git log --oneline -1
+17dd568 ops: S1-T04 状态落库（done / 1 轮 / commit 8b488b3）+ 登记 B-019~B-021 + INDEX 行数口径校正
+
+files outside the write set -- sha256[:12] and mtime, all of them older than
+this round and none of them written by R6:
+  docs/adr/ORCH-23.md                        sha256[:12]=08d5f97637e9  mtime=2026-11-24 08:00:07
+  docs/adr/ORCH-23-review-S1-T05.md          sha256[:12]=aeb4e2fb5346  mtime=2026-11-24 07:52:42
+  docs/adr/ORCH-24.md                        sha256[:12]=0327390ead34  mtime=2026-11-24 08:18:10
+  docs/digest/S1-T05.md                      sha256[:12]=52c070190063  mtime=2026-11-24 04:28:28
+  docs/digest/S1-T06.md                      sha256[:12]=eab8abc38e3a  mtime=2026-11-24 06:40:47
+  ops/dag-state.json                         sha256[:12]=9414cea6b81e  mtime=2026-11-24 05:18:58
+  ops/blockers.md                            sha256[:12]=3b72dc736ba0  mtime=2026-11-24 05:18:57
+  dsm/models.py                              sha256[:12]=6ad7a930bfd1  mtime=2026-11-24 04:29:05
+  dsm/__init__.py                            sha256[:12]=9a50da8f001b  mtime=2026-11-23 20:12:32
+  dsm/numeric.py                             sha256[:12]=0ae359018402  mtime=2026-11-23 19:41:41
+  dsm/reason_codes.py                        sha256[:12]=3fb9a4a7a1bd  mtime=2026-11-23 20:12:32
+  tests/test_numeric_properties.py           sha256[:12]=16c636a882a1  mtime=2026-11-23 19:46:07
+  tests/test_models_output.py                sha256[:12]=42cbbc85e7a8  mtime=2026-11-24 04:04:34
+  tests/test_input_contract.py               (absent)
+  tools/normalize.py                         sha256[:12]=abd6c1d2c98f  mtime=2026-11-23 20:12:32
+  pyproject.toml                             sha256[:12]=aa87580dc238  mtime=2026-11-23 20:12:32
+  requirements.txt                           sha256[:12]=36972fe5f6ae  mtime=2026-11-23 20:12:32
+  ops/evidence/S1-T05/L1-red.txt             sha256[:12]=c439084b33ac  mtime=2026-11-24 06:23:29
+  ops/evidence/S1-T05/L3-green.txt           sha256[:12]=e6f22d5bb665  mtime=2026-11-24 07:07:50
+  ops/evidence/S1-T05/L4-mutation.txt        sha256[:12]=40d9422e8817  mtime=2026-11-24 07:40:56
+  ops/evidence/S1-T05/L5-r6-fix.txt          sha256[:12]=90199059de9a  mtime=2026-11-24 07:07:59
+  repo config/ directory listing (ruling 13, must stay empty) : []
+  scratch tree of this round (outside the repo) : /mnt/c/Users/szf/AppData/Local/Temp/dsm_ops/S1-T05-r6b
+
+==============================================================================
+PART 5 -- mutant re-kill, M09 / M12 / M11R and the pristine control
+==============================================================================
+==============================================================================
+MUTATION RE-KILL RUN (R6 round 2) -- executed OUTSIDE the repository
+==============================================================================
+scratch copy root : /mnt/c/Users/szf/AppData/Local/Temp/dsm_ops/S1-T05-r6b/mut
+scratch repo      : /mnt/c/Users/szf/AppData/Local/Temp/dsm_ops/S1-T05-r6b/mut/repo
+source repo       : /home/szf/dev/strategy-eval-dsm
+copied from repo sha256[:12](dsm/config.py) = 54e6813eeaca
+run command       : /home/szf/venvs/dsm/bin/python -m pytest -rf --tb=no tests/test_config_placeholder.py tests/test_config_properties.py
+injection method  : single literal replacement in dsm/config.py, count asserted == 1
+
+------------------------------------------------------------------------------
+M09  ruling 19 violated: the empty / whitespace-only string is turned into a hit (R4 injection method, L4-mutation.txt line 196)
+------------------------------------------------------------------------------
+injected edit (verbatim, - is removed / + is added):
+    -     stripped = value.strip().upper()
+    -     if stripped in PLACEHOLDER_TOKENS:
+    +     stripped = value.strip().upper()
+    +     if stripped == '':
+    +         return True
+    +     if stripped in PLACEHOLDER_TOKENS:
+mutant sha256[:12](dsm/config.py) = 16871513215c
+pytest exit code : 1   (KILLED)   wall 9.4s
+summary line     : 13 failed, 206 passed in 8.85s
+killer test(s)   : 13
+    tests/test_config_placeholder.py::test_t05_c02_ruling_5_miss_strings_are_not_placeholders[]
+    tests/test_config_placeholder.py::test_t05_c02_ruling_5_miss_strings_are_not_placeholders[   ]
+    tests/test_config_placeholder.py::test_t05_c02_ruling_5_miss_strings_are_not_placeholders[\t\n ]
+    tests/test_config_placeholder.py::test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders[]
+    tests/test_config_placeholder.py::test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders[   ]
+    tests/test_config_placeholder.py::test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders[\t\n ]
+    tests/test_config_properties.py::test_t05_j_p02_the_paths_cover_every_hit_position_exactly_once
+    tests/test_config_properties.py::test_t05_j_p05_the_error_paths_cover_the_whole_tree
+    tests/test_config_properties.py::test_t05_j_p10_is_placeholder_value_agrees_with_the_ruling_5_leaf_rule
+    tests/test_config_properties.py::test_t05_j_p11_a_key_collision_folds_into_exactly_one_path
+    tests/test_config_properties.py::test_t05_j_n01_a_fully_filled_tree_yields_no_path
+    tests/test_config_properties.py::test_t05_j_n02_scan_config_trees_of_a_filled_tree_is_empty
+    tests/test_config_properties.py::test_t05_j_n03_a_fully_filled_dir_loads_into_an_appconfig
+
+------------------------------------------------------------------------------
+M12  ruling 9 violated: deduplication is removed from scan_config_trees (R4 injection method, L4-mutation.txt line 243)
+------------------------------------------------------------------------------
+injected edit (verbatim, - is removed / + is added):
+    -     return tuple(dict.fromkeys(found))
+    +     return tuple(found)
+mutant sha256[:12](dsm/config.py) = 2ce7a7cd31c8
+pytest exit code : 1   (KILLED)   wall 5.9s
+summary line     : 2 failed, 217 passed in 5.42s
+killer test(s)   : 2
+    tests/test_config_placeholder.py::test_t05_b11_deduplication_is_reachable_through_a_key_collision
+    tests/test_config_properties.py::test_t05_j_p11_a_key_collision_folds_into_exactly_one_path
+
+------------------------------------------------------------------------------
+M11R  ruling 23 reverted: the pre-fix double branch is restored in ConfigPlaceholderError.__init__ (inverse of A1)
+------------------------------------------------------------------------------
+injected edit (verbatim, - is removed / + is added):
+    -         self.paths = canonical
+    +         self.paths = canonical if deduped == canonical else tuple(sorted(deduped))
+mutant sha256[:12](dsm/config.py) = b419bff2a685
+pytest exit code : 1   (KILLED)   wall 5.8s
+summary line     : 3 failed, 216 passed in 5.41s
+killer test(s)   : 3
+    tests/test_config_placeholder.py::test_t05_b05_error_paths_are_sorted
+    tests/test_config_placeholder.py::test_t05_b12_the_constructor_reorders_a_reverse_file_order_input
+    tests/test_config_placeholder.py::test_t05_b13_an_unknown_stem_sorts_last_and_is_path_sorted_inside
+
+==============================================================================
+PRISTINE CONTROL -- the scratch copy is restored to the shipped bytes and the
+two config test files are run again (this is the "M11 became the official
+implementation" control demanded by the work order).
+==============================================================================
+restored sha256[:12](dsm/config.py) = 54e6813eeaca   matches pre-run pristine : True
+pytest exit code : 0
+summary line     : 219 passed in 5.14s
+full pristine output:
+........................................................................ [ 32%]
+........................................................................ [ 65%]
+........................................................................ [ 98%]
+...                                                                      [100%]
+219 passed in 5.14s
+
+==============================================================================
+VERDICT TABLE
+==============================================================================
+  M09       KILLED    killers=13  13 failed, 206 passed in 8.85s
+  M12       KILLED    killers=2   2 failed, 217 passed in 5.42s
+  M11R      KILLED    killers=3   3 failed, 216 passed in 5.41s
+  PRISTINE  GREEN     killers=0   219 passed in 5.14s
+
+scratch tree removed : True
+
+==============================================================================
+POLLUTION SELF-CHECK -- the real repository was never written by this script
+==============================================================================
+  dsm/config.py                      sha256[:12]=54e6813eeaca  expected=54e6813eeaca  UNPOLLUTED=True
+  tests/test_config_placeholder.py   sha256[:12]=55f28652ad1b  expected=55f28652ad1b  UNPOLLUTED=True
+  tests/test_config_properties.py    sha256[:12]=01b53feeee94  expected=01b53feeee94  UNPOLLUTED=True
+
+==============================================================================
+PART 6 -- collected-item accounting and the ruling tag of every new id
+==============================================================================
+==============================================================================
+SECTION H -- collected item id set difference, pre-fix vs post-fix
+==============================================================================
+collect command : /home/szf/venvs/dsm/bin/python -m pytest --collect-only tests/test_config_placeholder.py tests/test_config_properties.py
+pre-fix  (round 1 test files, out-of-repo copy) rc=0  ids=209  209 tests collected
+post-fix (shipped test files, out-of-repo copy) rc=0  ids=219  219 tests collected
+duplicate ids in the post-fix collection : 0
+REMOVED ids (must be 0, ruling: no test may be deleted) : 0
+NEW ids : 10
+    tests/test_config_placeholder.py::test_t05_b11_deduplication_is_reachable_through_a_key_collision
+    tests/test_config_placeholder.py::test_t05_b12_the_constructor_reorders_a_reverse_file_order_input
+    tests/test_config_placeholder.py::test_t05_b13_an_unknown_stem_sorts_last_and_is_path_sorted_inside
+    tests/test_config_placeholder.py::test_t05_c02_ruling_5_miss_strings_are_not_placeholders[   ]
+    tests/test_config_placeholder.py::test_t05_c02_ruling_5_miss_strings_are_not_placeholders[\t\n ]
+    tests/test_config_placeholder.py::test_t05_c02_ruling_5_miss_strings_are_not_placeholders[]
+    tests/test_config_placeholder.py::test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders[   ]
+    tests/test_config_placeholder.py::test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders[\t\n ]
+    tests/test_config_placeholder.py::test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders[]
+    tests/test_config_properties.py::test_t05_j_p11_a_key_collision_folds_into_exactly_one_path
+arithmetic : 219 (post) - 209 (pre) = +10   and NEW - REMOVED = +10
+scratch copy removed : True
+
+------------------------------------------------------------------------------
+PART 6.2 -- new and modified collected item ids, param-expanded, each one tagged
+with the ruling 23 / ruling 24 item it guards. Ids are verbatim pytest node ids.
+------------------------------------------------------------------------------
+CHANGED (1 function, expectation recomputed from the ADR text)
+  tests/test_config_placeholder.py::test_t05_b05_error_paths_are_sorted
+      guards  : ruling 23 bullet 3 (and ruling 9). Expectation is now
+                ('eval_config.SYN-m', 'redlines.SYN-z', 'anchor_set.SYN-a'),
+                derived from the [L1250]-[L1257] file order: eval_config 1st,
+                redlines 3rd, anchor_set 5th. Input iterable unchanged. This is
+                the only golden value moved this round and ruling 23 orders it.
+      kills   : M11R (the pre-fix double branch), measured in PART 5.
+
+CHANGED (1 oracle helper, no assertion weakened)
+  tests/test_config_properties.py::_join  (helper, not a collected item)
+      guards  : ruling 24 item 2 / R4 observation O1. A non-string key is now
+                spelled out textually, exactly as the implementation walk does.
+                Identity for every str key the other strategies draw, so p01-p10
+                keep their original strength.
+
+KEPT VERBATIM (ruling 24 item 3 forbids deleting it)
+  tests/test_config_properties.py::test_t05_j_p06_scan_config_trees_is_sorted_and_deduplicated
+      line 445 still reads: assert paths == tuple(sorted(set(paths)))
+      Its structural-vacuity is now covered by the reachable p11 below instead of
+      by deletion, which is what ruling 24 item 3 prescribes.
+
+NEW (10 collected items)
+  1  tests/test_config_placeholder.py::test_t05_b11_deduplication_is_reachable_through_a_key_collision
+       guards : ruling 24 item 2 (the dedup gate; the M12 killer named by the ADR)
+  2  tests/test_config_placeholder.py::test_t05_b12_the_constructor_reorders_a_reverse_file_order_input
+       guards : ruling 23, allowed addition 1 (reverse file order in, file order out)
+  3  tests/test_config_placeholder.py::test_t05_b13_an_unknown_stem_sorts_last_and_is_path_sorted_inside
+       guards : ruling 23, allowed addition 2 (unknown stem last, path sorted inside)
+  4  tests/test_config_placeholder.py::test_t05_c02_ruling_5_miss_strings_are_not_placeholders[]
+       guards : ruling 24 item 1 via ruling 19 (the empty string is a filled value)
+  5  tests/test_config_placeholder.py::test_t05_c02_ruling_5_miss_strings_are_not_placeholders[   ]
+       guards : ruling 24 item 1 via ruling 19 (three spaces)
+  6  tests/test_config_placeholder.py::test_t05_c02_ruling_5_miss_strings_are_not_placeholders[\t\n ]
+       guards : ruling 24 item 1 via ruling 19 (tab, newline, space)
+  7  tests/test_config_placeholder.py::test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders[]
+       guards : ruling 24 item 1, value level AND tree level (the M09 gate)
+  8  tests/test_config_placeholder.py::test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders[   ]
+       guards : ruling 24 item 1, value level AND tree level
+  9  tests/test_config_placeholder.py::test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders[\t\n ]
+       guards : ruling 24 item 1, value level AND tree level
+ 10  tests/test_config_properties.py::test_t05_j_p11_a_key_collision_folds_into_exactly_one_path
+       guards : ruling 24 item 3 (the reachable assertion p06 cannot make; the
+                second M12 killer) and, through the FILLED_TEXTS leaves it draws,
+                ruling 24 item 1 on the hypothesis side (an M09 killer too)
+
+REMOVED : none. 0 ids (SECTION H set difference).
+
+Property-side alphabet change that produces no new id but does produce new draws
+  FILLED_TEXTS in tests/test_config_properties.py (lines 143-145) now also carries
+  the empty string, three spaces and the tab/newline/space string, so every
+  property that draws a filled leaf (p01, p02, p04, p05, p06, p07, p08, p09, p10,
+  n01, n02, n03) can now falsify M09. Measured in PART 5: M09 is killed by 13
+  tests, 7 of them from this file.
+
+==============================================================================
+SECTION K -- ruling 23 collateral-impact check (the ADR demands R6 measures it)
+==============================================================================
+ruling 23, verbatim: "b04 / b06 / b07 / f02 / g11 及所有经 load_all 抛错的用例,
+其输入本已为规范序, 期望值不变; 若实测有变, 一律以裁决 9 重算期望值".
+
+$ /home/szf/venvs/dsm/bin/python -m pytest -k 'b04 or b06 or b07 or f02 or g11 or a08 or g05 or g06 or j_p03 or j_p04 or j_p05 or j_n03' -rf --tb=short tests/test_config_placeholder.py tests/test_config_properties.py
+............                                                             [100%]
+12 passed, 207 deselected in 2.03s
+exit code : 0
+
+the named cases b04 / b06 / b07 / f02 / g11 and every load_all-raising case
+listed above pass with their ORIGINAL expectations: none of them was edited
+this round (the unified diff of PART 4 touches exactly five places, and none
+of them is one of these functions). Ruling 23 collateral impact = NONE.
+
+ids covered by that run (12):
+    tests/test_config_placeholder.py::test_t05_a08_load_all_raises_with_exit_code_three
+    tests/test_config_placeholder.py::test_t05_b04_error_paths_are_deduplicated
+    tests/test_config_placeholder.py::test_t05_b06_the_message_first_line_carries_the_total_count
+    tests/test_config_placeholder.py::test_t05_b07_the_message_lists_every_path_on_its_own_dash_line
+    tests/test_config_placeholder.py::test_t05_f02_files_are_reported_in_the_l1250_to_l1257_order
+    tests/test_config_placeholder.py::test_t05_g05_missing_files_and_placeholder_paths_share_one_exit
+    tests/test_config_placeholder.py::test_t05_g06_no_appconfig_is_returned_when_a_file_is_missing
+    tests/test_config_placeholder.py::test_t05_g11_missing_files_are_deduplicated_and_deterministic
+    tests/test_config_properties.py::test_t05_j_p03_load_all_raises_config_placeholder_error_with_exit_code_three
+    tests/test_config_properties.py::test_t05_j_p04_no_appconfig_instance_escapes_a_blocked_load
+    tests/test_config_properties.py::test_t05_j_p05_the_error_paths_cover_the_whole_tree
+    tests/test_config_properties.py::test_t05_j_n03_a_fully_filled_dir_loads_into_an_appconfig
+
+==============================================================================
+PART 7 -- tools/normalize.py --check
+==============================================================================
+PASS 1, measured before this evidence file landed (72 target files in the tree):
+$ /home/szf/venvs/dsm/bin/python tools/normalize.py --check     (cwd /home/szf/dev/strategy-eval-dsm)
+NEEDS_NORMALIZATION 0 of 72 files
+exit code 0  (0 == nothing needed normalizing)
+
+PASS 2, measured after this evidence file landed and normalize ran again:
+$ /home/szf/venvs/dsm/bin/python tools/normalize.py --check     (cwd /home/szf/dev/strategy-eval-dsm)
+NEEDS_NORMALIZATION 0 of 73 files
+exit code 0  (0 == nothing needed normalizing, this evidence file
+included; the count is 73 because this file is now one of the targets)
+
+==============================================================================
+PART 8 -- hygiene, discipline and self-check
+==============================================================================
+SECTION C -- no skip / no xfail: every occurrence of the two words, verbatim
+  tests/test_config_placeholder.py:40|             skip/xfail, repo config/ stays empty, requirements stay pinned,
+  tests/test_config_placeholder.py:1430|     '''Docstrings are documentation, not values, so the H-5 scanner skips
+  tests/test_config_placeholder.py:1588| def test_t05_m06_the_new_test_files_carry_no_skip_or_xfail_marker():
+  tests/test_config_placeholder.py:1589|     '''T05-M "no new skip": an RED test must fail loudly, never be skipped or
+  tests/test_config_placeholder.py:1590|     xfailed away.'''
+  tests/test_config_placeholder.py:1596|                 if node.attr in ('skip', 'skipif', 'xfail'):
+  tests/test_config_placeholder.py:1598|     assert not offenders, 'skip/xfail marker: ' + repr(offenders)
+  grep for an applied marker, exit code 1 (1 == zero matches): (empty)
+  tests/test_config_placeholder.py   def test_ pre=114 post=118   assert pre=162 post=169
+  tests/test_config_properties.py    def test_ pre=17 post=18   assert pre=33 post=38
+
+SECTION D -- H-4 / H-5 numeric literal audit (AST), pre vs post
+  dsm/config.py                      float literals pre=0 post=0 UNCHANGED=True post=[]
+                                     int literal multiset delta (post - pre): {}
+  tests/test_config_placeholder.py   float literals pre=1 post=1 UNCHANGED=True post=[(194, '0.5')]
+                                     int literal multiset delta (post - pre): {1: 1}
+  tests/test_config_properties.py    float literals pre=1 post=1 UNCHANGED=True post=[(66, '0.5')]
+                                     int literal multiset delta (post - pre): {1: 2, 2: 2}
+  reading of the delta: the int 1 added to the placeholder file and the ints
+  1 / 2 added to the property file are the key-collision probe of ruling 24
+  item 2 (the yaml int key 1 next to the str key '1'), a strategy max_size
+  and an expected occurrence count. No weight, threshold, floor, target,
+  unit price, period, sample size and no K-01..K-20 value was introduced;
+  the in-repo H-5 gates test_t05_l01 / l04 / l05 (which scan dsm/config.py
+  and both test files for business numbers) are part of the 219 that pass.
+
+SECTION E -- H-9 layering and wall-clock discipline of dsm/config.py (AST)
+  imported modules : ['collections.abc', 'pathlib', 'pydantic', 'typing', 'yaml']
+  imports weights_ahp        : False
+  imports weights_combine    : False
+  imports fixtures_gen       : False
+  imports weights_calibrate  : False
+  imports whatif             : False
+  imports dsm.models         : False
+  imports dsm.numeric        : False
+  imports dsm.reason_codes   : False
+  imports dsm                : False
+  source contains datetime.now       : False
+  source contains time.time          : False
+  source contains date.today         : False
+  source contains utcnow             : False
+  source contains localtime          : False
+  source contains time.monotonic     : False
+  source contains perf_counter       : False
+  source contains random.            : False
+  source contains os.environ         : False
+  source contains import typer       : False
+  source contains import click       : False
+  source contains import argparse    : False
+
+SECTION F -- runtime probes on the shipped dsm/config.py (rulings 23 / 24)
+public names defined in dsm.config : ['AppConfig', 'ConfigPlaceholderError', 'find_placeholders', 'is_placeholder_value', 'load_all', 'scan_config_trees']
+count                              : 6
+hasattr ConfigSemanticError        : False
+hasattr WeightVersionInvalidError  : False
+hasattr load_config_dir            : False
+R4 D5 probe .paths                 : ('eval_config.SYN-m', 'redlines.SYN-z', 'anchor_set.SYN-a')
+ruling 9 / ruling 23 expected      : ('eval_config.SYN-m', 'redlines.SYN-z', 'anchor_set.SYN-a')
+ruling 9 / ruling 23 MATCH         : True
+reverse-file-order input .paths    : ('eval_config.SYN-n', 'weights_WV-SYN-01.SYN-o', 'grade_rules.SYN-p', 'ahp_matrices.SYN-q')
+unknown-stem input .paths          : ('eval_config.SYN-a', 'redlines.SYN-c', 'SYN-unknown.SYN-a', 'SYN-unknown.SYN-b')
+dedup scan_config_trees            : ('s.1',)
+dedup find_placeholders (raw walk) : ('s.1', 's.1')
+ruling 19 probe three values       : [False, False, False]
+missing_files branch (ruling 18)   : ('eval_config', 'weights')
+exit_code instance attribute       : 3 | EXIT_CONFIG = 3
+AppConfig model_fields keys        : ['ahp_matrices', 'anchor_set', 'eval_config', 'grade_rules', 'redlines', 'weights']
+AppConfig frozen / extra           : True forbid
+  (the name list above is filtered on __module__ == dsm.config, so it holds
+  the 6 callables / classes defined here; section F2 counts all 12 top level
+  public names of ruling 11 by AST.)
+
+SECTION F2 -- T06 feature-absence probes (ruling 24 forbids them this round)
+inspect.signature(load_all)              : (config_dir: str | pathlib.Path) -> dsm.config.AppConfig
+inspect.signature(is_placeholder_value)  : (value)
+inspect.signature(find_placeholders)     : (tree: Any, *, root: str = '') -> tuple[str, ...]
+inspect.signature(scan_config_trees)     : (trees: collections.abc.Mapping[str, dict[str, typing.Any]]) -> tuple[str, ...]
+inspect.signature(ConfigPlaceholderError): (self, paths: collections.abc.Iterable[str], missing_files: collections.abc.Iterable[str] = ())
+top level public names defined here      : ['AppConfig', 'ConfigPlaceholderError', 'ConfigTree', 'EXIT_CONFIG', 'PLACEHOLDER_PREFIXES', 'PLACEHOLDER_TOKENS', 'REQUIRED_CONFIG_STEMS', 'WEIGHTS_GLOB', 'find_placeholders', 'is_placeholder_value', 'load_all', 'scan_config_trees']
+count                                    : 12
+ruling 11 six names present              : True
+any T06 keyword in a public signature    : False
+module imports typer / click / argparse  : False
+ConfigSemanticError in source text       : True
+WeightVersionInvalidError in source text : True
+a semantic / weight-version validation   : False
+  ConfigSemanticError / WeightVersionInvalidError appear in the source text
+  only inside pre-existing prose (lines 20-21 and 466, untouched by this
+  round); hasattr() on the module is False for both, which is the probe that
+  counts. Verbatim:
+    dsm/config.py:20| touching the function skeleton, and ConfigSemanticError /
+    dsm/config.py:21| WeightVersionInvalidError are deliberately not defined here: [L881] names three
+    dsm/config.py:466|     # ConfigSemanticError and WeightVersionInvalidError ([L881]), which S1-T06
+
+
+------------------------------------------------------------------------------
+PART 8.2 -- R6 round-2 self-check list. Each line states the measured value that
+decides it; the measuring section is named in brackets. R6 does not self-review
+the contract, it only reports measurements.
+------------------------------------------------------------------------------
+[PASS] write set is exactly 3 files + this evidence file. git status --porcelain
+       lists no new entry beyond the pre-existing in-progress set, and the
+       sha256[:12] of every file outside the write set is unchanged and older
+       than this round [SECTION G].
+[PASS] dsm/config.py changed by ruling 23 only: one hunk, +15 / -12 lines, one
+       functional line (A1) plus the docstring paragraph (A2) [PART 4 diff].
+[PASS] dsm/config.py NOT changed for ruling 24: ruling 24 says in so many words
+       that this file must not move for it, and the only two edits are the two
+       ruling 23 edits [PART 0 A3, PART 4 diff].
+[PASS] missing_files branch untouched, ruling 18 preserved: the statement is
+       byte identical pre and post [SECTION J].
+[PASS] the two-branch defence text is gone; zero hits for "names no key",
+       "order independent reading", "Both branches", "the tests pin more"; the
+       single surviving "plain string sort" hit is the negation ruling 23 asks
+       for [SECTION I].
+[PASS] no T06 feature: hasattr(ConfigSemanticError) False, hasattr(
+       WeightVersionInvalidError) False, no validation function, no --period /
+       --run-at on any public signature, no typer / click / argparse import;
+       load_all signature is still (config_dir) [SECTION F, SECTION F2].
+[PASS] ruling 11 public surface unchanged: 12 top level public names by AST,
+       the same 12 R4 measured at L4; all five signatures verbatim unchanged
+       [SECTION F2].
+[PASS] H-9: dsm/config.py imports only collections.abc, pathlib, typing, yaml
+       and pydantic; no weights_ahp / weights_combine / fixtures_gen /
+       weights_calibrate / whatif and no dsm.models / dsm.numeric /
+       dsm.reason_codes [SECTION E].
+[PASS] purity: no datetime.now, time.time, date.today, utcnow, localtime,
+       monotonic, perf_counter, random. or os.environ anywhere in the source
+       [SECTION E]; the in-repo gates i01 / i06 / i07 / i08 / i09 / i12 / i13
+       are part of the 219 that pass [PART 1 layer 2].
+[PASS] no skip and no xfail: grep for an applied marker returns exit code 1 with
+       empty output; the word occurrences are prose only and their counts are
+       identical pre and post [SECTION C].
+[PASS] no test deleted and no assertion weakened: 0 removed collected ids,
+       def test_ count 114 -> 118 in the placeholder file and 17 -> 18 in the
+       property file, assert count 162 -> 169 and 33 -> 38, i.e. both went up
+       [SECTION C, SECTION H].
+[PASS] exactly one golden value moved, b05, and ruling 23 bullet 3 orders that
+       move verbatim; its new expectation is derived from the [L1250]-[L1257]
+       file order, not from an implementation output [PART 0 B1, PART 6.2].
+[PASS] p06 kept verbatim including paths == tuple(sorted(set(paths))), and the
+       reachable assertion was added instead of the vacuous part being deleted
+       [PART 0 C2].
+[PASS] H-4 no float literal introduced: 0 in dsm/config.py pre and post, 1 in
+       each test file pre and post, that one being the pre-existing
+       TYPE_PROBE_FLOAT type probe annotated in situ as not a business value
+       [SECTION D].
+[PASS] H-5 no business number introduced: the int literal multiset delta is
+       {1: +1} in the placeholder file and {1: +2, 2: +2} in the property file,
+       all of them the key-collision probe, a strategy max_size and an expected
+       occurrence count; no weight, threshold, floor, target, unit price, period,
+       sample size or K-01..K-20 value; the in-repo H-5 gates l01 / l04 / l05
+       pass inside the 219 [SECTION D, PART 1 layer 2].
+[PASS] fixtures stay synthetic: every stem and key added this round is SYN-* or
+       the collision key; the repository config/ directory is still empty
+       (ruling 13) [SECTION G].
+[PASS] mutation work ran outside the repository in a scratch copy, the scratch
+       tree was removed, and the sha256[:12] of all three write-set files in the
+       real repository is unchanged after the runs [PART 5 tail].
+[PASS] H-2 pipeline used: staging root dsm_stage_S1-T05_r6b, rsync -a, then
+       tools/normalize.py; BOM False, CR 0, TAB 0 for all three files and for
+       this evidence file [SECTION A, PART 7].
+[PASS] no git write operation: no add, commit, push or tag; HEAD is still
+       17dd568ff18c4e48b126b5e1a5bb72b0e0bd6ae0 and git diff --numstat is empty
+       [SECTION G].
+[PASS] docs/, ops/blockers.md, ops/dag-state.json, config/ and the read-only
+       CampaignLab tree were never opened for writing; the L1-red.txt and
+       L4-*.txt evidence of the earlier rounds is byte unchanged [SECTION G].
+[PASS] no conflict between ruling 23 and ruling 24 was found, so nothing had to
+       be escalated: ruling 23 asks for one code line and one expectation, ruling
+       24 asks for test-only additions, and the two write sets do not overlap.
+
+==============================================================================
+END OF L5-r6-fix2.txt -- R6 round 2, S1-T05. R4 re-checks; R6 does not
+self-review. This file cannot carry its own final sha256; the lines / bytes /
+sha256[:12] of this evidence file are measured after normalize and reported in
+the R6 reply text.
+==============================================================================

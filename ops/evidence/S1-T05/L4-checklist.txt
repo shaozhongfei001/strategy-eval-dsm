@@ -1,0 +1,290 @@
+S1-T05 / L4 (R4 independent review) -- acceptance checklist T05-A .. T05-M (ORCH-23 section 7)
+
+method : for every checklist letter the reviewer re-ran the matching tests with
+         /home/szf/venvs/dsm/bin/python -m pytest tests/test_config_placeholder.py tests/test_config_properties.py -k t05_<letter> --tb=no
+         and listed the collected test ids. The implementation side is evidenced by
+         L4-probe-api.txt (D1-D5) and L4-probe-io.txt (D5-D11). No -q was re-added.
+
+collected test ids in the two new files : 209
+
+==========================================================================
+T05-A   tests collected=9   pytest rc=0
+   summary line (verbatim) : 9 passed, 200 deselected in 0.28s
+     test_t05_a01_exit_config_constant_is_three
+     test_t05_a02_error_instance_carries_exit_code_three
+     test_t05_a03_exit_code_is_a_plain_int
+     test_t05_a04_the_error_is_an_exception_subclass
+     test_t05_a05_paths_attribute_is_a_tuple
+     test_t05_a06_missing_files_defaults_to_an_empty_tuple
+     test_t05_a07_the_constructor_accepts_any_iterable[paths_in0]
+     test_t05_a07_the_constructor_accepts_any_iterable[paths_in1]
+     test_t05_a08_load_all_raises_with_exit_code_three
+
+==========================================================================
+T05-B   tests collected=15   pytest rc=0
+   summary line (verbatim) : 15 passed, 194 deselected in 0.31s
+     test_t05_b01_all_paths_are_listed_at_once
+     test_t05_b02_the_path_count_equals_the_hit_count[1]
+     test_t05_b02_the_path_count_equals_the_hit_count[2]
+     test_t05_b02_the_path_count_equals_the_hit_count[3]
+     test_t05_b02_the_path_count_equals_the_hit_count[5]
+     test_t05_b02_the_path_count_equals_the_hit_count[8]
+     test_t05_b02_the_path_count_equals_the_hit_count[13]
+     test_t05_b03_the_first_path_is_not_the_only_one_reported
+     test_t05_b04_error_paths_are_deduplicated
+     test_t05_b05_error_paths_are_sorted
+     test_t05_b06_the_message_first_line_carries_the_total_count
+     test_t05_b07_the_message_lists_every_path_on_its_own_dash_line
+     test_t05_b08_scan_config_trees_collects_across_files
+     test_t05_b09_hits_are_found_at_arbitrary_depth
+     test_t05_b10_a_large_tree_is_not_truncated
+
+==========================================================================
+T05-C   tests collected=52   pytest rc=0
+   summary line (verbatim) : 52 passed, 157 deselected in 0.27s
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[PLACEHOLDER]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[placeholder]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[Placeholder]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[  PLACEHOLDER  ]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[\tPLACEHOLDER\n]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[TODO]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[todo]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[TBD]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[tbd]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[XXX]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[xxx]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[PLACEHOLDER_K-01]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[PLACEHOLDER_K-20]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[PLACEHOLDER_SYN-AWAITING-SIGNOFF]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[TODO_SYN-FILL]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[TBD-SYN]
+     test_t05_c01_ruling_5_hit_strings_are_placeholders[XXX_SYN]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[OK]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[ACTIVE]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[SIGNED]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[FROZEN]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[DRAFT]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[SYN-NOTE-01]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[SYN-free text rationale about the scoring period]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[abcTODOdef]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[XPLACEHOLDER]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[MY_TBD]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[aXXXb]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[PLACE]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[HOLDERS]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[TO_DO]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[TO-DO]
+     test_t05_c02_ruling_5_miss_strings_are_not_placeholders[SYN-OK]
+     test_t05_c03_non_string_scalars_are_filled_values[0]
+     test_t05_c03_non_string_scalars_are_filled_values[1]
+     test_t05_c03_non_string_scalars_are_filled_values[-1]
+     test_t05_c03_non_string_scalars_are_filled_values[0.5]
+     test_t05_c03_non_string_scalars_are_filled_values[True]
+     test_t05_c03_non_string_scalars_are_filled_values[False]
+     test_t05_c04_containers_are_not_placeholder_values_themselves[value0]
+     test_t05_c04_containers_are_not_placeholder_values_themselves[value1]
+     test_t05_c05_a_substring_is_not_a_hit_inside_a_real_tree
+     test_t05_c06_dict_keys_are_never_scanned
+     test_t05_c07_placeholder_tokens_hold_the_four_ruling_5_words
+     test_t05_c08_placeholder_prefixes_hold_the_same_four_words
+     test_t05_c09_the_token_constants_are_tuples_of_str[PLACEHOLDER_TOKENS]
+     test_t05_c09_the_token_constants_are_tuples_of_str[PLACEHOLDER_PREFIXES]
+     test_t05_c10_the_prefix_branch_is_case_insensitive[placeholder_k-01]
+     test_t05_c10_the_prefix_branch_is_case_insensitive[Todo_SYN-FILL]
+     test_t05_c10_the_prefix_branch_is_case_insensitive[tbd-syn]
+     test_t05_c10_the_prefix_branch_is_case_insensitive[XXX_SYN]
+     test_t05_c11_a_prefixed_variant_survives_a_full_tree_scan
+
+==========================================================================
+T05-D   tests collected=14   pytest rc=0
+   summary line (verbatim) : 14 passed, 195 deselected in 0.38s
+     test_t05_d01_is_placeholder_value_none_is_true
+     test_t05_d02_a_top_level_none_value_hits
+     test_t05_d03_a_nested_dict_none_hits
+     test_t05_d04_a_list_element_none_hits
+     test_t05_d05_a_none_inside_a_list_of_dicts_hits
+     test_t05_d06_a_deeply_nested_none_hits
+     test_t05_d07_an_empty_yaml_file_hits_as_its_bare_stem[eval_config]
+     test_t05_d07_an_empty_yaml_file_hits_as_its_bare_stem[redlines]
+     test_t05_d07_an_empty_yaml_file_hits_as_its_bare_stem[grade_rules]
+     test_t05_d07_an_empty_yaml_file_hits_as_its_bare_stem[anchor_set]
+     test_t05_d07_an_empty_yaml_file_hits_as_its_bare_stem[ahp_matrices]
+     test_t05_d08_a_comment_only_yaml_file_hits_as_its_bare_stem
+     test_t05_d09_none_is_never_treated_as_an_optional_absence
+     test_t05_d10_every_none_in_a_tree_is_reported
+
+==========================================================================
+T05-E   tests collected=13   pytest rc=0
+   summary line (verbatim) : 13 passed, 196 deselected in 0.32s
+     test_t05_e01_nested_dicts_are_joined_with_dots
+     test_t05_e02_list_indices_are_zero_based_and_bracketed
+     test_t05_e03_a_top_level_scalar_is_stem_dot_key
+     test_t05_e04_a_none_tree_reports_the_bare_stem
+     test_t05_e05_each_weights_file_keeps_its_own_stem[weights_WV-SYN-0001]
+     test_t05_e05_each_weights_file_keeps_its_own_stem[weights_WV-SYN-0002]
+     test_t05_e05_each_weights_file_keeps_its_own_stem[weights_WV-SYN-0003]
+     test_t05_e06_two_weights_files_do_not_mix_their_stems
+     test_t05_e07_nested_lists_chain_their_indices
+     test_t05_e08_the_root_argument_is_used_as_the_path_prefix
+     test_t05_e09_the_default_root_produces_paths_without_a_leading_dot
+     test_t05_e10_paths_never_carry_the_yaml_extension
+     test_t05_e11_a_list_of_dicts_spells_key_index_key
+
+==========================================================================
+T05-F   tests collected=7   pytest rc=0
+   summary line (verbatim) : 7 passed, 202 deselected in 0.23s
+     test_t05_f01_the_same_input_twice_is_byte_identical
+     test_t05_f02_files_are_reported_in_the_l1250_to_l1257_order
+     test_t05_f03_weights_stems_are_sorted_ascending
+     test_t05_f04_paths_inside_one_file_are_string_sorted
+     test_t05_f05_the_result_does_not_depend_on_dict_insertion_order
+     test_t05_f06_scan_config_trees_sorts_across_several_files
+     test_t05_f07_find_placeholders_keeps_traversal_order_not_sorted_order
+
+==========================================================================
+T05-G   tests collected=13   pytest rc=0
+   summary line (verbatim) : 13 passed, 196 deselected in 0.32s
+     test_t05_g01_a_single_missing_required_file_is_reported
+     test_t05_g02_missing_files_is_a_tuple_of_stems
+     test_t05_g03_all_five_missing_files_are_reported_at_once
+     test_t05_g04_no_weights_file_at_all_counts_as_missing
+     test_t05_g05_missing_files_and_placeholder_paths_share_one_exit
+     test_t05_g06_no_appconfig_is_returned_when_a_file_is_missing
+     test_t05_g07_the_message_appends_the_missing_block_after_a_blank_line
+     test_t05_g08_an_empty_config_dir_reports_everything_missing
+     test_t05_g09_required_config_stems_hold_the_five_fixed_names_in_order
+     test_t05_g10_the_weights_glob_constant_is_verbatim
+     test_t05_g11_missing_files_are_deduplicated_and_deterministic
+     test_t05_g12_an_unrelated_yaml_file_is_not_required
+     test_t05_g13_a_missing_file_is_never_replaced_by_an_empty_tree
+
+==========================================================================
+T05-H   tests collected=22   pytest rc=0
+   summary line (verbatim) : 22 passed, 187 deselected in 0.25s
+     test_t05_h01_appconfig_declares_exactly_the_six_slots
+     test_t05_h02_each_of_the_six_slot_names_is_verbatim[eval_config]
+     test_t05_h02_each_of_the_six_slot_names_is_verbatim[weights]
+     test_t05_h02_each_of_the_six_slot_names_is_verbatim[redlines]
+     test_t05_h02_each_of_the_six_slot_names_is_verbatim[grade_rules]
+     test_t05_h02_each_of_the_six_slot_names_is_verbatim[anchor_set]
+     test_t05_h02_each_of_the_six_slot_names_is_verbatim[ahp_matrices]
+     test_t05_h03_a_built_appconfig_refuses_reassignment[eval_config]
+     test_t05_h03_a_built_appconfig_refuses_reassignment[weights]
+     test_t05_h03_a_built_appconfig_refuses_reassignment[redlines]
+     test_t05_h03_a_built_appconfig_refuses_reassignment[grade_rules]
+     test_t05_h03_a_built_appconfig_refuses_reassignment[anchor_set]
+     test_t05_h03_a_built_appconfig_refuses_reassignment[ahp_matrices]
+     test_t05_h04_an_undeclared_slot_is_rejected
+     test_t05_h05_the_weights_slot_is_keyed_by_file_stem
+     test_t05_h06_config_tree_is_the_dict_str_any_alias
+     test_t05_h07_no_field_level_schema_was_invented_for_the_content_keys
+     test_t05_h08_appconfig_is_a_pydantic_basemodel
+     test_t05_h09_model_config_is_frozen_and_extra_forbid
+     test_t05_h10_raw_yaml_scalars_are_preserved_without_conversion
+     test_t05_h11_a_fully_filled_dir_loads_into_an_appconfig
+     test_t05_h12_every_one_of_the_six_slots_is_required
+
+==========================================================================
+T05-I   tests collected=19   pytest rc=0
+   summary line (verbatim) : 19 passed, 190 deselected in 0.31s
+     test_t05_i01_config_source_reads_no_wall_clock
+     test_t05_i02_is_placeholder_value_takes_exactly_one_argument
+     test_t05_i03_find_placeholders_is_tree_plus_a_keyword_only_root
+     test_t05_i04_scan_config_trees_takes_exactly_one_argument
+     test_t05_i05_load_all_takes_only_config_dir
+     test_t05_i06_the_pure_functions_perform_no_io[is_placeholder_value]
+     test_t05_i06_the_pure_functions_perform_no_io[find_placeholders]
+     test_t05_i06_the_pure_functions_perform_no_io[scan_config_trees]
+     test_t05_i07_config_module_declares_no_global_or_nonlocal_mutation
+     test_t05_i08_the_pure_functions_are_idempotent[is_placeholder_value]
+     test_t05_i08_the_pure_functions_are_idempotent[find_placeholders]
+     test_t05_i08_the_pure_functions_are_idempotent[scan_config_trees]
+     test_t05_i09_the_pure_functions_do_not_mutate_their_input[is_placeholder_value]
+     test_t05_i09_the_pure_functions_do_not_mutate_their_input[find_placeholders]
+     test_t05_i09_the_pure_functions_do_not_mutate_their_input[scan_config_trees]
+     test_t05_i10_the_pure_calls_leave_the_module_globals_untouched
+     test_t05_i11_load_all_is_the_only_public_io_entry_point
+     test_t05_i12_config_module_imports_no_clock_process_or_random_module
+     test_t05_i13_scan_config_trees_never_reads_the_filesystem
+
+==========================================================================
+T05-J   tests collected=17   pytest rc=0
+   summary line (verbatim) : 17 passed, 192 deselected in 3.07s
+     test_t05_j_s01_the_hypothesis_settings_align_with_the_numeric_conventions
+     test_t05_j_s02_the_oracle_reproduces_the_ruling_8_notation
+     test_t05_j_s03_the_oracle_leaf_rule_matches_the_ruling_5_and_6_tables
+     test_t05_j_s04_this_property_file_carries_no_business_number
+     test_t05_j_p01_a_tree_with_a_hit_yields_a_non_empty_path_list
+     test_t05_j_p02_the_paths_cover_every_hit_position_exactly_once
+     test_t05_j_p03_load_all_raises_config_placeholder_error_with_exit_code_three
+     test_t05_j_p04_no_appconfig_instance_escapes_a_blocked_load
+     test_t05_j_p05_the_error_paths_cover_the_whole_tree
+     test_t05_j_p06_scan_config_trees_is_sorted_and_deduplicated
+     test_t05_j_p07_every_path_carries_the_file_stem_prefix
+     test_t05_j_p08_two_identical_calls_are_byte_identical
+     test_t05_j_p09_the_pure_functions_do_not_mutate_their_input
+     test_t05_j_p10_is_placeholder_value_agrees_with_the_ruling_5_leaf_rule
+     test_t05_j_n01_a_fully_filled_tree_yields_no_path
+     test_t05_j_n02_scan_config_trees_of_a_filled_tree_is_empty
+     test_t05_j_n03_a_fully_filled_dir_loads_into_an_appconfig
+
+==========================================================================
+T05-K   tests collected=13   pytest rc=0
+   summary line (verbatim) : 13 passed, 196 deselected in 0.24s
+     test_t05_k01_config_does_not_import_an_l0_module[weights_ahp]
+     test_t05_k01_config_does_not_import_an_l0_module[weights_combine]
+     test_t05_k01_config_does_not_import_an_l0_module[fixtures_gen]
+     test_t05_k01_config_does_not_import_an_l0_module[weights_calibrate]
+     test_t05_k01_config_does_not_import_an_l0_module[whatif]
+     test_t05_k02_the_t05_stage_does_not_import_its_l1_peers[models]
+     test_t05_k02_the_t05_stage_does_not_import_its_l1_peers[numeric]
+     test_t05_k02_the_t05_stage_does_not_import_its_l1_peers[reason_codes]
+     test_t05_k03_third_party_imports_are_only_yaml_and_pydantic
+     test_t05_k04_the_config_layer_lives_at_dsm_config_py
+     test_t05_k05_load_all_accepts_a_str_or_a_path[False]
+     test_t05_k05_load_all_accepts_a_str_or_a_path[True]
+     test_t05_k06_a_nonexistent_config_dir_is_a_missing_file_case
+
+==========================================================================
+T05-L   tests collected=5   pytest rc=0
+   summary line (verbatim) : 5 passed, 204 deselected in 0.36s
+     test_t05_l01_config_source_carries_no_business_number
+     test_t05_l02_config_source_contains_no_float_literal_at_all
+     test_t05_l03_config_source_spells_governance_slots_as_placeholder
+     test_t05_l04_this_test_file_carries_no_business_number
+     test_t05_l05_the_property_test_file_carries_no_business_number
+
+==========================================================================
+T05-M   tests collected=10   pytest rc=0
+   summary line (verbatim) : 10 passed, 199 deselected in 0.34s
+     test_t05_m01_the_existing_dsm_modules_still_import
+     test_t05_m02_the_models_layer_still_reads_no_wall_clock
+     test_t05_m03_no_dsm_module_imports_an_l0_module
+     test_t05_m04_the_repository_config_directory_stays_empty
+     test_t05_m05_requirements_still_pin_the_config_dependencies[PyYAML==]
+     test_t05_m05_requirements_still_pin_the_config_dependencies[hypothesis==]
+     test_t05_m06_the_new_test_files_carry_no_skip_or_xfail_marker
+     test_t05_m07_the_new_test_files_are_bom_free_lf_and_tab_free[path0]
+     test_t05_m07_the_new_test_files_are_bom_free_lf_and_tab_free[path1]
+     test_t05_m08_the_new_test_files_never_import_dsm_config_at_module_level
+
+==========================================================================
+one line per checklist item
+==========================================================================
+  T05-A  tests=  9  rc=0  9 passed, 200 deselected in 0.28s
+  T05-B  tests= 15  rc=0  15 passed, 194 deselected in 0.31s
+  T05-C  tests= 52  rc=0  52 passed, 157 deselected in 0.27s
+  T05-D  tests= 14  rc=0  14 passed, 195 deselected in 0.38s
+  T05-E  tests= 13  rc=0  13 passed, 196 deselected in 0.32s
+  T05-F  tests=  7  rc=0  7 passed, 202 deselected in 0.23s
+  T05-G  tests= 13  rc=0  13 passed, 196 deselected in 0.32s
+  T05-H  tests= 22  rc=0  22 passed, 187 deselected in 0.25s
+  T05-I  tests= 19  rc=0  19 passed, 190 deselected in 0.31s
+  T05-J  tests= 17  rc=0  17 passed, 192 deselected in 3.07s
+  T05-K  tests= 13  rc=0  13 passed, 196 deselected in 0.24s
+  T05-L  tests=  5  rc=0  5 passed, 204 deselected in 0.36s
+  T05-M  tests= 10  rc=0  10 passed, 199 deselected in 0.34s
+
+total ids accounted for by the thirteen letters : 209
+total collected                                 : 209
+ids not matching any t05_<letter> pattern       : []

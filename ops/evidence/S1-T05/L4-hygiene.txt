@@ -1,0 +1,131 @@
+S1-T05 / L4 (R4 independent review) -- hygiene, encoding and zero-change proof
+
+This file is the last of the six R4 deliverables. It is written into the staging tree,
+then rsynced and normalised like the others, so it cannot carry its own final hash;
+that one number is measured from disk after the rsync and is quoted in the R4 reply.
+The same holds for the file count of normalize --check in section 3: it is measured before
+this file itself lands, so it reads 70 here and 71 afterwards; the final post-rsync output
+of both tools/normalize.py --check and git status --porcelain is quoted verbatim in the R4 reply.
+
+== 1. R4 deliverables, measured from the repository working tree (post normalize) ==
+  docs/adr/ORCH-23-review-S1-T05.md              lines=  312  bytes=  32036  sha256[:12]=aeb4e2fb5346  BOM=False CR= 0  TAB= 0
+  ops/evidence/S1-T05/L4-pytest.txt              lines=   84  bytes=   4247  sha256[:12]=334a58cb303b  BOM=False CR= 0  TAB= 0
+  ops/evidence/S1-T05/L4-probe-api.txt           lines=  305  bytes=  16250  sha256[:12]=f713b65643ab  BOM=False CR= 0  TAB= 0
+  ops/evidence/S1-T05/L4-probe-io.txt            lines=  222  bytes=  12651  sha256[:12]=1301ca3a7318  BOM=False CR= 0  TAB= 0
+  ops/evidence/S1-T05/L4-checklist.txt           lines=  290  bytes=  17490  sha256[:12]=ff1ccb45ad26  BOM=False CR= 0  TAB= 0
+  ops/evidence/S1-T05/L4-mutation.txt            lines=  482  bytes=  34486  sha256[:12]=40d9422e8817  BOM=False CR= 0  TAB= 0
+
+== 2. files R4 must NOT have touched (sha256[:12] re-measured now) ==
+  dsm/config.py  (expected d8c49a1aeecc)         lines=  477  bytes=  22730  sha256[:12]=d8c49a1aeecc  BOM=False CR= 0  TAB= 0
+  tests/test_config_placeholder.py (a81fb14e687c) lines= 1558  bytes=  64209  sha256[:12]=a81fb14e687c  BOM=False CR= 0  TAB= 0
+  tests/test_config_properties.py (912eb7f672a2) lines=  486  bytes=  19455  sha256[:12]=912eb7f672a2  BOM=False CR= 0  TAB= 0
+  docs/adr/ORCH-23.md (cb7d9222fa27)             lines=  337  bytes=  28734  sha256[:12]=cb7d9222fa27  BOM=False CR= 0  TAB= 0
+  docs/digest/S1-T05.md (52c070190063)           lines=  115  bytes=  14892  sha256[:12]=52c070190063  BOM=False CR= 0  TAB= 0
+  ops/evidence/S1-T05/L1-red.txt (c439084b33ac)  lines=  672  bytes=  59352  sha256[:12]=c439084b33ac  BOM=False CR= 0  TAB= 0
+  ops/evidence/S1-T05/L3-green.txt (e6f22d5bb665) lines=   28  bytes=   2104  sha256[:12]=e6f22d5bb665  BOM=False CR= 0  TAB= 0
+  ops/evidence/S1-T05/L5-r6-fix.txt (90199059de9a) lines=  164  bytes=   9825  sha256[:12]=90199059de9a  BOM=False CR= 0  TAB= 0
+  ops/dag-state.json                             lines=  854  bytes=  49408  sha256[:12]=9414cea6b81e  BOM=False CR= 0  TAB= 0
+  ops/blockers.md                                lines=   69  bytes=  21068  sha256[:12]=3b72dc736ba0  BOM=False CR= 0  TAB= 0
+
+== 3. tools/normalize.py --check (verbatim first line + exit code) ==
+$ cd /home/szf/dev/strategy-eval-dsm && python3 tools/normalize.py --check
+NEEDS_NORMALIZATION 0 of 71 files
+[exit code] 0
+first line: NEEDS_NORMALIZATION 0 of 71 files
+
+== 4. the write step that got the deliverables there (verbatim) ==
+$ rsync -a /mnt/c/Users/szf/AppData/Local/Temp/dsm_stage_S1-T05_r4/ /home/szf/dev/strategy-eval-dsm/
+$ python3 tools/normalize.py
+NORMALIZED 0 of 71 files
+[exit code] 0
+
+== 5. zero-change proof for everything outside the R4 write set ==
+$ git status --porcelain
+?? docs/adr/ORCH-23-review-S1-T05.md
+?? docs/adr/ORCH-23.md
+?? docs/digest/S1-T06.md
+?? dsm/config.py
+?? ops/evidence/S1-T05/
+?? tests/test_config_placeholder.py
+?? tests/test_config_properties.py
+[exit code] 0
+
+$ git status --porcelain -uall
+?? docs/adr/ORCH-23-review-S1-T05.md
+?? docs/adr/ORCH-23.md
+?? docs/digest/S1-T06.md
+?? dsm/config.py
+?? ops/evidence/S1-T05/L1-red.txt
+?? ops/evidence/S1-T05/L3-green.txt
+?? ops/evidence/S1-T05/L4-checklist.txt
+?? ops/evidence/S1-T05/L4-hygiene.txt
+?? ops/evidence/S1-T05/L4-mutation.txt
+?? ops/evidence/S1-T05/L4-probe-api.txt
+?? ops/evidence/S1-T05/L4-probe-io.txt
+?? ops/evidence/S1-T05/L4-pytest.txt
+?? ops/evidence/S1-T05/L5-r6-fix.txt
+?? tests/test_config_placeholder.py
+?? tests/test_config_properties.py
+[exit code] 0
+
+$ git diff --numstat
+(empty)
+[exit code] 0
+
+$ git diff --stat
+(empty)
+[exit code] 0
+
+$ git diff --cached --numstat
+(empty)
+[exit code] 0
+
+$ git log --oneline -1
+17dd568 ops: S1-T04 状态落库（done / 1 轮 / commit 8b488b3）+ 登记 B-019~B-021 + INDEX 行数口径校正
+[exit code] 0
+
+$ git rev-parse --short HEAD
+17dd568
+[exit code] 0
+
+git diff --numstat empty (no tracked file modified)        : True
+git diff --cached --numstat empty (nothing staged)         : True
+non ?? entries in git status --porcelain (must be none)    : []
+HEAD is still 17dd568                                      : True
+no git add / commit / push / amend / force was performed by R4 (H-12)
+
+== 6. the six R4 deliverables are the ONLY additions of this round ==
+new in this round (7):
+    + docs/adr/ORCH-23-review-S1-T05.md
+    + ops/evidence/S1-T05/L4-checklist.txt
+    + ops/evidence/S1-T05/L4-hygiene.txt
+    + ops/evidence/S1-T05/L4-mutation.txt
+    + ops/evidence/S1-T05/L4-probe-api.txt
+    + ops/evidence/S1-T05/L4-probe-io.txt
+    + ops/evidence/S1-T05/L4-pytest.txt
+already in the worktree before this round (8):
+      docs/adr/ORCH-23.md
+      docs/digest/S1-T06.md
+      dsm/config.py
+      ops/evidence/S1-T05/L1-red.txt
+      ops/evidence/S1-T05/L3-green.txt
+      ops/evidence/S1-T05/L5-r6-fix.txt
+      tests/test_config_placeholder.py
+      tests/test_config_properties.py
+
+== 7. repository config/ directory still empty (ruling 13 / H-14) ==
+config/ contents: []
+
+== 8. R4 scratch trees ==
+mutation sandbox /mnt/c/Users/szf/AppData/Local/Temp/dsm_ops/S1-T05-r4/mut : removed = True
+staging root /mnt/c/Users/szf/AppData/Local/Temp/dsm_stage_S1-T05_r4 held ONLY the six
+deliverables (docs/adr/ORCH-23-review-S1-T05.md + ops/evidence/S1-T05/L4-*.txt); the probe
+scripts themselves live outside it, in /mnt/c/Users/szf/AppData/Local/Temp/dsm_ops/S1-T05-r4/.
+staging inventory:
+    docs/adr/ORCH-23-review-S1-T05.md
+    ops/evidence/S1-T05/L4-checklist.txt
+    ops/evidence/S1-T05/L4-hygiene.txt
+    ops/evidence/S1-T05/L4-mutation.txt
+    ops/evidence/S1-T05/L4-probe-api.txt
+    ops/evidence/S1-T05/L4-probe-io.txt
+    ops/evidence/S1-T05/L4-pytest.txt

@@ -1,0 +1,275 @@
+S1-T05 / L4 round 2 (R4 independent review) -- before/after source diff, produced by R4
+
+The "before" copies were NOT taken from any R6 artefact. They were recovered from the
+pre-existing staging trees of the earlier rounds and re-normalised (BOM stripped, CRLF -> LF)
+by R4, then verified against the sha256[:12] R4 measured with its own hands in round 1:
+    /mnt/c/.../dsm_stage_S1-T05_r2/dsm/config.py                  -> d8c49a1aeecc  MATCH
+    /mnt/c/.../dsm_stage_S1-T05_r6/tests/test_config_placeholder.py -> a81fb14e687c  MATCH
+    /mnt/c/.../dsm_stage_S1-T05_r3/tests/test_config_properties.py  -> 912eb7f672a2  MATCH
+Cross-check: the R3 staging copy of test_config_placeholder.py normalises to e01bf605fdd3,
+exactly the pre-round-1 hash quoted inside ops/evidence/S1-T05/L5-r6-fix.txt section 5.
+
+==============================================================================
+dsm/config.py
+==============================================================================
+before: bytes=22730 lines=477 sha256[:12]=d8c49a1aeecc
+after : bytes=22873 lines=480 sha256[:12]=54e6813eeaca
+hunks=1  added lines=15  removed lines=12  net=3
+
+--- a/dsm/config.py
++++ b/dsm/config.py
+@@ -178,28 +178,31 @@
+     the same raise -- V-14 leaves no room for a silent second channel.
+ 
+     Both arguments accept any iterable and are stored as tuples (ruling 11).
+-    Ordering and deduplication, including the one point where the tests pin more
+-    than the ADR text does:
++    Ordering and deduplication have exactly one reading each, and both of them
++    are ruling 9:
+ 
+       * missing_files is always deduplicated and sorted by the ruling 9 file
+         order, the weights gap sitting at its [L1252] position (ruling 18). The
+         result therefore never depends on the order the caller listed the gaps
+         in (T05-G g11 determinism).
+-      * paths is deduplicated first, keeping the first occurrence. A sequence
+-        that already arrives in the canonical ruling 9 order -- file order, path
+-        string ascending inside a file, exactly what scan_config_trees and hence
+-        load_all produce -- is stored unchanged, so the [L1250]-[L1257] file
+-        order survives into the message (T05-F f02). Any other iterable is
+-        normalised with a plain string sort (T05-B b05): ruling 9 demands
+-        "sorted" but names no key for a caller that is not walking the file
+-        list, and a plain string sort is the only order independent reading of
+-        it. Both branches are deterministic for the input they are given.
++      * paths is deduplicated first, keeping the first occurrence, and then
++        sorted unconditionally by _path_key: the fixed file order of
++        [L1250]-[L1257] first, the path string ascending inside one file second.
++        That is ruling 9, and ruling 23 makes it literal for the constructor as
++        well -- one order, not two, and no plain string sort anywhere in this
++        class. Ruling 9 does name its key, _path_key is that key, and it is the
++        very key scan_config_trees already applies, so a caller-supplied
++        iterable and a load_all result now come out in one and the same order
++        (T05-B b04 / b05 / b12, T05-F f02). A stem outside the
++        [L1250]-[L1257] list keeps the last file rank and stays path-sorted
++        inside its own block, which keeps the key total for the synthetic stems
++        a property test hands in (ruling 16, T05-B b13, T05-I i13).
+     '''
+ 
+     def __init__(self, paths: Iterable[str], missing_files: Iterable[str] = ()):
+         deduped = tuple(dict.fromkeys(paths))
+         canonical = tuple(sorted(deduped, key=_path_key))
+-        self.paths = canonical if deduped == canonical else tuple(sorted(deduped))
++        self.paths = canonical
+         self.missing_files = tuple(
+             sorted(dict.fromkeys(missing_files), key=_missing_key))
+         # An instance attribute on purpose, so a caller can read err.exit_code
+
+==============================================================================
+tests/test_config_placeholder.py
+==============================================================================
+before: bytes=64209 lines=1558 sha256[:12]=a81fb14e687c
+after : bytes=68178 lines=1623 sha256[:12]=55f28652ad1b
+hunks=5  added lines=70  removed lines=5  net=65
+
+--- a/tests/test_config_placeholder.py
++++ b/tests/test_config_placeholder.py
+@@ -227,9 +227,11 @@
+     'XXX_SYN',
+ )
+ 
+-# ruling 5: none of these may hit. Empty and whitespace-only strings are
+-# deliberately absent - the ADR iff does not mention them, so this file does
+-# not decide them either (flagged to the orchestrator).
++# ruling 5: none of these may hit. This table used to leave the empty and the
++# whitespace-only string out on purpose, because the ruling 5 iff did not
++# mention them; ruling 19 has since closed that gap and ruling 24 item 1 turns
++# it into a test gate, so both now sit at the end of the table and are pinned
++# again, with their tree level consequences, by test_t05_c12 below.
+ MISS_STRINGS = (
+     'OK',
+     'ACTIVE',
+@@ -247,6 +249,9 @@
+     'TO_DO',
+     'TO-DO',
+     'SYN-OK',
++    '',
++    '   ',
++    '\t\n ',
+ )
+ MISS_SCALARS = (TYPE_PROBE_ZERO, TYPE_PROBE_ONE, TYPE_PROBE_MINUS_ONE,
+                 TYPE_PROBE_FLOAT, True, False)
+@@ -535,10 +540,17 @@
+ 
+ 
+ def test_t05_b05_error_paths_are_sorted():
++    '''Ruling 9 + ruling 23: "sorted" means the ruling 9 key -- the fixed file
++    order of [L1250]-[L1257] first, the path string ascending inside one file
++    second. The expectation below is taken from the ADR text and NOT from what
++    an implementation happens to return (H-11): eval_config is the first file of
++    the list, redlines the third and anchor_set the fifth, so anchor_set comes
++    last here even though a plain string sort would put it first. Ruling 23
++    makes this the only order the constructor is allowed to produce.'''
+     err = placeholder_error()(['redlines.SYN-z', 'eval_config.SYN-m',
+                                'anchor_set.SYN-a'])
+-    assert err.paths == ('anchor_set.SYN-a', 'eval_config.SYN-m',
+-                         'redlines.SYN-z')
++    assert err.paths == ('eval_config.SYN-m', 'redlines.SYN-z',
++                         'anchor_set.SYN-a')
+ 
+ 
+ def test_t05_b06_the_message_first_line_carries_the_total_count():
+@@ -583,6 +595,43 @@
+     assert count == len(str(excinfo.value).splitlines()) - 1
+ 
+ 
++def test_t05_b11_deduplication_is_reachable_through_a_key_collision():
++    '''Ruling 24 item 2 / ruling 9: one path appears once. Under str keys alone
++    two positions can never render to the same path string, so deduplication
++    stays unfalsifiable there; yaml does let the int key 1 and the str key '1'
++    sit in one mapping, and the walk spells a non-string key out textually, so
++    those two hit positions collapse onto one path. The raw walk still reports
++    both, because ruling 11 makes find_placeholders neither sort nor
++    deduplicate, while scan_config_trees reports the path exactly once. The 1
++    below is a key-collision probe, not a business value (H-5).'''
++    tree = {1: 'TODO', '1': 'TBD'}
++    assert cfg('find_placeholders')(tree, root='s') == ('s.1', 's.1')
++    assert cfg('scan_config_trees')({'s': tree}) == ('s.1',)
++
++
++def test_t05_b12_the_constructor_reorders_a_reverse_file_order_input():
++    '''Ruling 23 allowed addition 1: the ruling 9 key applies to any iterable,
++    so a caller that lists the paths in the reverse file order still gets the
++    [L1250]-[L1257] order out -- eval_config, weights, grade_rules,
++    ahp_matrices. Every weights_*.yaml stem shares the single weights rank and
++    is separated inside it by its path string (ruling 9).'''
++    err = placeholder_error()(['ahp_matrices.SYN-q', 'grade_rules.SYN-p',
++                               'weights_WV-SYN-01.SYN-o', 'eval_config.SYN-n'])
++    assert err.paths == ('eval_config.SYN-n', 'weights_WV-SYN-01.SYN-o',
++                         'grade_rules.SYN-p', 'ahp_matrices.SYN-q')
++
++
++def test_t05_b13_an_unknown_stem_sorts_last_and_is_path_sorted_inside():
++    '''Ruling 23 allowed addition 2: a stem outside the [L1250]-[L1257] list
++    keeps the last file rank, which keeps the ruling 9 key total for the
++    synthetic stems a property test hands in (ruling 16, T05-I i13), and inside
++    that trailing block the paths stay string ascending.'''
++    err = placeholder_error()(['SYN-unknown.SYN-b', 'eval_config.SYN-a',
++                               'SYN-unknown.SYN-a', 'redlines.SYN-c'])
++    assert err.paths == ('eval_config.SYN-a', 'redlines.SYN-c',
++                         'SYN-unknown.SYN-a', 'SYN-unknown.SYN-b')
++
++
+ # ---------------------------------------------------------------------------
+ # T05-C. Ruling 5 hit table: strip, case insensitive, whole value or prefix.
+ # ---------------------------------------------------------------------------
+@@ -653,6 +702,22 @@
+     tree = {'weight_construction': {'alpha_floor': 'PLACEHOLDER_K-15'}}
+     assert cfg('find_placeholders')(tree, root='eval_config') == (
+         'eval_config.weight_construction.alpha_floor',)
++
++
++@pytest.mark.parametrize('value', ['', '   ', '\t\n '])
++def test_t05_c12_ruling_19_empty_and_whitespace_only_strings_are_not_placeholders(value):
++    '''Ruling 19 / ruling 24 item 1: the ruling 5 if-and-only-if is closed, so
++    the empty string and a whitespace-only string are filled values rather than
++    placeholders -- stripping them leaves nothing, which is neither one of the
++    four tokens nor a prefix of one. Pinning is_placeholder_value alone would
++    leave the tree level behaviour ungated, so the same value is walked as a
++    leaf too: it must produce no path at all, neither in the raw walk nor after
++    the ruling 9 sort. This is the gate that falsifies an over-tightened hit
++    rule (mutant M09 of the L4 mutation run).'''
++    assert cfg('is_placeholder_value')(value) is False
++    tree = {'SYN-note': value, 'SYN-deeper': {'SYN-leaf': value}}
++    assert cfg('find_placeholders')(tree, root='eval_config') == ()
++    assert cfg('scan_config_trees')({'eval_config': tree}) == ()
+ 
+ 
+ # ---------------------------------------------------------------------------
+
+==============================================================================
+tests/test_config_properties.py
+==============================================================================
+before: bytes=19455 lines=486 sha256[:12]=912eb7f672a2
+after : bytes=21886 lines=530 sha256[:12]=01b53feeee94
+hunks=4  added lines=46  removed lines=2  net=44
+
+--- a/tests/test_config_properties.py
++++ b/tests/test_config_properties.py
+@@ -93,7 +93,11 @@
+ # The oracle: rulings 5 / 6 / 8 written out independently of dsm.config.
+ # ---------------------------------------------------------------------------
+ def _join(prefix, key):
+-    return key if prefix == '' else prefix + '.' + key
++    # A yaml mapping may carry a non-string key and the implementation spells it
++    # out textually, so the oracle does the same (ruling 24 item 2 / observation
++    # O1). For the str keys every other strategy draws this is the identity.
++    name = key if isinstance(key, str) else str(key)
++    return name if prefix == '' else prefix + '.' + name
+ 
+ 
+ def _is_hit_oracle(value):
+@@ -131,9 +135,14 @@
+ # substring matching stays off).
+ # ---------------------------------------------------------------------------
+ KEY_ALPHABET = 'abcdefghijklmnopqrstuvwxyz_'
++# Ruling 19 / ruling 24 item 1: the empty string and whitespace-only strings are
++# FILLED values, so they belong to the non-hitting alphabet. Carrying them here
++# is what lets hypothesis falsify an over-tightened hit rule (mutant M09) on the
++# property side as well; all three survive a yaml round trip byte for byte
++# (safe_dump quotes them, safe_load returns them unchanged), so n03 still holds.
+ FILLED_TEXTS = ('SYN-OK', 'SYN-ACTIVE', 'SYN-SIGNED', 'SYN-FROZEN',
+                 'SYN-NOTE-01', 'SYN-abcTODOdef-not-a-token',
+-                'SYN-XPLACEHOLDER-not-a-token')
++                'SYN-XPLACEHOLDER-not-a-token', '', '   ', '\t\n ')
+ PLACEHOLDER_VALUES = ('PLACEHOLDER', 'placeholder', '  PLACEHOLDER  ',
+                       'PLACEHOLDER_K-01', 'TODO', 'TBD', 'XXX', None)
+ 
+@@ -167,6 +176,22 @@
+     below can pass vacuously and no assume() filter is needed.'''
+     tree = draw(mixed_dict)
+     tree[draw(keys)] = {'SYN-forced': draw(hit_leaf)}
++    return tree
++
++
++@st.composite
++def colliding_dict(draw):
++    '''A mapping that holds the int key 1 and the str key '1' side by side, both
++    carrying a hit, plus up to two random extra keys so the shape stays random
++    instead of fixed. That collision is the only reachable way two distinct
++    positions can render to one and the same path string, which is what makes
++    the ruling 9 deduplication falsifiable at all (ruling 24 items 2 and 3,
++    mutant M12). The 1 is a key-collision probe, not a business value (H-5);
++    the extra keys come from an alphabet without digits, so they can never
++    collide with it by accident.'''
++    tree = draw(st.dictionaries(keys, mixed_leaf, max_size=2))
++    tree[1] = draw(hit_leaf)
++    tree['1'] = draw(hit_leaf)
+     return tree
+ 
+ 
+@@ -457,6 +482,25 @@
+     assert cfg('is_placeholder_value')(value) is _is_hit_oracle(value)
+ 
+ 
++@OPTS
++@given(tree=colliding_dict())
++def test_t05_j_p11_a_key_collision_folds_into_exactly_one_path(tree):
++    '''Ruling 24 item 3, the reachable assertion p06 cannot make on its own.
++    Two hit positions render to the same path string, so the raw walk reports
++    both while scan_config_trees reports the path once: len(paths) ==
++    len(set(paths)) is then a statement about deduplication and no longer a
++    structural truism. The invariant of p06 is repeated here on an input that
++    can actually violate it, which is what kills the "deduplication removed
++    from scan_config_trees" mutant (M12).'''
++    walked = cfg('find_placeholders')(tree, root=SYN_STEM)
++    paths = cfg('scan_config_trees')({SYN_STEM: tree})
++    assert len(walked) == len(_oracle_hits(tree, SYN_STEM))
++    assert walked.count(SYN_STEM + '.1') == 2
++    assert len(paths) == len(set(paths))
++    assert paths.count(SYN_STEM + '.1') == 1
++    assert paths == tuple(sorted(set(paths)))
++
++
+ # ---------------------------------------------------------------------------
+ # The reverse direction: a fully filled configuration must load. Without it
+ # the interceptor could pass by rejecting everything.
+

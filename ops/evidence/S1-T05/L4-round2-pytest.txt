@@ -1,0 +1,118 @@
+S1-T05 / L4 round 2 (R4 independent review) -- own pytest re-run (E7)
+runner : /home/szf/venvs/dsm/bin/python -m pytest    (pyproject addopts already holds -q; -q was NEVER re-added)
+
+== 0. HEAD / worktree before the run ==
+$ cd /home/szf/dev/strategy-eval-dsm && git rev-parse HEAD
+17dd568ff18c4e48b126b5e1a5bb72b0e0bd6ae0
+[exit code] 0
+$ cd /home/szf/dev/strategy-eval-dsm && git status --porcelain
+?? docs/adr/ORCH-23-review-S1-T05.md
+?? docs/adr/ORCH-23.md
+?? docs/adr/ORCH-24.md
+?? docs/digest/S1-T06.md
+?? dsm/config.py
+?? ops/evidence/S1-T05/
+?? tests/test_config_placeholder.py
+?? tests/test_config_properties.py
+[exit code] 0
+
+== 1. FULL suite ==
+$ cd /home/szf/dev/strategy-eval-dsm && /home/szf/venvs/dsm/bin/python -m pytest
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+........................................................................ [ 29%]
+........................................................................ [ 33%]
+........................................................................ [ 38%]
+........................................................................ [ 43%]
+........................................................................ [ 48%]
+........................................................................ [ 53%]
+........................................................................ [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 67%]
+........................................................................ [ 72%]
+........................................................................ [ 77%]
+........................................................................ [ 82%]
+........................................................................ [ 87%]
+........................................................................ [ 91%]
+........................................................................ [ 96%]
+...............................................                          [100%]
+1487 passed in 5.03s
+[exit code] 0
+
+== 2. the two config test files alone ==
+$ cd /home/szf/dev/strategy-eval-dsm && /home/szf/venvs/dsm/bin/python -m pytest tests/test_config_placeholder.py tests/test_config_properties.py
+........................................................................ [ 32%]
+........................................................................ [ 65%]
+........................................................................ [ 98%]
+...                                                                      [100%]
+219 passed in 3.80s
+[exit code] 0
+
+== 3. ORCH-23 ruling 21 target: -k i09 ==
+$ cd /home/szf/dev/strategy-eval-dsm && /home/szf/venvs/dsm/bin/python -m pytest tests/test_config_placeholder.py -k i09
+...                                                                      [100%]
+3 passed, 198 deselected in 0.20s
+[exit code] 0
+
+== 4. collected counts (counted in python, never by piping pytest into grep) ==
+collected whole suite          : 1487
+collected two new config files : 219
+
+== 5. verdict lines and token booleans ==
+full-suite last line (verbatim) : 1487 passed in 5.03s
+two-file  last line (verbatim) : 219 passed in 3.80s
+-k i09    last line (verbatim) : 3 passed, 198 deselected in 0.20s
+exit codes                     : full=0 two=0 i09=0
+  full-suite summary contains failed     : False
+  two-file  summary contains failed     : False
+  full-suite summary contains error      : False
+  two-file  summary contains error      : False
+  full-suite summary contains errors     : False
+  two-file  summary contains errors     : False
+  full-suite summary contains skipped    : False
+  two-file  summary contains skipped    : False
+  full-suite summary contains xfailed    : False
+  two-file  summary contains xfailed    : False
+  full-suite summary contains xpassed    : False
+  two-file  summary contains xpassed    : False
+  full-suite summary contains warning    : False
+  two-file  summary contains warning    : False
+  full-suite summary contains deselected : False
+  two-file  summary contains deselected : False
+
+== 6. the arithmetic R6 claims, recomputed by R4 ==
+collected two files            = 219
+round-1 collected two files    = 209   (R4 own measurement, L4-pytest.txt section 4)
+difference (new cases)         = 10
+full suite now                 = 1487
+full suite round 1             = 1477  (R4 own measurement)
+difference                     = 10
+pre-existing cases             = 1487 - 219 = 1268
+round-1 pre-existing cases     = 1477 - 209 = 1268
+pre-existing count unchanged   = True
+
+== 7. the thirteen checklist letters, re-run one by one (E6 same protocol as round 1) ==
+  T05-A  collected=  9  rc=0  9 passed, 210 deselected in 0.24s
+  T05-B  collected= 18  rc=0  18 passed, 201 deselected in 0.32s
+  T05-C  collected= 58  rc=0  58 passed, 161 deselected in 0.28s
+  T05-D  collected= 14  rc=0  14 passed, 205 deselected in 0.32s
+  T05-E  collected= 13  rc=0  13 passed, 206 deselected in 0.29s
+  T05-F  collected=  7  rc=0  7 passed, 212 deselected in 0.26s
+  T05-G  collected= 13  rc=0  13 passed, 206 deselected in 0.30s
+  T05-H  collected= 22  rc=0  22 passed, 197 deselected in 0.29s
+  T05-I  collected= 19  rc=0  19 passed, 200 deselected in 0.30s
+  T05-J  collected= 18  rc=0  18 passed, 201 deselected in 3.21s
+  T05-K  collected= 13  rc=0  13 passed, 206 deselected in 0.30s
+  T05-L  collected=  5  rc=0  5 passed, 214 deselected in 0.26s
+  T05-M  collected= 10  rc=0  10 passed, 209 deselected in 0.33s
+  accounted for = 219 / collected = 219  match=True
+
+== 8. the four NEW placeholder cases and the new property, named explicitly ==
+  -k b11 -> 1 passed, 218 deselected in 0.24s   rc=0
+  -k b12 -> 1 passed, 218 deselected in 0.22s   rc=0
+  -k b13 -> 1 passed, 218 deselected in 0.28s   rc=0
+  -k c12 -> 3 passed, 216 deselected in 0.26s   rc=0
+  -k p11 -> 1 passed, 218 deselected in 0.28s   rc=0

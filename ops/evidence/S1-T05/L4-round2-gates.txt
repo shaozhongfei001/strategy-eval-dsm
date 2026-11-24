@@ -1,0 +1,147 @@
+S1-T05 / L4 round 2 (R4 independent review) -- gates, encoding and zero-change proof (E8)
+
+This file is the last of the eight round-2 R4 deliverables. It is written into the staging
+tree and then rsynced and normalised like the others, so it cannot carry its own final hash;
+that single number is measured from disk after the rsync and quoted in the R4 reply. The same
+holds for the file count of normalize --check below: measured before this file lands, so it
+reads 80 here and 81 afterwards; the final post-rsync output is quoted in the R4 reply too.
+
+== 1. tools/normalize.py --check ==
+$ python3 tools/normalize.py --check    [cwd /home/szf/dev/strategy-eval-dsm]
+NEEDS_NORMALIZATION 0 of 80 files
+[exit code] 0
+
+== 2. the write step that landed the deliverables (verbatim) ==
+$ rsync -a /mnt/c/Users/szf/AppData/Local/Temp/dsm_stage_S1-T05_r4b/ /home/szf/dev/strategy-eval-dsm/
+$ python3 tools/normalize.py    [cwd /home/szf/dev/strategy-eval-dsm]
+NORMALIZED 0 of 80 files
+[exit code] 0
+
+== 3. git state of the reviewed repository ==
+$ git rev-parse HEAD    [cwd /home/szf/dev/strategy-eval-dsm]
+17dd568ff18c4e48b126b5e1a5bb72b0e0bd6ae0
+[exit code] 0
+
+$ git log --oneline -1    [cwd /home/szf/dev/strategy-eval-dsm]
+17dd568 ops: S1-T04 状态落库（done / 1 轮 / commit 8b488b3）+ 登记 B-019~B-021 + INDEX 行数口径校正
+[exit code] 0
+
+$ git status --porcelain    [cwd /home/szf/dev/strategy-eval-dsm]
+?? docs/adr/ORCH-23-review-S1-T05-round2.md
+?? docs/adr/ORCH-23-review-S1-T05.md
+?? docs/adr/ORCH-23.md
+?? docs/adr/ORCH-24.md
+?? docs/digest/S1-T06.md
+?? dsm/config.py
+?? ops/evidence/S1-T05/
+?? tests/test_config_placeholder.py
+?? tests/test_config_properties.py
+[exit code] 0
+
+$ git status --porcelain -uall    [cwd /home/szf/dev/strategy-eval-dsm]
+?? docs/adr/ORCH-23-review-S1-T05-round2.md
+?? docs/adr/ORCH-23-review-S1-T05.md
+?? docs/adr/ORCH-23.md
+?? docs/adr/ORCH-24.md
+?? docs/digest/S1-T06.md
+?? dsm/config.py
+?? ops/evidence/S1-T05/L1-red.txt
+?? ops/evidence/S1-T05/L3-green.txt
+?? ops/evidence/S1-T05/L4-checklist.txt
+?? ops/evidence/S1-T05/L4-hygiene.txt
+?? ops/evidence/S1-T05/L4-mutation.txt
+?? ops/evidence/S1-T05/L4-probe-api.txt
+?? ops/evidence/S1-T05/L4-probe-io.txt
+?? ops/evidence/S1-T05/L4-pytest.txt
+?? ops/evidence/S1-T05/L4-round2-anticheat-diff.txt
+?? ops/evidence/S1-T05/L4-round2-mutation.txt
+?? ops/evidence/S1-T05/L4-round2-probe-api.txt
+?? ops/evidence/S1-T05/L4-round2-probe-io.txt
+?? ops/evidence/S1-T05/L4-round2-probe.txt
+?? ops/evidence/S1-T05/L4-round2-pytest.txt
+?? ops/evidence/S1-T05/L5-r6-fix.txt
+?? ops/evidence/S1-T05/L5-r6-fix2.txt
+?? tests/test_config_placeholder.py
+?? tests/test_config_properties.py
+[exit code] 0
+
+$ git diff --numstat    [cwd /home/szf/dev/strategy-eval-dsm]
+(empty)
+[exit code] 0
+
+$ git diff --cached --numstat    [cwd /home/szf/dev/strategy-eval-dsm]
+(empty)
+[exit code] 0
+
+== 4. repository config/ directory must stay empty (ruling 13 / H-14) ==
+  config/ contents: []
+
+== 5. read-only neighbour repository /home/szf/dev/CampaignLab (queried, never touched) ==
+  --no-optional-locks is used so that not even the index stat cache is written.
+$ git --no-optional-locks status --porcelain    [cwd /home/szf/dev/CampaignLab]
+(empty)
+[exit code] 0
+
+$ git --no-optional-locks rev-parse HEAD    [cwd /home/szf/dev/CampaignLab]
+0cccb76cdee94689448b547b6f06254c51b75d72
+[exit code] 0
+
+$ git --no-optional-locks rev-parse --abbrev-ref HEAD    [cwd /home/szf/dev/CampaignLab]
+m0-framework
+[exit code] 0
+
+  HEAD == 0cccb76cdee94689448b547b6f06254c51b75d72 : True
+  branch == m0-framework                          : True
+  working tree clean (porcelain empty)            : True
+
+== 6. the eight round-2 R4 deliverables, measured from the working tree ==
+  docs/adr/ORCH-23-review-S1-T05-round2.md             lines=  155 bytes= 19432 sha256[:12]=c234520cd85b BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-round2-probe.txt              lines=  269 bytes= 17532 sha256[:12]=2e516f98bb4d BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-round2-mutation.txt           lines=  256 bytes= 17834 sha256[:12]=e1d7a06b7323 BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-round2-pytest.txt             lines=  118 bytes=  6302 sha256[:12]=d09f621da11d BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-round2-anticheat-diff.txt     lines=  275 bytes= 14529 sha256[:12]=b29929c34257 BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-round2-probe-api.txt          lines=  305 bytes= 16286 sha256[:12]=ef329d7fbbbf BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-round2-probe-io.txt           lines=  235 bytes= 13232 sha256[:12]=c5727e4c290e BOM=False CR=0 TAB=0
+
+== 7. files R4 must NOT have touched, sha256[:12] re-measured now ==
+  dsm/config.py                                        lines=  480 bytes= 22873 sha256[:12]=54e6813eeaca BOM=False CR=0 TAB=0  expected=54e6813eeaca MATCH=True
+  tests/test_config_placeholder.py                     lines= 1623 bytes= 68178 sha256[:12]=55f28652ad1b BOM=False CR=0 TAB=0  expected=55f28652ad1b MATCH=True
+  tests/test_config_properties.py                      lines=  530 bytes= 21886 sha256[:12]=01b53feeee94 BOM=False CR=0 TAB=0  expected=01b53feeee94 MATCH=True
+  docs/adr/ORCH-23.md                                  lines=  397 bytes= 33914 sha256[:12]=08d5f97637e9 BOM=False CR=0 TAB=0  expected=08d5f97637e9 MATCH=True
+  docs/adr/ORCH-24.md                                  lines=  422 bytes= 35784 sha256[:12]=0327390ead34 BOM=False CR=0 TAB=0  expected=0327390ead34 MATCH=True
+  docs/adr/ORCH-23-review-S1-T05.md (round 1)          lines=  312 bytes= 32036 sha256[:12]=aeb4e2fb5346 BOM=False CR=0 TAB=0  expected=aeb4e2fb5346 MATCH=True
+  docs/digest/S1-T05.md                                lines=  115 bytes= 14892 sha256[:12]=52c070190063 BOM=False CR=0 TAB=0  expected=52c070190063 MATCH=True
+  ops/evidence/S1-T05/L1-red.txt                       lines=  672 bytes= 59352 sha256[:12]=c439084b33ac BOM=False CR=0 TAB=0  expected=c439084b33ac MATCH=True
+  ops/evidence/S1-T05/L3-green.txt                     lines=   28 bytes=  2104 sha256[:12]=e6f22d5bb665 BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L5-r6-fix.txt                    lines=  164 bytes=  9825 sha256[:12]=90199059de9a BOM=False CR=0 TAB=0  expected=90199059de9a MATCH=True
+  ops/evidence/S1-T05/L5-r6-fix2.txt                   lines= 1113 bytes= 69942 sha256[:12]=dea379ed73f5 BOM=False CR=0 TAB=0  expected=dea379ed73f5 MATCH=True
+  ops/dag-state.json                                   lines=  854 bytes= 49408 sha256[:12]=9414cea6b81e BOM=False CR=0 TAB=0
+  ops/blockers.md                                      lines=   69 bytes= 21068 sha256[:12]=3b72dc736ba0 BOM=False CR=0 TAB=0
+
+== 8. R4 round-1 evidence files, still present and unchanged ==
+  ops/evidence/S1-T05/L4-pytest.txt                    lines=   84 bytes=  4247 sha256[:12]=334a58cb303b BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-probe-api.txt                 lines=  305 bytes= 16250 sha256[:12]=f713b65643ab BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-probe-io.txt                  lines=  222 bytes= 12651 sha256[:12]=1301ca3a7318 BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-checklist.txt                 lines=  290 bytes= 17490 sha256[:12]=ff1ccb45ad26 BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-mutation.txt                  lines=  482 bytes= 34486 sha256[:12]=40d9422e8817 BOM=False CR=0 TAB=0
+  ops/evidence/S1-T05/L4-hygiene.txt                   lines=  131 bytes=  6303 sha256[:12]=f2dd57d6c5cb BOM=False CR=0 TAB=0
+
+== 9. scratch trees ==
+  mutation sandbox mut2 removed       : True
+  before-tree repo_before removed     : True
+  before/ baseline copies kept for audit (three files, sha verified in section 0 of the ADR):
+    before/dsm/config.py  sha256[:12]=d8c49a1aeecc bytes=22730
+    before/tests/test_config_placeholder.py  sha256[:12]=a81fb14e687c bytes=64209
+    before/tests/test_config_properties.py  sha256[:12]=912eb7f672a2 bytes=19455
+  staging root inventory (only deliverables, no probe scripts):
+    docs/adr/ORCH-23-review-S1-T05-round2.md
+    ops/evidence/S1-T05/L4-round2-anticheat-diff.txt
+    ops/evidence/S1-T05/L4-round2-mutation.txt
+    ops/evidence/S1-T05/L4-round2-probe-api.txt
+    ops/evidence/S1-T05/L4-round2-probe-io.txt
+    ops/evidence/S1-T05/L4-round2-probe.txt
+    ops/evidence/S1-T05/L4-round2-pytest.txt
+
+== 10. no git write operation was performed by R4 (H-12) ==
+  HEAD short : 17dd568
+  reflog top : 17dd568 HEAD@{0}: commit: ops: S1-T04 状态落库（done / 1 轮 / commit 8b488b3）+ 登记 B-019~B-021 + INDEX 行数口径校正
