@@ -251,7 +251,7 @@
   "ORCH-06": "全量 pytest 只在 4 个同步点 + Phase 2 跑（tests/ 已 9963 行，每包跑全量会吃掉并行收益）",
   "ORCH-07": "并发槽位实测 = 6（真并行，非多槽单跑）→ 排程由 5 lane 改为 6 lane（新增机动 lane F）。entropy.py(F1) 与 weights_ahp.py(D1) 同批 T+0 起跑，依据 §2.4.3 的 combine(ahp, entropy, opts) 签名证明二者是并列输入；combine 起跑点 T+1.67→T+1.00，Phase 1 由 5.92h 降到 5.50h。audit/diagnostics/reports 由 B、C 移入 F",
   "ORCH-07b": "【条件触发，未启用】whatif ∥ calibrate。M42 行 1073「重跑 Step 1–7（可选 Step 8）」支持此读法，可再省 1.25h（Phase 1→4.25h）。未采纳原因：ORCH §5.9 明令 S8 严格串行且注明 whatif 复用两者。触发条件：SP-2 时 Lane A 落后计划 ≥0.5h，且主控读 M10 digest 确认 Step 8 可选",
-  "ORCH-08": "模型路由落地绑定：v3.0 初版 0 处出现 qwen3.8-max/flash、§8 与 §12 未要求 spawn 传 model，而 spawn_agent 默认继承父模型 → 照初版执行会使 31 包全跑父模型、档位标注沦为装饰。修补 = 新增 R-16 + §5.4 配对表 + §8【模型】段 + §12 逐包标注 + §13 三行对账 + 升降级并行语义；并按 §3.1 打分表修正 8 处档位标低（7 升 C3、E3 降 C2、P3b 降 C1），C3 由 17→23。详见 §5.4 与附 B"
+  "ORCH-08": "模型路由落地绑定：v3.0 初版 0 处出现 qwen3.8-max/flash、§8 与 §12 未要求 spawn 传 model，而 spawn_agent 默认继承父模型 → 照初版执行会使 31 包全跑父模型、档位标注沦为装饰。修补 = 新增 R-16 + §5.4 配对表 + §8【模型】段 + §12 逐包标注 + §13 三行对账 + 升降级并行语义；并按 §3.1 打分表修正 9 处档位错误（7 升 C3、E3 降 C2、P3b 降 C1），C3 由 17→23。详见 §5.4 与附 B"
  },
  "pkg_id_remap_from_5lane": {
   "B5 audit": "F2",
@@ -1263,7 +1263,7 @@
     "用户质询「新 DAG 是否考虑 qwen3.8-max/flash 高低搭配」→ 审计发现执行断层",
     "grep 实测：v3.0 初版全文 0 处出现 qwen3.8-max / qwen3.8-flash，§8 与 §12 均未要求 spawn_agent 传 model",
     "ORCH-08：新增铁律 R-16 + §5.4 模型/effort 配对表（xhigh 3 / high 20 / medium 6 / low 2）+ 升降级并行语义",
-    "按 ORCH §3.1 打分表逐包复核档位，修正 8 处标低（7 升 C3、E3 降 C2、P3b 降 C1），C3 由 17 → 23",
+    "按 ORCH §3.1 打分表逐包复核档位，修正 9 处错误（7 升 2 降）（7 升 C3、E3 降 C2、P3b 降 C1），C3 由 17 → 23",
     "ORCH-04 补完：认定 §3.1 打分表与 §3.4 占比护栏不可同时满足，占比护栏作废，改用 token 硬上限 3.0M",
     "dag-state 每包新增 model_id / effort / token_budget_k / ev.token_k / ev.first_pass / ev.escalated_from"
    ],
