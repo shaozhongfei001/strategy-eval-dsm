@@ -423,6 +423,28 @@
     "8) D-SPEC-G10 状态 OPEN-ADJUDICATING -> CLOSED-BY-ORCH-35，落地在 E3b（测试）+ P2（preflight 分支核验）。裁决前该测试保持 RED，禁止任何一方反填。"
    ],
    "redline_self_proof": "本裁决不弱化任何既有断言：被改的是一条期望值与规范判据 L901 相矛盾的测试，且同时新增此前完全无覆盖的 >=2 维 BLOCK 分支测试，净覆盖增强。"
+  },
+  "ORCH-36": {
+   "at_epoch": 1795561887.78,
+   "clock": "T+5.90h",
+   "title": "G-14 口径裁决（分子改 C 类占比 / 分母同源剔 NOT_ASSESSED / GAP-06 必须接线）+ P2 拆为 P2-cli 与 P2-wire + CONSUMPTION-TODO 9 条逐条分派 + whatif GEOMETRIC 本 RUN 不做",
+   "adr": "docs/adr/RUN-ORCH-36-g14-and-p2-split.md",
+   "rulings": [
+    "1) G-14 分子改为「C 类占比」：SDD L1416 是唯一明文，C+D 口径零原文依据；且守护点若度量 C+D 则对其声称要防的情形完全失效（D->C 搬运时 (C+D) 恒 8/11 不变），违 V-14。L1416 的「一级库中」限定语与 L1002/L137/L1436（C 类不得进一级库）字面互斥，记 ERRATUM-04 交签认，不据其字面实现。",
+    "2) G-14 分母必须与同模块两列 share_* 同源，并依 L1004「NOT_ASSESSED 不计入分母」剔除；同模块对同一概念用两个分母不可辩护。这是原文约束下的收窄，非发明。11 vs 12 之争（D-A1-07）由 A1c 处理。",
+    "3) G-14 阈值保持 numeric.TOL(1E-12) 工程默认不变（改阈值即发明业务参数，违 R-12），但须登记新 K-21 并由 P3a 披露「非业务签认值」。",
+    "4) GAP-06 必须修：mix_quality_verdict 接入 reports.py 与 cli.py，否则算出而不披露 = 静默降级（V-14）。与第 1~3 条同批，否则修了也观测不到。",
+    "5) 新包 G14FIX（写集 dsm/pooling.py + dsm/reports.py + tests/test_pooling.py），必须排在 MODELS-1 之后（pooling 写集相撞）；CONSUMPTION-TODO 第 6 条并入 G14FIX。tests/test_golden_b.py 的 g14 期望不改，应自然转绿；若仍红禁止反填（R-14）。",
+    "6) P2 拆为 P2-cli（已派 Darwin，6 项不依赖 fixtures 的 cli delta）与 P2-wire（A1c+MODELS-1+G14FIX 之后：cli #4/#6、接线、preflight:209-211 核验、ratchet 32->28、编码校验门禁收窄、全量 0 failed 判定、哈希重登记）。原 P2 标记 superseded_by_split。",
+    "7) tf 额度：P2-cli / P2-wire / G14FIX / E3b 一律批准新增测试（tf_max 由 0 上调），因多处 delta 必须新测试锁死；禁弱化既有断言的红线不变。",
+    "8) CONSUMPTION-TODO 分派：#1 A1c 优先其后 P2-wire（退出码 4，ORCH-34 第1条）；#2/#3/#4/#5/#7/#9 归 P2-wire；#6 归 G14FIX；#8 本 RUN 不做。A1c 不得改 dsm/preflight.py（#2 属实现层 V-14 缺陷，归 P2-wire）。",
+    "9) #7 的 WARN->BLOCK 行为变更批准（M22 L902 逐字 BLOCK）：换 WEIGHT_DICT_MISALIGNED 并同步进 RUN_BLOCKING_CODES 与 DISCLOSURE；须复核 tests/test_preflight.py:240 与 L451 一致性断言，不得弱化。",
+    "10) #8 whatif GEOMETRIC 近似归因分支本 RUN 不补，登记 D-A4-02（WONTFIX-THIS-RUN）：属新增功能而非缺陷修复；APPROXIMATE_ATTRIBUTION 的 severity 为 PLACEHOLDER；现状抛 WhatifOperatorError 是显式拒绝，符合 V-14。P3a 须披露 M10 L674/L473 的要求尚未实现，交下一版本。",
+    "11) 编码校验门禁有明文定义（4 处文档来源），四要素 = UTF-8 strict / 无 BOM / LF / 源码无 TAB；门禁作用域收窄为 git ls-files（受版本控制文件实测违规 0）。tools/normalize.py --check 默认作用域含 gitignored dsm_stage 致误报 17/524 -> 登记 D-TOOLS-01 归 P2-wire。20 文件缺末尾 LF 属历史遗留，只对本次变更文件断言。",
+    "12) pytest 命令口径固化为 -ra --tb=no --continue-on-collection-errors（pyproject addopts 已含 -q，再叠 -q 变 -qq 会吞汇总行）-> 教训 L-07。",
+    "13) 哈希纪律：P2-wire 重登记 A1c 后重测值，并保留旧值 8083efc9 与 4de4b8cb 供 P3a 披露，严禁修回旧值。",
+    "14) MODELS-DEFERRED 4 项本 RUN 全不做；G14FIX 若发现 PoolStats 缺 flags 载体，不得擅改 dsm/models.py（MODELS-1 独占），须上报主控。"
+   ]
   }
  },
  "pkg_id_remap_from_5lane": {
@@ -1320,7 +1342,7 @@
    "module": "Phase 2 集成对齐 + 全量回归",
    "cx": "C3",
    "model": "max",
-   "status": "pending",
+   "status": "superseded_by_split",
    "deps": [
     "A4",
     "B4",
@@ -1345,7 +1367,12 @@
    },
    "model_id": "qwen3.8-max",
    "effort": "high",
-   "token_budget_k": 90
+   "token_budget_k": 90,
+   "superseded_by": [
+    "P2-cli",
+    "P2-wire"
+   ],
+   "ruling": "ORCH-36 第二部分"
   },
   "P3a": {
    "lane": "A",
@@ -2035,7 +2062,7 @@
    "result": "盘点实测 79 码（KNOWN-GAPS B-10 的 81 系把 _DYNAMIC_PREFIXES 的 2 行前缀映射误计为码）+ 新增 11 码 = 90；codes_requested 8 项全覆盖；ORCH-30 第2条落地（_BLOCKS_RUN + _BASIS，severity 与 blocks_run 分离登记，依据分 verbatim/derived/PLACEHOLDER 三档并带 Mxx Lnnn 逐字引文）；ratchet 32->32 未改（fresh 碰撞 0，白名单有 4 对已失效全在 fixtures_gen）；SEAM-1 的 normalize 4 处 + pooling 9 处 RC 引用全部已在册，SMALL_POOL 与 INACTIVE_METRIC 早已注册故按 ADJ-3 不重复注册、改以新测试锁死语义；9 条接线登记 CONSUMPTION-TODO.md，4 项 models_questions 登记 MODELS-DEFERRED.md；git diff 278 insertions / 0 deletions（零弱化）；全量 13 failed / 2182 passed / 0 error / 0 skip / 0 xfail（collected 2195）"
   },
   "P2PREP": {
-   "status": "running",
+   "status": "done",
    "agent": "Curie",
    "agent_id": "01a20fb4-e561-73c2-816a-680436ea8d4f",
    "model": "qwen3.8-max",
@@ -2043,7 +2070,11 @@
    "spawned_at_epoch": 1795560556.36,
    "budget_min": 30,
    "readonly": true,
-   "scope": "P2 只读前置设计：cli.py 调用点盘点 / smoke 实测 / 编码校验定义与实测 / 六门禁基线量化(含 skip+xfail 清单) / 红测试归因表 / 施工顺序与并行度 / verify_p2.sh"
+   "scope": "P2 只读前置设计：cli.py 调用点盘点 / smoke 实测 / 编码校验定义与实测 / 六门禁基线量化(含 skip+xfail 清单) / 红测试归因表 / 施工顺序与并行度 / verify_p2.sh",
+   "closed_at_epoch": 1795561887.78,
+   "minutes": 29,
+   "commit": null,
+   "result": "dsm_stage/P2PREP/P2-EXEC-SPEC.md(374 行/55466B, 8 节) + verify_p2.sh(162 行, bash -n 通过未执行) + smoke/(12 份 --help + 10 份真实调用 + 全量日志)。六门禁@0d4d4aa: collected 2195 / passed 2182 / failed 13 / errors 0 / skipped 0 / xfailed 0（skip+xfail 基线为空）。编码校验有明文定义（4 处文档来源），受版本控制文件违规 0，但 tools/normalize.py --check 作用域含 gitignored dsm_stage 故报 17/524。cli.py 需改 8 硬 delta + 2 建议，其中 6 项不依赖 fixtures 可提前施工；新发现 4 处未登记 delta。重大告警：CONSUMPTION-TODO 8 条落点全不在 cli.py，P2 写集恐达 8 文件、budget 75min 不足、tf_max=0 冲突 -> 触发 ORCH-36 拆包"
   },
   "ADJ-G10": {
    "status": "done",
@@ -2066,6 +2097,52 @@
    "closed_at_epoch": 1795560796.63,
    "minutes": 40,
    "result": "docs/deliverables/V-ACCEPTANCE-EVIDENCE.md（92 行，V-1~V-20 四列，全部数字亲自跑出）：✅12 / ❌3（V-1、V-7、V-14）/ ⏳5（V-2、V-3、V-10、V-15、V-20）；须披露 D-1~D-12 + §四写集漂移补记 + §五 E3 落地后补测（覆盖 §一汇总行）；实测复现哈希 4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7（2026-Q2，两连跑相等，exit 0/0）；fixtures 解冻前 sha256 全 17 件清单落 dsm_stage/P3a-prep/fixtures-sha256-pre-thaw.txt（汇总摘要 d17e5d40…）；V-4 三层回溯真抽查闭合；上报与既有记录不符 5 处"
+  },
+  "ADJ-G14": {
+   "status": "done",
+   "agent": "Mill",
+   "closed_at_epoch": 1795561887.78,
+   "minutes": 15,
+   "commit": null,
+   "result": "dsm_stage/ADJ-G14/G14-EVIDENCE.md(487 行/44541B, 10 节, 含逐字原文程序化切片)。四问直答：(a) 分子唯一明文为 SDD L1416「一级库中 C 类占比」，「C+D 占比」逐字原文未找到；另报 L1416 与 L1002/L137/L1436（C 类不得进一级库）字面互斥。(b) 分母原文未定义，仅 L1004「NOT_ASSESSED 不计入分母」一条负向排除，11 vs 12 在 SDD 层面不可判定。(c) 实现 pooling.py:200-208 分子=C+D(LOW_EVIDENCE_CLASSES, 常量:74)、分母=四类合计基线 11 且不剔 NOT_ASSESSED，与两列 share_* 的 domain_count/len(assessed)(:424/:425) 不同源；判据 :211-224 用 numeric.TOL=1E-12，阈值非明文/不在 config/不属 K-01~K-20。(d) 不能仅靠 A1c 解决，必须改实现；另报独立缺口 GAP-06：mix_quality_verdict 未被 reports.py/cli.py 调用，警示到不了报告。仓库零改动"
+  },
+  "P2-cli": {
+   "status": "running",
+   "agent": "Darwin",
+   "agent_id": "01a20fd0-9657-7691-a4c0-085efa15f4ba",
+   "model": "qwen3.8-max",
+   "effort": "high",
+   "spawned_at_epoch": 1795561887.78,
+   "budget_min": 45,
+   "tf_max": "approved",
+   "writeset": [
+    "dsm/cli.py",
+    "tests/test_cli.py"
+   ],
+   "scope": "ORCH-36 拆包产物：6 项不依赖 fixtures 的 cli delta（#5 _EXCEPTION_CODES 三族异常映射 / #8 cmd_combine_build 接 elicit_hierarchy / #9 cmd_calibrate 接 4 注入 / #10 cmd_whatif 补 run_id+input_dir+directory_hash+--include-sensitivity / #14 --help 退出码 5 修正 / #3 L193 静默 pass 治 V-14）"
+  },
+  "P2-wire": {
+   "status": "pending",
+   "depends_on": [
+    "A1c",
+    "MODELS-1",
+    "G14FIX",
+    "P2-cli"
+   ],
+   "tf_max": "approved",
+   "scope": "ORCH-36 拆包产物：cli #4/#6、CONSUMPTION-TODO 第 2/3/4/5/7/9 条接线、preflight.py:209-211 等价性核验(ORCH-35 第4条)、ratchet 32->28 收缩、编码校验门禁收窄到 git ls-files、D-TOOLS-01、全量 0 failed 判定与哈希重登记（保留旧值 8083efc9 与 4de4b8cb）"
+  },
+  "G14FIX": {
+   "status": "pending",
+   "depends_on": [
+    "MODELS-1"
+   ],
+   "writeset": [
+    "dsm/pooling.py",
+    "dsm/reports.py",
+    "tests/test_pooling.py"
+   ],
+   "scope": "ORCH-36 第一部分：分子改 C 类占比(L1416 唯一明文)、分母与 share_* 同源且依 L1004 剔 NOT_ASSESSED、阈值保持 TOL 工程默认并登记新 K-21 PLACEHOLDER、GAP-06 把 mix_quality_verdict 接入 reports.py+cli.py、并入 CONSUMPTION-TODO 第 6 条 PRIMARY_POOL_REJECTED_GRADE。禁改 tests/test_golden_b.py 的 g14 期望（应自然转绿），禁改 dsm/models.py（MODELS-1 独占）"
   }
  },
  "legacy_tasks": [
@@ -2192,15 +2269,15 @@
   "plan_scope_complete": true
  },
  "next_dispatch": {
-  "immediate": "等 ADJ-G10 取证 -> 主控裁 ORCH-34（G-10 归属）；等 A1CPREP 交付 A1C-EXEC-SPEC.md",
+  "immediate": "等 A1CPREP(Huygens) 交付 A1C-EXEC-SPEC.md -> 立刻派 A1c（max/xhigh，最高优先 D-A1-04）",
   "then": [
-   "A1c 解锁条件 = A1CPREP 交付 + E3 已落地(满足) + SEAM-1 已落地(满足) + MODELS-1 不在 fixtures 上撞写集；一旦 A1C-EXEC-SPEC.md 到手即派 A1c（max/xhigh）",
-   "A1c -> E2b -> E3b 严格串行（E3b 须吸收 ORCH-34 裁决与 D-A1-06/07/08 的重算）",
-   "R15B2 的 CONSUMPTION-TODO.md + MODELS-1 的 HANDOFF-P2.md + P2PREP 的 P2-EXEC-SPEC.md 三件合流 -> P2",
-   "P2 全量转绿 -> P3a / P3b / P3c 并行"
+   "MODELS-1 落地 -> 派 G14FIX（pooling+reports，含 CONSUMPTION-TODO 第6条）",
+   "A1c 落地 -> E2b -> E3b 串行（E3b 须吸收 ORCH-35 的 g10 改名+新增 >=2 维 BLOCK 测试）",
+   "A1c + MODELS-1 + G14FIX + P2-cli 全落地 -> 派 P2-wire（全量 0 failed 判定 + 接线 + ratchet 收缩 + 编码校验 + 哈希重登记）",
+   "P2-wire 转绿 -> P3a / P3b / P3c 并行收口 -> 主控统一 git push + tag v1.1.0"
   ],
-  "slot_policy": "6 槽硬上限，收到交付先 close_agent 再补派",
-  "note": "T+5.53h；在飞 MODELS-1 / A1CPREP / R15B2 / P2PREP / P3a-prep(Singer) / ADJ-G10 = 6 满槽"
+  "slot_policy": "6 槽硬上限（实测含已完成未关闭者），收到交付先 close_agent 再补派",
+  "note": "T+5.90h；关键路径 = A1c -> E3b -> P2-wire -> P3a/b/c；G14FIX 与 P2-cli 为并行旁路"
  },
  "session_log": [
   {
@@ -2868,15 +2945,6 @@
    "adhoc": true,
    "spawned_at_epoch": 1795560556.36
   },
-  "P2PREP": {
-   "agent_id": "01a20fb4-e561-73c2-816a-680436ea8d4f",
-   "nickname": "Curie",
-   "model_id": "qwen3.8-max",
-   "effort": "high",
-   "adhoc": true,
-   "spawned_at_epoch": 1795560556.36,
-   "readonly": true
-  },
   "P3b-prep": {
    "agent_id": "01a20fc1-7c2b-7f52-89c2-3256c26d983c",
    "nickname": "Erdos",
@@ -2884,6 +2952,22 @@
    "effort": "high",
    "adhoc": true,
    "spawned_at_epoch": 1795560796.63
+  },
+  "P2-cli": {
+   "agent_id": "01a20fd0-9657-7691-a4c0-085efa15f4ba",
+   "nickname": "Darwin",
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "adhoc": true,
+   "spawned_at_epoch": 1795561887.78
+  },
+  "P3C-draft": {
+   "agent_id": "01a20fcf-62f1-77b2-a416-25853b3b1b34",
+   "nickname": "Ampere",
+   "model_id": "qwen3.8-max",
+   "effort": "high",
+   "adhoc": true,
+   "spawned_at_epoch": 1795561887.78
   }
  },
  "self_check_T0": {
@@ -3711,6 +3795,36 @@
    "disposition": "派 ADJ-G10 只读取证（逐字原文 + C-01~C-08 全表 + 是否命中其他 C-xx + 候选方案列举），主控裁 ORCH-34 后由 E3b 或 preflight 修复包落地；裁决前保持 RED，禁止任何一方反填",
    "ruling": "docs/adr/RUN-ORCH-35-g10-dimension-emptied-conflict.md",
    "resolution": "规范判据取 M22 C-02（SDD L901）：单维清空 WARN + 该维度 W 置 0 重归一，>=2 维才 BLOCK。实现正确，测试期望过严 -> E3b 改期望+改名+新增 >=2 维 BLOCK 测试；preflight.py:209-211 分支等价性核验 -> P2；M31 L1412 与 §4.4 L1585 记 ERRATUM-01 交签认"
+  },
+  {
+   "id": "D-TOOLS-01",
+   "status": "OPEN",
+   "found_at": "T+5.90h",
+   "found_by": "P2PREP（编码校验实测）",
+   "file": "tools/normalize.py",
+   "symptom": "--check 的默认作用域包含 gitignored 的 dsm_stage/，故报 17 of 524 违规，而 17/17 全在 dsm_stage/{C2b,E3,SEAM-1}；受版本控制文件实测违规为 0",
+   "fix_package": "P2-wire（同时把编码校验门禁作用域收窄为 git ls-files）",
+   "ruling": "ORCH-36 第11条"
+  },
+  {
+   "id": "D-G14-01",
+   "status": "OPEN",
+   "found_at": "T+5.90h",
+   "found_by": "ADJ-G14 取证（GAP-06）",
+   "file": "dsm/reports.py + dsm/cli.py",
+   "symptom": "mix_quality_verdict 未被 reports.py / cli.py 调用，「报告出现 MIX_QUALITY_DEGRADED 警示」在现接线下永不成立；算出而不披露属 V-14 静默降级",
+   "fix_package": "G14FIX（与分子/分母口径修正同批，否则修了也观测不到）",
+   "ruling": "ORCH-36 第4条"
+  },
+  {
+   "id": "D-G14-02",
+   "status": "OPEN",
+   "found_at": "T+5.90h",
+   "found_by": "ADJ-G14 取证",
+   "file": "dsm/pooling.py:200-208",
+   "symptom": "MIX_QUALITY_DEGRADED 的分子用 C+D（LOW_EVIDENCE_CLASSES）零原文依据，唯一明文 SDD L1416 写「C 类占比」；分母用四类合计且不剔 NOT_ASSESSED，与同模块两列 share_* 的 domain_count/len(assessed)(:424/:425) 不同源",
+   "fix_package": "G14FIX",
+   "ruling": "ORCH-36 第1/2条"
   }
  ],
  "environment_changes": [
@@ -3768,6 +3882,13 @@
    "lesson": "主控写盘链路必须显式 UTF-8 无 BOM。PowerShell Set-Content -Encoding ASCII 会把 here-string 里的中文静默转成问号（提交信息与 dag-state 文本双双损坏），而 -Encoding UTF8 又会加 BOM 使 bash 首行报 command not found。正确做法：用 [IO.File]::WriteAllText(path, text, (New-Object System.Text.UTF8Encoding($false)))。",
    "incident": "dbe96aa 的提交信息与 ORCH-31 原文被转写为问号；已由 0b0c8f3 重写 ORCH-31 文本，dbe96aa 不做 amend（避免与在飞 lane 抢 index.lock 及改写历史）。",
    "rule": "此后所有主控脚本一律 UTF-8 无 BOM 落盘；任何含中文的提交信息，提交后必须用 git log -1 --pretty=%B 回读自证可读。"
+  },
+  {
+   "id": "L-07",
+   "at_epoch": 1795561887.78,
+   "clock": "T+5.90h",
+   "lesson": "pytest 取数命令固定为 -ra --tb=no --continue-on-collection-errors。pyproject.toml 的 addopts 已含 -q，命令行再叠 -q 会变 -qq，吞掉汇总行与 short summary，看起来像 pytest 崩溃（P2PREP 踩中 2 次）。",
+   "rule": "任何 lane 与主控取六门禁数字一律用该固定命令；需要明细时用 -ra，不得用 -q/-qq。"
   }
  ],
  "gap_adjudications_SP1": {
@@ -3913,9 +4034,9 @@
   }
  },
  "clock_now": {
-  "epoch": 1795561060.47,
-  "t_hours": 5.667,
-  "remaining_hours": 4.333
+  "epoch": 1795561887.78,
+  "t_hours": 5.897,
+  "remaining_hours": 4.103
  },
  "gap_adjudications_SP2": {
   "new_gaps_reported_wave1_2": {
@@ -4107,6 +4228,30 @@
    "issue": "该码名在 SDD 全文 0 命中，属工程自名",
    "disposition": "按 ADJ-3 不改名不删除；severity/blocks_run 服从 L901（单维清空 WARN / blocks_run=False）；P3a 披露无原文依据",
    "owner": "P3a 披露"
+  },
+  {
+   "id": "ERRATUM-04",
+   "at": "T+5.90h",
+   "where": "SDD L1416（§3.16.2）",
+   "issue": "逐字为「构造一级库中 C 类占比上升的场景」，但 L1002 / L137 / L1436 明文 C 类不得进一级库（一级库内 C 恒 0），故「一级库中」这一限定语字面不可满足，会使 MIX_QUALITY_DEGRADED 判据恒不触发",
+   "disposition": "ORCH-36 第1条：不据「一级库中」字面实现，分子取「C 类占比」；交业务签认是否应表述为「候选池/全体策略中 C 类占比」",
+   "owner": "P3a 披露 + 业务签认"
+  },
+  {
+   "id": "ERRATUM-05",
+   "at": "T+5.90h",
+   "where": "SDD 全文（分母定义缺位）",
+   "issue": "「证据结构占比」的分母从未被明文定义；全文 分母 仅 6 处命中，唯一相关的 L1004 是负向排除（NOT_ASSESSED 不计入分母）。13 卡出桥 / 12 事实 pair / assessed 集 / 池内策略数 四候选无一被点名，11 vs 12 在 SDD 层面不可判定",
+   "disposition": "ORCH-36 第2条：实现层要求分母与同模块 share_* 两列同源并依 L1004 剔 NOT_ASSESSED；11 vs 12 的数据侧由 A1c 依 A1CPREP 裁决处理；分母的规范定义交业务签认",
+   "owner": "P3a 披露 + 业务签认"
+  },
+  {
+   "id": "ERRATUM-06",
+   "at": "T+5.90h",
+   "where": "dsm/pooling.py:74 的注释锚 [L1854]",
+   "issue": "LOW_EVIDENCE_CLASSES 常量注释自引 SDD L1854 作为依据，但 ADJ-G14 实测该行无「C+D」字样，L1854 只给承载与防作弊目的、不给分子",
+   "disposition": "注释锚失效属可辩护性缺陷；G14FIX 改分子为 C 类占比后须同步更正注释锚为 L1416，并在 P3a 披露原注释锚不成立",
+   "owner": "G14FIX + P3a 披露"
   }
  ]
 }
