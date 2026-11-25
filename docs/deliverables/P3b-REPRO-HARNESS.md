@@ -78,6 +78,7 @@
 | 2 | `4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7` | SEAM-1（`8f2eca3`）锚定参考尺改动后；P3b-prep 时代 `82d5a6a` 实测 | superseded_by_A1c |
 | 3 | `e5fa8ae01476ffd08c5812ea221988a97f06729481a072d94bf753e00275fd9d` | A1c（`6299245`）受控解冻 fixtures 后，连跑两次精确相等（A1c commit message 明文） | 被 4 取代（42d5346 时代起实测为 4） |
 | 4 | `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904` | @`42d5346`（G14FIX，G-14 分子改 C 类占比入 score_card）净树两跑相等；P3b-PRE 在 `0d8afeb`/`31eb1b2` 复测同值；P3b-FIX 在 `111570a`/`d46bf48` 复测同值（SELFTEST-1/2/3 三路同值） | **现行权威值**；最终签核记录见 §8 |
+| 5 | `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`（**与序 4 逐字符同值，未变**） | 最终 HEAD `3da51ab`（**ORCH-45 主控亲跑正式签核 PASS**，见 §8 追加记录）：该 HEAD 相对 `42d5346`/`93abfee` 的增量只落在 `tests/`（期望常量精确化）、`tools/`（工装修复）与 `docs/**`、`ops/**`，**均不属哈希输入面**；spine 评价期 2026-Q2 事实表完整 `180=12×15`、`IMPUTE_MEDIAN` 不触发 → 同值属预期 | **current / 已签核**（runs=2 两跑自等、`all_equal=1`、`DIRTY=0`、`HEAD_STABLE=yes`；权威哈希只认本工装 RESULT 行，K-36；`f437c0ead77b…` 仍为 non-canonical 不入台账） |
 
 历史备注（保留不改写）：P3b-PRE 实测证伪了 `ops/dag-state.json → invalidation_log` seq5 的预声明（「A1d/LOO-1/P2-wire-A 必然再变」）——这些 commit 改的是报告文本/披露出口，未动哈希面（score_card 34 列 + grade_ledger + weight_version_id），故哈希自 `42d5346` 起不动。台账补记归主控，本包无权写 `ops/dag-state.json`。
 
@@ -214,6 +215,35 @@ wheelhouse 内容校验（B6）：`wheelhouse.sha256` 清单存在则 `sha256sum
 
 **适用范围与残留**：① 签核结论只覆盖 commit `93abfee`，后续任何 lane 再前移 HEAD 须复跑；② V-3「第二人/异机复跑」半边仍 PLACEHOLDER（§7 第 1 条）；③ 签核所用 `tools/repro_offline.sh` 为修复后版本，与本文件同 commit 原样入库（签核时在工作区、随即提交，逐字节同一）；④ `P2-wire-B(1/2)` 标注为两分之一个包，若其 (2/2) 落地后 HEAD 前移，本签核按 ① 失效待复跑。
 
+
+### 8-追加（**V1-FINAL / ORCH-45**）：主控在**最终 HEAD `3da51ab`** 的正式签核记录
+
+> 本小节为**追加记录**；上文 `93abfee` 那次签核的**全部原文（含表格、RESULT 行、适用范围与残留四条）逐字保留，未删除、未改写、未标作废**。两次记录并存，各注明自己的适用 HEAD。
+
+**签核命令**（固定形态，与上文同）：`bash tools/repro_offline.sh --wheelhouse /home/szf/dsm-wheelhouse --runs 2 --strict-isolation`
+
+| 项 | 主控亲测原文（观测 HEAD = 最终 HEAD `3da51ab`，T+8.4h） |
+| --- | --- |
+| RESULT 行（原文） | `RESULT=PASS HASH=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904 COMMIT=3da51ab ELAPSED=15s ISOLATION=L3-strong: fresh clone + netns offline (connectivity self-check confirmed) + dedicated venv from local wheels DIRTY=0 HEAD_STABLE=yes ASSERTION=pytest` |
+| clone_head | `3da51ab325a535525c20fe25a96b33182edf08b9`（commit-exact） |
+| run_#1 / run_#2 | 两者均为 `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904` |
+| all_equal | **1**（两跑 64 位逐字符自等） |
+| netns_probe | `offline-confirmed`（netns 内连 pypi.org:443 必须失败，实测失败） |
+| ISOLATION | **L3-strong**：fresh clone + netns offline（connectivity self-check confirmed）+ dedicated venv from local wheels |
+| env_mode | `dedicated venv (no system site-packages) installed from local wheelhouse with --no-index` |
+| env_python | `Python 3.12.3` |
+| wh_manifest | `absent-unverified`（wheelhouse 无清单文件，B6 如实标注，不因此 FAIL） |
+| DIRTY / dirty_files | `DIRTY=0` / `dirty_files=0`（签核时点工作树干净，优于 `93abfee` 那次的 3 项） |
+| HEAD_STABLE | `yes`（`head_stable=yes (src_head_end=3da51ab325a535525c20fe25a96b33182edf08b9…)`，B9：运行窗口内无在飞提交） |
+| pytest_assertion | `rc=0` |
+| meta | `period=2026-Q2 seed=20260101 run_id=SYNTH-RUN-0001 exit_code=0 len=64` |
+| runs / elapsed | `runs=2` / `elapsed_seconds=15`（RESULT 行 `ELAPSED=15s`） |
+| tmpdir | `/tmp/p3b-repro.WQQSlx8P` |
+
+**结论**：**tag 前置 ③ 在最终 HEAD `3da51ab` 判「满足」**（exit 0 + RESULT=PASS + L3-strong + 两跑逐字符自等），不再限于 `93abfee` / `da4d0a9`。**同时维持不变的两条诚实边界**：① 本次仍是**同机、同 Python 3.12.3**，**第二人 / 异机复跑仍为 PLACEHOLDER** → **V-3 / V-10 维持 ⏳，不因本笔上调**；② wheelhouse 不入库且绑定 cp312-manylinux-x86_64，本次 `wh_manifest=absent-unverified`；③ `config/` 实测 0 文件 → 本哈希仍出自 spine 测试内合成 GOVERNANCE，**不得宣称「`dsm score` 端到端跑出同一哈希」**（§7 第 3/4 条照旧适用）。
+
+**签核适用域论证（为何签核 HEAD 与被 tag 的 HEAD 可以不同）**：本笔签核完成后，HEAD 还会因 **V1-FINAL 包的 docs 提交**（`docs/deliverables/**` + `README.md`）与**主控的 ledger 提交**（`ops/dag-state.json`）而前移。`reproducibility_hash` 的输入面是 **seed `20260101` / period `2026-Q2` / `fixtures/input` + `fixtures/golden` / 冻结权重版本 id**（出处：`ops/dag-state.json → reproducibility_evidence.harness.inputs`），**不含 `docs/**` 与 `ops/**`**，故这些后续提交不改变任何被哈希的输入，本签核结论对最终被 tag 的 commit 仍然适用。**该结论由主控在 push 前用 `git diff --name-only 3da51ab..HEAD` 实测核验**，核验输出记入 `ops/dag-state.json` 与主控最终报告；**本包按派工纪律未代跑、未代填结果**（本包亦未触碰 `ops/dag-state.json`）。若核验发现任何超出 `docs/**` 与 `ops/dag-state.json` 的触及面（尤其 `dsm/**`、`fixtures/**`、`tools/repro_offline.sh`），本论证立即失效，须在新 HEAD 重跑本工装后再打 tag。
+
 ---
 
 ## 9. 本包自检
@@ -226,4 +256,5 @@ wheelhouse 内容校验（B6）：`wheelhouse.sha256` 清单存在则 `sha256sum
 | 写集纪律 | 只 `git add tools/repro_offline.sh docs/deliverables/P3b-REPRO-HARNESS.md`；未 `git add -A`；未 push/tag/amend/stash/checkout/reset；他 lane 脏文件未触碰 |
 | 邻仓只读 | `/home/szf/dev/CampaignLab`：m0-framework / 0cccb76 / porcelain 0 / rev-list 154（开工校验一致；收工再核） |
 | 契约只读 | sha256[:12]=`708679e9a83d`、2003 行，开工实测一致 |
+| 编码与行尾（**V1-FINAL 追记**） | 本包追加 §8-追加 与 §2 序 5 后，为全文件**补齐末尾 LF**——该 blob 原缺末尾 LF（属 §7／`KNOWN-GAPS.md` 披露的 **17 个 @`da4d0a9`** 受控文件之一，非本包引入）；据此该计数推算为 **16**（余 **9 个非 `docs/**`** 项清零仍需**主控单独授权**，本包未动），精确值由主控 push 前以 `tools/normalize.py --check` 复测。全文 UTF-8 无 BOM、LF、无 TAB |
 | 未跑全量 pytest | 是（归 P2-wire-B 独占）；本包只跑工装第⑤步的单条 spine 断言 |

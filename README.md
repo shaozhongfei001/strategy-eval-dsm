@@ -332,6 +332,7 @@ tools/repro_offline.sh --strict-isolation --expect <64 位期望哈希>
 - ⏳ 待 P2 复测 **5 条**：V-2（hypothesis 500 例未跑，现档 `max_examples=25`）、V-3（第二人全新 clone + 断网复跑未做）、V-10（断网 clone 未做）、V-15（FROZEN 权重的**正向** provenance 实例不存在，`provenance = null`）、V-20（括注「G-01~G-15 全过」实测不成立）
 - 合计 **20 条**（对账通过）。
 - **四条不可砍底线**（该文件逐字）：V-9 数值口径 ✅ / **V-14 无静默降级 ❌** / V-6 + G-03 + P-2 红线非补偿 ✅ / G-02 + P-6 证据门禁与分池禁混排 ✅（但 **G-14 的 `MIX_QUALITY_DEGRADED` 口径分歧实测未决**）。
+- **【ORCH-45 终值刷新，见第 13 节】** 上列 ✅12／❌3／⏳5 是本节写入时刻（P3a-prep @`358b4ea`）的实况转录，**保留不抹**；**当前终态 = ✅11／❌1／⏳8**：**V-1 已依主控亲测（最终 HEAD `3da51ab` 全量 `2302 passed in 11.22s`／`2302 passed in 10.84s`，0 failed／0 error／0 skip／0 xfail）上调 ✅**；**V-14 维持 ❌（严禁上调）**；**V-7 转绿、V-3／V-10 维持 ⏳**。权威表 = `docs/deliverables/V-ACCEPTANCE-EVIDENCE.md` §A + §L。
 - **披露项 D-1 ~ D-12 全部在册**（该文件第二节），其中 D-11 是本表全部结论的**适用边界**：所有结论只在「**用合成数据跑通机制**」口径下成立，**不得输出任何可用于真实资源配置的分数或等级**（SDD M39 L1797）；D-12 是 P3a-prep 复跑时发现的 **5 处与既有上报不符**之处（含 SEAM-1 自报「10→9」实测为 8、ORCH-29「全文件无 lambda」实测 grep=8 但均为 `sorted` 排序键而非加权系数、dag-state 旧哈希 `8083efc9` 已失效等），ORCH-34 的 `p3a_discrepancies_accepted` 已逐条采信实测值。
 
 ### 8.3 `config/` 为 0 文件 → 任何真实运行按退出码 3 拒绝（**这不是 bug**）
@@ -507,3 +508,17 @@ ORCH-35 的**决定性理由**（ADR §2 逐字）：L901 同一句之内既规�
 | `defects`／`errata`／`orch_lessons` | **27／11／12**（L-01~L-12）| 主控 push 前再核 |
 
 - **邻仓只读校验（本包实测）**：`/home/szf/dev/CampaignLab` = `m0-framework`／`0cccb76`／porcelain **0**／rev-list **154**，与本包开工前一致，**未触碰**。契约文件 `开发设计文档-策略评价可辩护评分模型DSM-v1.1.md` 的 sha256[:12] = `708679e9a83d`、行数 **2003**，核验通过。
+
+---
+
+## 13. V1-FINAL 终值（ORCH-45 · 主控亲测，观测 HEAD `3da51ab`）
+
+> 本节数字全部来自**主控本人**在最终 HEAD 上的亲测（不是任何包的自述）；第 8 节「诚实节」与 §6.3 的历史实测数字（13/2182 @`358b4ea`、11/2190 @`cc18a38`、1/2301 @`93abfee`／`da4d0a9`）**原文保留**，作为演进轨迹，不作删除或改写。
+
+- **全量测试（权威终值）**：标准形式 `/home/szf/venvs/dsm/bin/python -m pytest -ra --tb=short --continue-on-collection-errors` → **`2302 passed in 11.22s`**；① 原文命令形式 `/home/szf/venvs/dsm/bin/python -m pytest --continue-on-collection-errors -o addopts= -q 2>&1` 尾接 tail 取末三行 → **`2302 passed in 10.84s`**；**0 failed / 0 error / 0 skip / 0 xfail**，collected **2302**；观测 HEAD = 最终 HEAD `3da51ab`，该点 `git status --porcelain` 为空。
+- **验收三态（V-1~V-20）**：✅ **11** ／ ❌ **1** ／ ⏳ **8**（合计 20）。**V-1 依主控亲测由 ❌ 上调 ✅**（契约 L1494「G-01 至 G-15 全部通过」成立）；**V-14 维持 ❌、严禁上调**（M28 降级矩阵 26 行×六列逐条遍历断言至今零断言 + M29 九步 marshal [L1330]-[L1358] 本体未落地：`dsm/cli.py:_chain_gate` 恒 `raise InvariantError` 退出码 5、`cli.py:391 _report_frames`／`:406 _render_reports` 无生产调用点）；**V-3 / V-10 维持 ⏳**（第二人 / 异机复跑仍 PLACEHOLDER）。
+- **P3b 正式签核（最终 HEAD，`--strict-isolation`）= PASS**，RESULT 行原文：`RESULT=PASS HASH=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904 COMMIT=3da51ab ELAPSED=15s ISOLATION=L3-strong: fresh clone + netns offline (connectivity self-check confirmed) + dedicated venv from local wheels DIRTY=0 HEAD_STABLE=yes ASSERTION=pytest`；`all_equal=1`／`DIRTY=0`／`HEAD_STABLE=yes`／`netns_probe=offline-confirmed`／`wh_manifest=absent-unverified`／`runs=2`／`elapsed_seconds=15`。权威哈希 = **`e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`**（只认 `tools/repro_offline.sh` 的 RESULT 行，K-36；`f437c0ead77b…` 为 non-canonical）。
+- **签核适用域**：`reproducibility_hash` 的输入面 = seed `20260101` / period `2026-Q2` / `fixtures/input`+`golden` / 冻结权重版本 id，**不含 `docs/**` 与 `ops/**`**，故本包的 docs 提交与主控的 ledger 提交不使签核失效；**该结论由主控在 push 前用 `git diff --name-only 3da51ab..HEAD` 实测核验**并记入 `ops/dag-state.json`。
+- **tag 前置 ①~⑦**：① 满足／② 满足（按 ORCH-44 重述判据，**原文 ❌=0 判据未被满足，因 V-14 仍 ❌**）／③ 满足（最终 HEAD `3da51ab`）／④ 哈希侧满足、台账侧已由主控 ORCH-45 修复／⑤ 满足／⑥ 满足（65／13／52）／⑦ 满足（@`3da51ab` porcelain 空，push 前再实测一次）。`git rev-list --count origin/main..HEAD` = **62**、`git tag -l` = **0**；**本包未 push、未 tag**。
+- **仍然不变的诚实边界**：**G5／G7 未过，本 RUN 不得输出可用于真实资源配置的分数或等级**（首屏声明一字未改，守护测试在位）；`config/` 实测 **0 文件** → `dsm score` 端到端不可跑、`EXIT_CONFIG=3` 属**设计而非缺陷**；唯一入口 `python -m dsm.cli`、**无 console script**；`cel_contract_version` 保持 PLACEHOLDER；`bundle.output_fingerprints` spine 面 = `{}`；hypothesis **500 例档未跑**；缺末尾 LF 的受控文件 **17 @`da4d0a9`**（9 个非 `docs/**`）；`dsm_stage/` 不入库而被多份裁决引用。
+- **本包纪律**：只改五份文档（本文件 + `docs/deliverables/` 四份）；**未写未 add `ops/dag-state.json`**；未跑 pytest 与 repro 工装；未 push、未 tag。

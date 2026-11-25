@@ -271,7 +271,7 @@
 
 ### H-11 属 `ops/dag-state.json` 的台账矛盾 —— **只披露、本包不改**（主控写集，主控正在修）
 
-① `reproducibility_evidence.invalidation_log` 出现**两个 `seq = 3`**；② `current_hash_asof` 仍写 `358b4ea`（权威哈希实测已复测到 `93abfee`／`da4d0a9`）；③ `defects` 状态滞后 3 处（`D-A1-05`／`D-G14-01`／`D-G14-02` 代码面已闭合但 status 未翻转）；④ `D-A4-02` **撞号**（whatif GEOMETRIC vs `whatif.py:571` 裸字面量，后者 CLOSED @`9078201`，同 L-12）。本包仅在 §H 与 `P3c-DELIVERY-PACKAGE.md` §5 披露，未写该文件。
+① `reproducibility_evidence.invalidation_log` 出现**两个 `seq = 3`**；② `current_hash_asof` 仍写 `358b4ea`（权威哈希实测已复测到 `93abfee`／`da4d0a9`）；③ `defects` 状态滞后 3 处（`D-A1-05`／`D-G14-01`／`D-G14-02` 代码面已闭合但 status 未翻转）；④ `D-A4-02` **撞号**（whatif GEOMETRIC vs `whatif.py:571` 裸字面量，后者 CLOSED @`9078201`，同 L-12）。本包仅在 §H 与 `P3c-DELIVERY-PACKAGE.md` §5 披露，未写该文件。**ORCH-45 追记（已闭环）**：上述四项（三字段矛盾、`invalidation_log` seq2 的重复键、`defects` 状态滞后 3 处、`D-A4-02` 撞号）**已由主控在 ORCH-45 本轮 `ops/dag-state.json` 提交中修复，见 `ops/dag-state.json`**；该文件属主控写集，本包全程未触碰、未 add。
 
 ### H-12 本包新增的 K 条目索引（编号由主控 ORCH-44 单点分配，遵守 L-12）
 
@@ -315,3 +315,37 @@
   - **⑥ 满足（本包重测）**：`grep -cE "^\| [A-G]-[0-9]+ " docs/deliverables/KNOWN-GAPS.md` = **65**；同前缀再筛 flag「是」= **13**（列级解析，转义竖线不计为分隔符）→ 阻塞 **13**／非阻塞 **52**／合计 **65**，与 §G「DOC-FINAL 权威计数」逐字相等（G-20 CLOSED 后自洽）。
   - **⑦ 待主控在 push 前实测（工作树须为空）**：判据与命令照抄 §2，核验时刻须为打 tag 当下。本包开工时 `git status --porcelain` = ` M docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`（P3a-final 在飞）→ **本包跳过该文件**，只显式 `git add` 实际改动的文档；未 stash／checkout／restore／reset／clean；未 push、未 tag（R-13）。
 - **发布数字（本包亲测 @`037b862`）**：`git rev-list --count origin/main..HEAD` = **59**（`origin/main` = `3616f9722213f6da2cb0b4ff6fcf55cd947ed648`；`git merge-base --is-ancestor origin/main HEAD` 实测为真 → push 是 fast-forward）；`git tag -l | wc -l` = **0**；本包提交后 ahead = 60，push 前由主控重测。
+
+---
+
+## H-15 V1-FINAL（ORCH-45）终值入档与缺口现状
+
+**观测 HEAD = 最终 HEAD `3da51ab`（短 `3da51ab`），T+8.4h，全部为主控亲测**。本节只追加；H-1~H-14 与 A~G 节原文（含「13 红」「1 红」「PLACEHOLDER」表述）**逐字保留不作历史改写**。**本包未跑 pytest、未跑 `tools/repro_offline.sh`**，只引用主控钉死的终值。
+
+### H-15.1 终值
+
+- **全量 pytest**：标准形式 `/home/szf/venvs/dsm/bin/python -m pytest -ra --tb=short --continue-on-collection-errors` → 统计行原文 **`2302 passed in 11.22s`**；① 原文命令形式 `... -m pytest --continue-on-collection-errors -o addopts= -q 2>&1` 尾接 tail 取末三行 → **`2302 passed in 10.84s`**；**0 failed / 0 error / 0 skip / 0 xfail**，collected **2302**。
+- **P3b 正式签核（最终 HEAD，`--strict-isolation`）= PASS**，RESULT 行原文：`RESULT=PASS HASH=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904 COMMIT=3da51ab ELAPSED=15s ISOLATION=L3-strong: fresh clone + netns offline (connectivity self-check confirmed) + dedicated venv from local wheels DIRTY=0 HEAD_STABLE=yes ASSERTION=pytest`；`all_equal=1`、`DIRTY=0`、`HEAD_STABLE=yes`、`netns_probe=offline-confirmed`、`wh_manifest=absent-unverified`、`env_python=Python 3.12.3`、`runs=2`、`elapsed_seconds=15`、`tmpdir=/tmp/p3b-repro.WQQSlx8P`（全字段见 `P3b-REPRO-HARNESS.md` §8 追加记录）。
+- **工作树 / 邻仓 / 契约 / 发布数字**：`git status --porcelain` = **空**；邻仓四项 = `m0-framework`／`0cccb76`／`0`／`154`；契约 `sha256[:12]` = `708679e9a83d`、**2003 行**；`git rev-list --count origin/main..HEAD` = **62**（fast-forward）；`git tag -l` 计数 = **0**。
+
+### H-15.2 缺口计数与 V-14 现状（不变）
+
+- **阻塞 13 / 非阻塞 52 / 合计 65** 维持不变：本包只向本文件追加本节，**未改 A~G 与 H-1~H-14 的任何表格行与 flag 列**，故 tag 前置 ⑥ 仍自洽。
+- **V-14 仍 ❌（ORCH-45 裁定维持 ❌、严禁上调）**，两项缺口一项未减：① **M28 降级矩阵 26 行 × 六列逐条遍历断言至今零断言、且至今无包认领**；② **M29 九步 marshal（[L1330]-[L1358]）本体未落地**——`dsm/cli.py:_chain_gate` 恒 `raise InvariantError`（退出码 5），`cli.py:391 _report_frames`／`:406 _render_reports` 两 seam 无生产调用点。**全量 0 failed 不等于 V-14 闭环**（见 H-9）。
+- **V-1 依主控亲测上调 ✅**（❌ 由 2 条减为 1 条；三态 ✅11／❌1／⏳8）。
+
+### H-15.3 本 RUN 不闭合、移交下一版的缺口（逐条写明缺什么）
+
+| 缺口 | 缺什么 | 归属 |
+|---|---|---|
+| hypothesis **500 例档** | 现档 `tests/test_properties_all.py:73` = `max_examples=25`（R-11 开发期档），500 例**从未跑过** | 主控改派（本 RUN 无包认领） |
+| **第二人 / 异机复跑** | 同机、同 Python 3.12.3、wheelhouse cp312-manylinux-x86_64 绑定、本次 `wh_manifest=absent-unverified` | 外部条件 |
+| **3 层回溯重抽** | A1c 重冻 fixtures 后的抽查载体需重建 | 主控改派 |
+| **`write_report_set` 生产出口** | 待 M29 marshal 落地；`bundle.output_fingerprints` spine 面实测 `{}` | 下一版 / 主控 |
+| **provenance 七键终值抽查** | 终值 HEAD 逐键抽查 + 逐键标「合成待签认」 | 主控 |
+| **M28 26 行断言** | 逐条遍历断言（零断言、零认领） | 主控裁决归属 |
+| **`cli.py:918-919` OSError 静默降级** | AUD-FINAL 移交清单第 1 条，本 RUN 未返工 | 主控派工 |
+
+### H-15.4 仍原样保留的诚实边界（一条都不得删）
+
+`config/` 实测 **0 文件** → `dsm score` 端到端不可跑、`EXIT_CONFIG=3` 属**设计而非缺陷**；CLI 唯一入口 `python -m dsm.cli`、**无 console script**（D-CLI-01）；`cel_contract_version` 保持 **PLACEHOLDER**（[L1897] / [L1795]）；`f437c0ead77b…` 为 **non-canonical**、不入台账（K-36）；LOO 影响力 CSV 载体与 G-14 上期 PoolStats 载体**本 RUN 不做**（ORCH-42）；缺末尾 LF 的受控文件 **17 @`da4d0a9`**（其中 **9 个非 `docs/**`**，清零需**主控单独授权**；**本包仅为本轮改写的 `P3b-REPRO-HARNESS.md` 补齐其原有缺失的 1 个末尾 LF——该文件因属变更文件而受 `tools/normalize.py --check` 硬校验，非内容改写**，据此计数推算为 16，精确值由主控 push 前复测）；`dsm_stage/` **不入库**但多份裁决引用其中文件 → 归档风险披露保留（K-39）；**G5／G7 未过**，「**G5 / G7 未过，不得输出可用于真实资源配置的分数或等级**」声明一字未改；**未 push、未 tag**。

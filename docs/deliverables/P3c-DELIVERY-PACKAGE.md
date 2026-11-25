@@ -50,6 +50,8 @@
 ## 2. 打 tag 的前置条件（**可机械核验的勾选清单**）
 
 > 全部 5 项（+2 项本包建议项）**必须逐条跑命令核验**，不得凭记忆或凭 lane 自述打勾。**任一项不满足 → 不得打 tag。**
+>
+> **ORCH-45（V1-FINAL）落稿说明**：下列 ①~⑦ 每项之后的「**ORCH-45 落稿**」行是**主控亲测后的最终口径**（观测 HEAD = 最终 HEAD `3da51ab`），各项**原文「当前状态」照留不作历史改写**；复选框由**主控在 push 前实测时**亲自勾选，本包不代勾。逐项结论：**① 满足／② 满足（按 ORCH-44 重述判据，原文 ❌=0 未被满足之事实逐字保留）／③ 满足（最终 HEAD `3da51ab`）／④ 哈希侧满足、台账侧已由主控 ORCH-45 修复／⑤ 满足／⑥ 满足（65／13／52）／⑦ 满足（@`3da51ab` porcelain 空，push 前再实测一次）**。
 
 - [ ] **① P2 全量转绿：0 failed / 0 error / 0 新增 skip / 0 xfail**
   ```bash
@@ -59,6 +61,7 @@
   判据：统计行形如 `N passed in Xs`，**不得出现** `failed` / `error` / `skipped` / `xfailed` 字样。
   当前状态（P3c-final 追记）：**当时未满足** —— 已入账权威基线 `13 failed / 2182 passed / 0 error / 0 skip / 0 xfail`（collected 2195，截至 `358b4ea`，来源 `ops/dag-state.json → pytest_baseline.after_R15B2_and_P3aprep`）；本包收尾时在**干净提交树** HEAD `cc18a38` 亲测得 **`11 failed, 2190 passed in 12.32s`**（MODELS-1 落地使 spine 由 6 → 4；`pytest_baseline` 尚无 `cc18a38` 节点，须由主控登记）。**两者均不为 0 failed，故 ① 未满足。**
   附加要求：`SKIP_REGISTRY` 保持全清（P3a-prep 实测 0 skipped，来源 V-ACCEPTANCE-EVIDENCE D-12(e)）。
+  **ORCH-45 落稿（主控亲测，最终 HEAD `3da51ab`）：① 满足** —— 两种形式均由主控本人亲跑：标准形式 `-m pytest -ra --tb=short --continue-on-collection-errors` → 统计行原文 **`2302 passed in 11.22s`**；① 原文命令形式 `-m pytest --continue-on-collection-errors -o addopts= -q` 尾接 tail 取末三行 → 统计行原文 **`2302 passed in 10.84s`**；**0 failed / 0 error / 0 skip / 0 xfail**、collected **2302**。`SKIP_REGISTRY` 全清（现存 skip／xfail = 0，AUD-FINAL `66481b1` 复核）。**追记保留（不得抹去）**：`1 failed / 2301 passed / 2302 collected` 实测于 `93abfee` / `da4d0a9`；更早 **13 failed / 2182 passed / collected 2195** @`358b4ea`、**11 failed / 2190 passed** @`cc18a38`。
 
 - [ ] **② P3a 证据表定稿并含全部披露项**
   ```bash
@@ -67,6 +70,7 @@
   grep -nE '✅ \*\*[0-9]+\*\*|❌ \*\*[0-9]+\*\*|⏳' docs/deliverables/V-ACCEPTANCE-EVIDENCE.md | tail -3
   ```
   判据：V-1~V-20 汇总行合计 **20 条**，且 **❌ = 0**（当前 ❌3 = V-1 / V-7 / V-14，**未满足**）；披露项 **D-1~D-12 全在册**；**ERRATUM-01/02/03** 已写入披露节并列为**待业务签认项**（ORCH-35 第 5 条要求）；D-D2-01 与 `models_questions` 4 项已列入「未覆盖 / 交下一版本」（ORCH-33 第 5 条、ORCH-34 第 5 条）。
+  **ORCH-45 落稿：② 满足（按 ORCH-44 重述判据）** —— V-1~V-20 全 20 条在册（现为 ✅11 / ❌1 / ⏳8）；每条 ❌／⏳ 均有归属包 + K 编号 + 下一版完成条件；AUD-FINAL `66481b1` 卷宗佐证 C4（真弱化）= 0。**且逐字保留：原文 ❌=0 判据未被满足，因 V-14 仍 ❌**（M28 降级矩阵 26 行×六列逐条遍历断言至今零断言 + M29 九步 marshal 本体未落地，已裁为本 RUN 范围外）；诚实性优先于凑数，**V-14 维持 ❌、严禁上调**。
 
 - [ ] **③ P3b 全新 clone + 断网 + 同 seed 两连跑哈希精确相等**
   ```bash
@@ -74,6 +78,7 @@
   ```
   判据：`exit=0` 且打印 **PASS** + 隔离级别 **L3-strong**（`--strict-isolation` 下非 L3-strong 即判 FAIL）；两次连跑的 64 位 sha256 **逐字符相等**。
   当前状态：**未满足**（P3b-prep 已实跑通工装并四轮 L3-strong PASS，但那是**前置实测**，非 P3b 正式签核；且「**异机第二人复跑**」仍是 P3b-prep 自披露的 `PLACEHOLDER` → V-3 / V-10 维持 ⏳）。
+  **ORCH-45 落稿：③ 满足（最终 HEAD `3da51ab`，不再限于 `93abfee` / `da4d0a9`）** —— 主控亲跑 `--strict-isolation` 正式签核 **PASS**，RESULT 行原文：`RESULT=PASS HASH=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904 COMMIT=3da51ab ELAPSED=15s ISOLATION=L3-strong: fresh clone + netns offline (connectivity self-check confirmed) + dedicated venv from local wheels DIRTY=0 HEAD_STABLE=yes ASSERTION=pytest`；`clone_head=3da51ab325a535525c20fe25a96b33182edf08b9`、`run_#1=run_#2=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`、`all_equal=1`、`netns_probe=offline-confirmed`、`DIRTY=0`、`HEAD_STABLE=yes`、`runs=2`、`elapsed_seconds=15`、`wh_manifest=absent-unverified`、`env_python=Python 3.12.3`、`tmpdir=/tmp/p3b-repro.WQQSlx8P`（全字段见 `P3b-REPRO-HARNESS.md` §8 追加记录与本文件 §6.4）。**V-3 / V-10 仍维持 ⏳**：第二人 / 异机复跑仍是 PLACEHOLDER（同机、同 Python 3.12.3、wheelhouse cp312-manylinux-x86_64 绑定）。
 
 - [ ] **④ `reproducibility_hash` 在 A1c 与 MODELS-1 落地后**重新测定并登记**
   ```bash
@@ -86,6 +91,7 @@
   ```
   判据：`invalidation_log` 的 **seq2（MODELS-1）与 seq3（A1c）的 `at` 不再是 `pending`**，且其 `hash_after` 为**实测 64 位**十六进制；`current_hash_asof` 指向 **A1c 与 MODELS-1 均已落地之后**的 commit；③ 的 `--expect` 用的就是这个新值。
   当前状态：**未满足**（实测 seq2/seq3 的 `at` = `pending`、`hash_after` = `待测`；现值 `4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7` @ `358b4ea`）。
+  **ORCH-45 落稿：④ 哈希侧满足；台账侧已由主控修复** —— 哈希侧：`e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904` 于最终 HEAD `3da51ab` 复测**同值**且两跑自等（`all_equal=1`）。台账侧：`current_hash_asof` / `current_hash_commit` / `current_hash` 三字段矛盾、`invalidation_log` seq2 的**重复键**、`defects` 状态滞后 3 处、`D-A4-02` 撞号 → **已由主控 ORCH-45 修复，见 `ops/dag-state.json`**（该文件属主控写集，本包全程未触碰、未 add）。`--expect` 用的期望值即本行 64 位权威哈希。
   **口径提醒**（`reproducibility_evidence.p3b_criterion` 逐字）：最终判据是「A1c 与 MODELS-1 均落地后**重测**的哈希…两连跑精确相等；**不是**与 `8083efc9` 相等」。
 
 - [ ] **⑤ 邻仓 CampaignLab 基线未变（只读核验，不符立即停机上报，不得自行修复）**
@@ -95,6 +101,7 @@
   ```
   判据：四行输出须**精确**为 `m0-framework` / `0cccb76` / `0` / `154`。
   当前状态：**满足** —— 本包实测四项全部一致，且本包未写该仓任何文件。
+  **ORCH-45 复核：⑤ 仍满足** —— 主控亲测四项一致 = `m0-framework` / `0cccb76` / porcelain `0` / rev-list `154`；本包开工 / 收工各校验一次，四项同样一致，邻仓全程只读未触碰。
 
 - [ ] **⑥（本包建议项）KNOWN-GAPS 阻塞计数自洽**
   ```bash
@@ -102,6 +109,7 @@
   grep -n '是否阻塞交付.*= 是' docs/deliverables/KNOWN-GAPS.md                                        # 文件自称 19
   ```
   判据：两数须相等。当前 **24 ≠ 19**，属该文件「汇总计数」节与其自身逐行列举（A-10；B-2/3/4/5/7/8；C-1~C-6、C-8；D-1~D-6；E-6、E-8；F-1、F-2 = 24）**自相矛盾** → 须由 P3c 正式包更正（本包写集不含该文件）。
+  **ORCH-45 落稿：⑥ 满足（自洽）** —— KNOWN-GAPS 正文表格行 **65** / 阻塞 **13** / 非阻塞 **52**，与「汇总计数」节及 §G「DOC-FINAL 权威计数」逐字相等（原 24 ≠ 19 的矛盾已由 P3c-final 修毕）。
 
 - [ ] **⑦（本包建议项）工作树干净且未误改只读集**
   ```bash
@@ -109,6 +117,7 @@
   git log --oneline -1             # 记录打 tag 的确切 commit
   ```
   判据：`git status --porcelain` **空**（当前实测非空：MODELS-1 在飞改 `dsm/models.py`、`dsm/normalize.py`、`dsm/pooling.py`、`tests/test_integration_spine.py`、`tests/test_models_output.py`、`tests/test_normalize.py`、`tests/test_pooling.py`）。
+  **ORCH-45 落稿：⑦ 满足（@ 最终 HEAD `3da51ab` 主控实测 porcelain 为空）** —— 注明：**主控随后还有 docs 与 ledger 提交，push 前会再实测一次**（该条判据的核验时刻须为打 tag 当下）。本包自身即是在该干净点之后追加 docs 提交的包，故本包不代主控勾选 §2 复选框，最终勾选时刻以主控 push 前实测为准。
 
 > **关于 G5 / G7 与 tag 的关系（重要口径）**：宪章 §3.2 第 239 行的 P3c 交付物是「README + `git tag v1.1.0` + 交付包（含 **K-01~K-20 + G5/G7 门禁**）　← 宪章原文逐字为 K-01~K-20，**本包不改引文**；本 RUN 实际清单已扩至 **K-01~K-35**，见 §6 与 ^^K-SIGNOFF-CHECKLIST.md^^」，**并未要求 G7 先通过才能打 tag**；M39 L45 亦允许门禁未过时做合成数据演练。因此 **tag 可以打在「合成数据演练版」上**，但**必须**同时满足：README 首屏与本文件均写明「**G5 / G7 未过，不得输出可用于真实资源配置的分数或等级**」（该声明另有测试守护 `tests/test_reports.py::test_gate_not_passed_puts_statement_on_first_screen`，实测 PASS）。若行方要求 tag 代表「可上线版本」，则 ①~⑦ 之外还须追加「G7 已签认（`config/` 6 类文件齐备且无 PLACEHOLDER）」——**该口径须由主控与行方确认，本包不代拟**（`PLACEHOLDER`）。
 
@@ -258,15 +267,17 @@ git push origin :refs/tags/v1.1.0       # 已 push 后删除远端 tag（破坏�
 
 | 项 | 判据（§2 原文口径） | **P3c-final 实测命令 → 输出摘要** | 结论 |
 |---|---|---|---|
-| ① P2 全量转绿 | 0 failed／0 error／0 skip／0 xfail | `pytest -o addopts= -q -p no:cacheprovider --tb=no -rfE` → **`1 failed, 2301 passed in 15.48s`**（collected 2302；0 error／0 skip／0 xfail）。唯一红 `tests/test_methods_combine.py::test_build_draft_on_the_frozen_a1_fixtures`（`:502 assert 8 == 9`）；`git archive` 二分实测引入点 = **A1c @`6299245`**（`cc18a38`／`dce1ac5` 绿、`6299245` 起红）。**DOC-FINAL 终值（转录 CMB-1 实测，两种形式）**：标准形式 `... -m pytest -ra --tb=short --continue-on-collection-errors` → **`2302 passed in 12.50s`**；① 原文命令形式 → **`2302 passed in 10.98s`**（统计行形如 `N passed in Xs`，无 failed/error/skipped/xfailed 字样），即 **0 failed／2302 passed／2302 collected、0 error／0 skip／0 xfail**；观测 HEAD = 工作树 `a396e0a`（CMB-1 提交前）／提交后 `037b862`，docs 变更不参与测试收集故终值有效。本包另**亲跑**定向复核 `tests/test_methods_combine.py` → **22 passed in 0.67s**，并复跑只读探针 `dsm_stage/CMB-1/probe_q3_count.py` → **`DERIVED_Q3_COUNT = 8`**（其余四期 12）。 | **满足（DOC-FINAL 改判：硬门禁已因唯一红闭合而解除）**。**追记（不得抹去）：① 此前未满足** —— `1 failed／2301 passed／2302 collected` 实测于 `93abfee`／`da4d0a9`（15.48s；唯一红 `test_methods_combine.py:502 assert 8 == 9`），更早 `13 failed／2182 passed／collected 2195` @`358b4ea`、`11 failed／2190 passed` @`cc18a38`；闭合由 **CMB-1 @`037b862`** 完成 |
-| ② P3a 证据表定稿 | **原文**：V-1~V-20 合计 20 条且 **❌ = 0** | `grep -c ERRATUM-0[123] docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`／`V-ACCEPTANCE-EVIDENCE.md` 的 ✅❌⏳ 汇总行 → **本包无权写该文件**（P3a-final 在飞，唯一脏文件），故只能转录：V-14 实测为 ❌，❌ ≠ 0 | **原文判据未满足，此事实不得抹去**。**主控 ORCH-44 重述**（逐字）：「V-1~V-20 全 20 条在册；每条 ❌／⏳ 均有归属包 + K 缺口编号 + 下一版完成条件；且有 AUD-FINAL 的零弱化卷宗佐证 C4（真弱化）= 0」。按重述判定：**满足（按 ORCH-44 重述判据；DOC-FINAL 改判）**（三子句现均成立：20 条在册／每条 ❌ 或 ⏳ 有归属包+K 编号+完成条件／AUD-FINAL @`66481b1` 佐证 C4 = 0）—— V-14 的三项登记已齐（缺口 = M28 26 行降级矩阵逐条遍历断言零断言 + M29 九步 marshal 未落地，归属包 = 主控／下一版，K 编号 = **K-34**，完成条件 = marshal 落地后 CLI 按九步跑通并产出 [L1062] 七件产物）；**V-1 现已具备转 ✅ 的实测依据**（全量 0 failed ⇒ G-01~G-15 全通过，契约 L1494；见 ①）；**AUD-FINAL 卷宗已入账 @`66481b1`**（区间 `cc18a38..da4d0a9`，21 commits／12 个触及 `tests/`／228 条删除行，**C4 真弱化 = 0**、C3 常量随口径更新 = 81 且每行带裁决号或 ERRATUM 号；AUD-FINAL 自述边界：「C4 = 0」不等于「所有断言都足够强」，且该区间**止于 `da4d0a9`**，其后的 commit 未覆盖）。**DOC-FINAL 必留事实（逐字）：原文 ❌=0 判据未被满足**，因 V-14 仍为 ❌ 且本 RUN 无法闭环（M28 降级矩阵 26 行逐条遍历断言至今零断言 + M29 九步 marshal 本体未落地，后者已裁为本 RUN 范围外）；在诚实性规则 R-12／R-14／V-14 与「凑 ❌=0」冲突时诚实性优先，故重述判据而非上调 V-14 —— **V-14 维持 ❌，严禁上调** |
-| ③ P3b 全新 clone + 断网 + 同 seed 两连跑哈希精确相等 | exit 0 + PASS + **L3-strong** + 两次 64 位逐字符相等 | `bash tools/repro_offline.sh --wheelhouse /home/szf/dsm-wheelhouse --runs 2 --keep --strict-isolation` → **exit 0**、`RESULT=PASS HASH=`+H+` COMMIT=da4d0a9 ELAPSED=15s ISOLATION=L3-strong DIRTY=1 HEAD_STABLE=yes ASSERTION=pytest`；`netns_probe = offline-confirmed`；`clone_head` == `src_head`（commit-exact） | **满足（限 `93abfee`／`da4d0a9` 本次签核）**。**适用范围限定（P3b-FIX 自述 + ORCH-44）**：B1／B7 已修好 → L3-strong 自述现在可信；但**若 CMB-1 或任何后续包使 HEAD 前移，须按 §8 在最终 HEAD 复跑签核后再打 tag**（由主控在 push/tag 前执行）。**诚实边界四条保留**：第二人／异机复跑仍 PLACEHOLDER（同机同 Python 3.12.3）→ **V-3／V-10 维持 ⏳**；wheelhouse 不入库且 cp312-manylinux-x86_64 绑定；`config/` 实测 0 文件 → `dsm score` 端到端不可跑（`EXIT_CONFIG=3` **属设计非缺陷**）；权威哈希出自探针内合成的 GOVERNANCE 配置。**DOC-FINAL 追加**：CMB-1（`037b862`）与本轮文档提交使 HEAD 前移，本包按派工单**未复跑** `tools/repro_offline.sh`；**主控将在最终 HEAD 复跑 `bash tools/repro_offline.sh --wheelhouse /home/szf/dsm-wheelhouse --runs 2 --strict-isolation`，结果记入 `ops/dag-state.json` 与最终报告**；复跑前 ③ 的最终态标注 = **`PLACEHOLDER-TO-REFRESH(主控最终签核)`**；**V-3／V-10 维持 ⏳**（第二人／异机复跑仍 PLACEHOLDER） |
-| ④ 哈希重测并登记 | `invalidation_log` 的 `at` 不再 pending、`hash_after` 为实测 64 位 | 转录 + 本包复测：seq1／seq3／seq4 的 `hash_after` 已是实测 64 位；`current_hash` = **`e5923465…80904`**，本包在 `da4d0a9` 复测**同值**（③ 那条命令） | **部分满足** —— 哈希侧已闭合；**`ops/dag-state.json` 侧仍不满足**：`current_hash_asof` 仍写 `358b4ea`、`invalidation_log` 有**两个 `seq = 3`**、`defects` 状态滞后 3 处、`D-A4-02` 撞号 → **属主控写集，本包只披露不修改**（见 §5 与 `KNOWN-GAPS.md` §H-11）。**DOC-FINAL**：哈希侧闭合维持（`e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`，多 HEAD 复测同值；`f437c0ea…` 按 ORCH-44／K-36 定性 non-canonical 不入台账）；台账侧四项 **主控正在本轮修复**（属主控写集，本包不改） |
-| ⑤ 邻仓基线未变 | `m0-framework`／`0cccb76`／porcelain 0／rev-list 154 | 开工 09:04 与收工各跑一次 `cd /home/szf/dev/CampaignLab && git branch --show-current; git rev-parse --short HEAD; git status --porcelain \| wc -l; git rev-list --count HEAD` → 四次输出全部为 `m0-framework`／`0cccb76`／**0**／**154**；契约文件 sha256[:12] = **`708679e9a83d`**、行数 **2003** | **满足**（P3c-final 未写邻仓任何文件）。**DOC-FINAL 本包亲跑一次**（开工即跑，HEAD `037b862`）：`cd /home/szf/dev/CampaignLab` 后 `git branch --show-current`／`git rev-parse --short HEAD`／`git status --porcelain \| wc -l`／`git rev-list --count HEAD` → 输出 **`m0-framework`／`0cccb76`／`0`／`154`**；契约 sha256[:12] = **`708679e9a83d`**、行数 **2003** → **四项一致**（收工再复测一次） |
-| ⑥ KNOWN-GAPS 计数自洽 | 汇总数 == 正文逐条列举数 | `grep -cE "^\\| [A-G]-[0-9]+ " docs/deliverables/KNOWN-GAPS.md` = **65**；同前缀再筛 flag「是」= **14**（P3c-final 追记）。**DOC-FINAL 亲跑同一口径** = 正文表格行 **65**／flag「是」**13**／flag「否」**52** | **满足**（DOC-FINAL 重测后仍自洽：阻塞 **13**／非阻塞 **52**／合计 **65**；上一版 14／51 随 G-20 于 CMB-1 `037b862` CLOSED 而转为追记；再上一版 16／48／64 已随 E-8／G-2／G-3 闭合与 G-20 新增而作废） |
-| ⑦ 工作树干净 | `git status --porcelain` 为空 | 本包实测 ` M docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`（P3a-final 在飞）。**该条判据与命令照抄 §2，核验时刻须为打 tag 当下** | **待主控在 push 前实测（工作树须为空）**（P3c-final 本包施工期不可能满足）。**DOC-FINAL 实测追记**：开工时 `git status --porcelain` = ` M docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`（P3a-final 仍在飞）→ 本包按写集条件**跳过该文件**（`V_ACC_TOUCHED=no(在飞)`），只显式 `git add` 本包实际改动的文档，未 stash／checkout／restore／reset／clean，未 push、未 tag |
+| ① P2 全量转绿 | 0 failed／0 error／0 skip／0 xfail | `pytest -o addopts= -q -p no:cacheprovider --tb=no -rfE` → **`1 failed, 2301 passed in 15.48s`**（collected 2302；0 error／0 skip／0 xfail）。唯一红 `tests/test_methods_combine.py::test_build_draft_on_the_frozen_a1_fixtures`（`:502 assert 8 == 9`）；`git archive` 二分实测引入点 = **A1c @`6299245`**（`cc18a38`／`dce1ac5` 绿、`6299245` 起红）。**DOC-FINAL 终值（转录 CMB-1 实测，两种形式）**：标准形式 `... -m pytest -ra --tb=short --continue-on-collection-errors` → **`2302 passed in 12.50s`**；① 原文命令形式 → **`2302 passed in 10.98s`**（统计行形如 `N passed in Xs`，无 failed/error/skipped/xfailed 字样），即 **0 failed／2302 passed／2302 collected、0 error／0 skip／0 xfail**；观测 HEAD = 工作树 `a396e0a`（CMB-1 提交前）／提交后 `037b862`，docs 变更不参与测试收集故终值有效。本包另**亲跑**定向复核 `tests/test_methods_combine.py` → **22 passed in 0.67s**，并复跑只读探针 `dsm_stage/CMB-1/probe_q3_count.py` → **`DERIVED_Q3_COUNT = 8`**（其余四期 12）。 | **满足（DOC-FINAL 改判：硬门禁已因唯一红闭合而解除）**。**追记（不得抹去）：① 此前未满足** —— `1 failed／2301 passed／2302 collected` 实测于 `93abfee`／`da4d0a9`（15.48s；唯一红 `test_methods_combine.py:502 assert 8 == 9`），更早 `13 failed／2182 passed／collected 2195` @`358b4ea`、`11 failed／2190 passed` @`cc18a38`；闭合由 **CMB-1 @`037b862`** 完成  **ORCH-45 终值（主控亲跑 @ 最终 HEAD `3da51ab`）**：标准形式 **`2302 passed in 11.22s`**、① 原文命令形式 **`2302 passed in 10.84s`**，均 0 failed / 0 error / 0 skip / 0 xfail → **满足，且依据由「包自述」升级为「主控亲测」**；曾未满足的历史值逐条保留于左列。|
+| ② P3a 证据表定稿 | **原文**：V-1~V-20 合计 20 条且 **❌ = 0** | `grep -c ERRATUM-0[123] docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`／`V-ACCEPTANCE-EVIDENCE.md` 的 ✅❌⏳ 汇总行 → **本包无权写该文件**（P3a-final 在飞，唯一脏文件），故只能转录：V-14 实测为 ❌，❌ ≠ 0 | **原文判据未满足，此事实不得抹去**。**主控 ORCH-44 重述**（逐字）：「V-1~V-20 全 20 条在册；每条 ❌／⏳ 均有归属包 + K 缺口编号 + 下一版完成条件；且有 AUD-FINAL 的零弱化卷宗佐证 C4（真弱化）= 0」。按重述判定：**满足（按 ORCH-44 重述判据；DOC-FINAL 改判）**（三子句现均成立：20 条在册／每条 ❌ 或 ⏳ 有归属包+K 编号+完成条件／AUD-FINAL @`66481b1` 佐证 C4 = 0）—— V-14 的三项登记已齐（缺口 = M28 26 行降级矩阵逐条遍历断言零断言 + M29 九步 marshal 未落地，归属包 = 主控／下一版，K 编号 = **K-34**，完成条件 = marshal 落地后 CLI 按九步跑通并产出 [L1062] 七件产物）；**V-1 现已具备转 ✅ 的实测依据**（全量 0 failed ⇒ G-01~G-15 全通过，契约 L1494；见 ①）；**AUD-FINAL 卷宗已入账 @`66481b1`**（区间 `cc18a38..da4d0a9`，21 commits／12 个触及 `tests/`／228 条删除行，**C4 真弱化 = 0**、C3 常量随口径更新 = 81 且每行带裁决号或 ERRATUM 号；AUD-FINAL 自述边界：「C4 = 0」不等于「所有断言都足够强」，且该区间**止于 `da4d0a9`**，其后的 commit 未覆盖）。**DOC-FINAL 必留事实（逐字）：原文 ❌=0 判据未被满足**，因 V-14 仍为 ❌ 且本 RUN 无法闭环（M28 降级矩阵 26 行逐条遍历断言至今零断言 + M29 九步 marshal 本体未落地，后者已裁为本 RUN 范围外）；在诚实性规则 R-12／R-14／V-14 与「凑 ❌=0」冲突时诚实性优先，故重述判据而非上调 V-14 —— **V-14 维持 ❌，严禁上调**  **ORCH-45 刷新**：三态现为 ✅**11** / ❌**1** / ⏳**8**（合计 20）；V-1 依主控亲测上调 ✅，**❌ 仍 = 1（V-14）→ 原文 ❌=0 判据依旧未被满足**（此事实逐字保留），重述判据下满足。|
+| ③ P3b 全新 clone + 断网 + 同 seed 两连跑哈希精确相等 | exit 0 + PASS + **L3-strong** + 两次 64 位逐字符相等 | `bash tools/repro_offline.sh --wheelhouse /home/szf/dsm-wheelhouse --runs 2 --keep --strict-isolation` → **exit 0**、`RESULT=PASS HASH=`+H+` COMMIT=da4d0a9 ELAPSED=15s ISOLATION=L3-strong DIRTY=1 HEAD_STABLE=yes ASSERTION=pytest`；`netns_probe = offline-confirmed`；`clone_head` == `src_head`（commit-exact） | **满足（限 `93abfee`／`da4d0a9` 本次签核）**。**适用范围限定（P3b-FIX 自述 + ORCH-44）**：B1／B7 已修好 → L3-strong 自述现在可信；但**若 CMB-1 或任何后续包使 HEAD 前移，须按 §8 在最终 HEAD 复跑签核后再打 tag**（由主控在 push/tag 前执行）。**诚实边界四条保留**：第二人／异机复跑仍 PLACEHOLDER（同机同 Python 3.12.3）→ **V-3／V-10 维持 ⏳**；wheelhouse 不入库且 cp312-manylinux-x86_64 绑定；`config/` 实测 0 文件 → `dsm score` 端到端不可跑（`EXIT_CONFIG=3` **属设计非缺陷**）；权威哈希出自探针内合成的 GOVERNANCE 配置。**DOC-FINAL 追加**：CMB-1（`037b862`）与本轮文档提交使 HEAD 前移，本包按派工单**未复跑** `tools/repro_offline.sh`；**主控将在最终 HEAD 复跑 `bash tools/repro_offline.sh --wheelhouse /home/szf/dsm-wheelhouse --runs 2 --strict-isolation`，结果记入 `ops/dag-state.json` 与最终报告**；复跑前 ③ 的最终态标注 = **`PLACEHOLDER-TO-REFRESH(主控最终签核)`**；**V-3／V-10 维持 ⏳**（第二人／异机复跑仍 PLACEHOLDER）  **ORCH-45 改判：满足（最终 HEAD `3da51ab`）** —— RESULT 行原文：`RESULT=PASS HASH=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904 COMMIT=3da51ab ELAPSED=15s ISOLATION=L3-strong: fresh clone + netns offline (connectivity self-check confirmed) + dedicated venv from local wheels DIRTY=0 HEAD_STABLE=yes ASSERTION=pytest`；`clone_head=3da51ab325a535525c20fe25a96b33182edf08b9` / `run_#1=run_#2=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904` / `all_equal=1` / `netns_probe=offline-confirmed` / `DIRTY=0` / `HEAD_STABLE=yes` / `runs=2` / `elapsed_seconds=15` / `wh_manifest=absent-unverified` / `env_python=Python 3.12.3` / `tmpdir=/tmp/p3b-repro.WQQSlx8P`。**`93abfee` 那次记录未删未改**；V-3 / V-10 维持 ⏳（第二人 / 异机仍 PLACEHOLDER）。|
+| ④ 哈希重测并登记 | `invalidation_log` 的 `at` 不再 pending、`hash_after` 为实测 64 位 | 转录 + 本包复测：seq1／seq3／seq4 的 `hash_after` 已是实测 64 位；`current_hash` = **`e5923465…80904`**，本包在 `da4d0a9` 复测**同值**（③ 那条命令） | **部分满足** —— 哈希侧已闭合；**`ops/dag-state.json` 侧仍不满足**：`current_hash_asof` 仍写 `358b4ea`、`invalidation_log` 有**两个 `seq = 3`**、`defects` 状态滞后 3 处、`D-A4-02` 撞号 → **属主控写集，本包只披露不修改**（见 §5 与 `KNOWN-GAPS.md` §H-11）。**DOC-FINAL**：哈希侧闭合维持（`e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`，多 HEAD 复测同值；`f437c0ea…` 按 ORCH-44／K-36 定性 non-canonical 不入台账）；台账侧四项 **主控正在本轮修复**（属主控写集，本包不改）  **ORCH-45 落稿**：哈希侧满足（`e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904` 于 `3da51ab` 复测同值、两跑自等）；台账侧三字段矛盾 / seq2 重复键 / defects 滞后 / `D-A4-02` 撞号 **已由主控 ORCH-45 修复，见 `ops/dag-state.json`**（本包未写该文件）。|
+| ⑤ 邻仓基线未变 | `m0-framework`／`0cccb76`／porcelain 0／rev-list 154 | 开工 09:04 与收工各跑一次 `cd /home/szf/dev/CampaignLab && git branch --show-current; git rev-parse --short HEAD; git status --porcelain \| wc -l; git rev-list --count HEAD` → 四次输出全部为 `m0-framework`／`0cccb76`／**0**／**154**；契约文件 sha256[:12] = **`708679e9a83d`**、行数 **2003** | **满足**（P3c-final 未写邻仓任何文件）。**DOC-FINAL 本包亲跑一次**（开工即跑，HEAD `037b862`）：`cd /home/szf/dev/CampaignLab` 后 `git branch --show-current`／`git rev-parse --short HEAD`／`git status --porcelain \| wc -l`／`git rev-list --count HEAD` → 输出 **`m0-framework`／`0cccb76`／`0`／`154`**；契约 sha256[:12] = **`708679e9a83d`**、行数 **2003** → **四项一致**（收工再复测一次）  **ORCH-45 复核**：主控亲测与本包开工 / 收工实测同为 `m0-framework` / `0cccb76` / `0` / `154`，四项一致 → 满足。|
+| ⑥ KNOWN-GAPS 计数自洽 | 汇总数 == 正文逐条列举数 | `grep -cE "^\\| [A-G]-[0-9]+ " docs/deliverables/KNOWN-GAPS.md` = **65**；同前缀再筛 flag「是」= **14**（P3c-final 追记）。**DOC-FINAL 亲跑同一口径** = 正文表格行 **65**／flag「是」**13**／flag「否」**52** | **满足**（DOC-FINAL 重测后仍自洽：阻塞 **13**／非阻塞 **52**／合计 **65**；上一版 14／51 随 G-20 于 CMB-1 `037b862` CLOSED 而转为追记；再上一版 16／48／64 已随 E-8／G-2／G-3 闭合与 G-20 新增而作废）  **ORCH-45 复核**：正文表格行 **65** / 阻塞 **13** / 非阻塞 **52** 仍自洽（本包只追加 §H-15 追记节，未改 A~G 与 H-1~H-14 表格行，计数不变）→ 满足。|
+| ⑦ 工作树干净 | `git status --porcelain` 为空 | 本包实测 ` M docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`（P3a-final 在飞）。**该条判据与命令照抄 §2，核验时刻须为打 tag 当下** | **待主控在 push 前实测（工作树须为空）**（P3c-final 本包施工期不可能满足）。**DOC-FINAL 实测追记**：开工时 `git status --porcelain` = ` M docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`（P3a-final 仍在飞）→ 本包按写集条件**跳过该文件**（`V_ACC_TOUCHED=no(在飞)`），只显式 `git add` 本包实际改动的文档，未 stash／checkout／restore／reset／clean，未 push、未 tag  **ORCH-45 落稿：满足（@ 最终 HEAD `3da51ab` 主控实测 porcelain 为空）**；主控随后还有 docs 与 ledger 提交，**push 前再实测一次**。|
 
 **tag 结论（DOC-FINAL 刷新）**：**门禁侧硬阻塞 ① 已解除** —— ① **满足**（0 failed／2302 passed／2302 collected；① 原文命令统计行 `2302 passed in 10.98s`；**追记：曾未满足 @`93abfee`／`da4d0a9`**）、② **满足（按 ORCH-44 重述判据）**（**原文 ❌=0 判据未被满足**之事实逐字保留：V-14 仍 ❌ 且本 RUN 无法闭环；诚实性优先，重述判据而非上调 V-14）、③ **满足（限 `93abfee`／`da4d0a9` 本次签核）**，最终态 = `PLACEHOLDER-TO-REFRESH(主控最终签核)`（HEAD 已前移，须由主控在最终 HEAD 复跑 `repro_offline.sh`）、⑤ **满足**（本包亲跑四项一致）、⑥ **满足**（65／13／52 自洽）；④ 哈希侧闭合、台账侧属主控（主控本轮正在修复）；⑦ 待主控在 push 前实测。**是否打 `v1.1.0` 由主控决**：本包 **未 push、未 tag**（R-13）。
+
+**tag 结论（V1-FINAL / ORCH-45 最终落稿，观测 HEAD = 最终 HEAD `3da51ab`）**：① **满足**（主控亲跑两种形式均 `2302 passed`，`11.22s` / `10.84s`；追记：曾未满足 @`93abfee` / `da4d0a9` 的 1/2301/2302 保留）；② **满足（按 ORCH-44 重述判据）**，且**原文 ❌=0 判据未被满足，因 V-14 仍 ❌** 之事实逐字保留；③ **满足（最终 HEAD `3da51ab`）**，不再限于 `93abfee` / `da4d0a9`；④ **哈希侧满足，台账侧已由主控 ORCH-45 修复（见 `ops/dag-state.json`）**；⑤ **满足**；⑥ **满足**（65 / 13 / 52）；⑦ **满足**（@`3da51ab` porcelain 空，push 前再实测一次）。签核适用域论证见 §6.4 与 `P3b-REPRO-HARNESS.md` §8 追加记录。**是否打 tag 由主控决**：本包 **未 push、未 tag**（R-13）。
 
 **G5／G7 与 tag 的关系（保持不变）**：宪章 §3.2 第 239 行未要求 G7 先过才能打 tag，**tag 可以打在「合成数据演练版」上**；但 README 首屏与本文件均须写明「**G5／G7 未过，不得输出可用于真实资源配置的分数或等级**」。该声明的守护测试本包**实测确认仍 PASS**：`pytest -o addopts= -q "tests/test_reports.py::test_gate_not_passed_puts_statement_on_first_screen"` → **`1 passed in 0.58s`**（只跑该文件，未跑全量）。
 
@@ -276,4 +287,42 @@ git push origin :refs/tags/v1.1.0       # 已 push 后删除远端 tag（破坏�
 - `git rev-list --count origin/main..HEAD` = **59**（DOC-FINAL 亲测 @`037b862`；`origin/main` = `3616f9722213f6da2cb0b4ff6fcf55cd947ed648`，本包实测 `git merge-base --is-ancestor origin/main HEAD` 为真 → **push 是 fast-forward**）；追记 54 @`da4d0a9` → 57 @`66481b1`；P3C-draft 的 34 **作废**；本包提交后 60，push 前**必须重测**。
 - 全量 pytest 终值（DOC-FINAL 转录 CMB-1 实测）= **0 failed／2302 passed／2302 collected**（0 error／0 skip／0 xfail）；① 原文命令统计行 **`2302 passed in 10.98s`**、标准形式 **`2302 passed in 12.50s`**；观测工作树 `a396e0a`／提交后 HEAD `037b862`。唯一红 `test_methods_combine.py::test_build_draft_on_the_frozen_a1_fixtures`（`:502`）已由 **CMB-1 @`037b862`** 精确化收口；本包亲跑定向复核 **22 passed in 0.67s**、复跑只读探针得 **`DERIVED_Q3_COUNT = 8`**。缺口计数 = **阻塞 13／非阻塞 52／合计 65**，K 编号 **39**、签认动作 **43**。
 - 契约核验（本包第一步实测）：sha256[:12] = `708679e9a83d`、行数 = **2003**，与派工单一致。
+- **ORCH-45 终值刷新（V1-FINAL）**：`git rev-list --count origin/main..HEAD` = **62** @ 最终 HEAD `3da51ab`（`origin/main` = `3616f972…`，实测为 HEAD 祖先 → **push 为 fast-forward**）；`git tag -l` 计数 = **0**；全量终值（主控亲跑）= **0 failed / 2302 passed / 2302 collected**，统计行原文 **`2302 passed in 11.22s`**（标准形式）与 **`2302 passed in 10.84s`**（① 原文命令形式）；追记 54 @`da4d0a9` → 57 @`66481b1` → 59 @`037b862` → **62 @`3da51ab`**，本包提交后由主控 push 前重测。
 - **G5／G7 与 tag 的关系**：宪章 §3.2 第239行未要求 G7 先通过才能打 tag；但 tag **不代表可上线版本**，只代表「合成数据演练版」——G7 未过时按 M39 L45 仅允许合成数据全流程／演示报告／whatif 预演，**不得**输出可用于真实资源配置的分数或等级。
+
+---
+
+## 6.4 V1-FINAL（ORCH-45）最终落稿：tag 前置 ①~⑦ + P3b 签核 + 适用域论证
+
+**观测 HEAD = 最终 HEAD `3da51ab`（短 `3da51ab`），T+8.4h，全部数字为主控亲测**（非任何包的自述）。本小节只追加，§2 与 §6.1~§6.3 的原文（含「当时未满足」「24 ≠ 19」「限 `93abfee`／`da4d0a9`」等历史表述）**逐字保留**，供追溯每个判据的演进。
+
+### 6.4.1 P3b 正式签核 RESULT 行（原文照录）
+
+```
+RESULT=PASS HASH=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904 COMMIT=3da51ab ELAPSED=15s ISOLATION=L3-strong: fresh clone + netns offline (connectivity self-check confirmed) + dedicated venv from local wheels DIRTY=0 HEAD_STABLE=yes ASSERTION=pytest
+```
+
+**其余字段原文**：`clone_head=3da51ab325a535525c20fe25a96b33182edf08b9`、`run_#1=run_#2=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`、`all_equal=1`、`netns_probe=offline-confirmed`、`env_mode=dedicated venv (no system site-packages) installed from local wheelhouse with --no-index`、`env_python=Python 3.12.3`、`wh_manifest=absent-unverified`、`dirty_files=0`、`head_stable=yes (src_head_end=3da51ab325a535525c20fe25a96b33182edf08b9…)`、`pytest_assertion=rc=0`、`meta=period=2026-Q2 seed=20260101 run_id=SYNTH-RUN-0001 exit_code=0 len=64`、`runs=2`、`elapsed_seconds=15`、`tmpdir=/tmp/p3b-repro.WQQSlx8P`。权威哈希**只认 `tools/repro_offline.sh` 的 RESULT 行**（K-36；`f437c0ead77b…` 为 non-canonical，不入台账）。
+
+### 6.4.2 tag 前置 ①~⑦ 最终态
+
+| 项 | 最终态 | 一句话依据 |
+|---|---|---|
+| ① | **满足** | 主控亲跑全量两种形式：`2302 passed in 11.22s` / `2302 passed in 10.84s`，0 failed / 0 error / 0 skip / 0 xfail @`3da51ab`（追记：曾未满足 1/2301/2302 @`93abfee`／`da4d0a9`，更早 13/2182 @`358b4ea`、11/2190 @`cc18a38`） |
+| ② | **满足（按 ORCH-44 重述判据）** | **原文 ❌=0 判据未被满足，因 V-14 仍 ❌**（逐字保留）：M28 26 行×六列逐条遍历断言至今零断言 + M29 九步 marshal 本体未落地 |
+| ③ | **满足（最终 HEAD `3da51ab`）** | RESULT 行见 6.4.1；`93abfee` / `da4d0a9` 两次既有记录未删未改；V-3 / V-10 仍 ⏳ |
+| ④ | **哈希侧满足；台账侧已由主控修复** | 同值复测 + 两跑自等；`current_hash_asof`／`current_hash_commit`／`current_hash` 三字段矛盾、`invalidation_log` seq2 重复键、defects 状态滞后、`D-A4-02` 撞号 → **已由主控 ORCH-45 修复，见 `ops/dag-state.json`** |
+| ⑤ | **满足** | 邻仓四项 = `m0-framework`／`0cccb76`／porcelain `0`／rev-list `154`（本包开工／收工各校验一次，一致，只读未触碰） |
+| ⑥ | **满足** | KNOWN-GAPS 正文表格行 **65**／阻塞 **13**／非阻塞 **52** 自洽 |
+| ⑦ | **满足（@`3da51ab` porcelain 为空）** | 主控实测该时点工作树干净；**主控随后还有 docs 与 ledger 提交，push 前会再实测一次**（核验时刻 = 打 tag 当下） |
+
+### 6.4.3 签核适用域论证
+
+`reproducibility_hash` 的输入面 = **seed `20260101` / period `2026-Q2` / `fixtures/input` + `fixtures/golden` / 冻结权重版本 id**（出处 `ops/dag-state.json → reproducibility_evidence.harness.inputs`），**不含 `docs/**` 与 `ops/**`**。签核 HEAD 之后的提交只触及 `docs/deliverables/**` + `README.md`（V1-FINAL 包）与 `ops/dag-state.json`（主控 ledger），因此**不进入哈希输入面，6.4.1 的签核结论对最终被 tag 的 commit 仍然适用**。**该结论由主控在 push 前用 `git diff --name-only 3da51ab..HEAD` 实测核验**，核验输出记入 `ops/dag-state.json` 与主控最终报告；本包按纪律**未代跑、未代填**。若发现任何超出 `docs/**` 与 `ops/dag-state.json` 的触及面，本论证失效，须重跑签核后再打 tag。
+
+### 6.4.4 交付数字终态与仍挂置项
+
+- **验收三态（V-1~V-20）**：✅ **11**（V-1、V-5、V-6、V-9、V-11、V-12、V-13、V-16、V-17、V-18、V-19）／❌ **1**（**V-14，ORCH-45 裁定维持 ❌、严禁上调**）／⏳ **8**（V-2、V-3、V-4、V-7、V-8、V-10、V-15、V-20）；合计 **20**；净上调 **+1（仅 V-1，依据 = 主控亲测）**。
+- **仍挂置的 PLACEHOLDER（不得读成已完成）**：hypothesis **500 例档**未跑（V-2）；**第二人 / 异机**复跑（V-3 / V-10）；**3 层回溯重抽**（V-4）；`write_report_set` **生产出口待 M29**（V-8）；**provenance 七键终值抽查**（V-15，七键全为合成待签认）；**M28 26 行×六列断言零认领**；`cel_contract_version` 保持 PLACEHOLDER（[L1897]/[L1795]）；`bundle.output_fingerprints` spine 面 = `{}`；LOO 影响力 CSV 载体与 G-14 上期 PoolStats 载体本 RUN 不做（ORCH-42）；缺末尾 LF 的受控文件 **17 @`da4d0a9`**（其中 9 个非 `docs/**`，清零需主控单独授权）。
+- **门禁口径不变**：**G5 / G7 未过**，README 首屏与本文件的「**G5 / G7 未过，不得输出可用于真实资源配置的分数或等级**」声明**一字未改**（守护测试 `tests/test_reports.py::test_gate_not_passed_puts_statement_on_first_screen`）；tag 只代表「**合成数据演练版**」，不代表可上线（宪章 §3.2 第 239 行 + M39 L45）。
+- **本包纪律**：只显式 `git add` 本包实际改动的五份 docs（含本文件）；**未写、未 add `ops/dag-state.json`**；未 `git add -A`；未跑 pytest、未跑 `tools/repro_offline.sh`；未 push、未 tag、未 amend / stash / checkout / reset / clean。
