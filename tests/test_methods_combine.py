@@ -479,7 +479,7 @@ def mats(dim_weights=DIMS, metric_weights=MW):
 def test_build_draft_on_the_frozen_a1_fixtures():
     '''R-4 happy path on the frozen fixtures (12 strategies / 15 metrics / 5 periods).
     A1 construction 5 makes M_AUM_MINOR constant 10000, so it must fall back to its
-    AHP weight 0.10 undiluted; 2026-Q3 keeps only 9 complete strategies and is
+    AHP weight 0.10 undiluted; 2026-Q3 keeps only 8 complete strategies and is
     dropped by [L575]; redline metrics never enter the entropy weights ([L1140]).'''
     metric_dict = _jsonl('metric_dict.jsonl')
     version = _jsonl('weight_version.jsonl')[0]
@@ -499,7 +499,12 @@ def test_build_draft_on_the_frozen_a1_fixtures():
     assert combined.step_trace == wc.STEP_IDS
     assert combined.entropy.calibration_periods == ('2025-Q3', '2025-Q4', '2026-Q1', '2026-Q2')
     assert combined.entropy.excluded_periods == {'2026-Q3': RC.ENTROPY_PERIOD_SKIPPED.value}
-    assert combined.entropy.strategy_count_by_period['2026-Q3'] == 9
+    # 依据：A1c@6299245 D-A1-03（ORCH-37 第1条追认）：BLOCK 缺格载体 M_COMPLAINT_RATE→M_SATISFY_SCORE
+    # 同维对调 missing_rule，2026-Q3 完整策略数 9→8。CMB-1 只读探针自冻结 fixtures 独立推导（非抄实现输出，R-14）：
+    # metric_fact 896 行/15 指标/SUSPECT 0；2026-Q3 仅 176 行，4 个缺格 S-005×M_CAMPAIGN_COST_MINOR、
+    # S-006×M_CUST_GAIN、S-008×M_SATISFY_SCORE、S-011×M_ROI 全落在 entropy（非红线）指标且分属 4 个不同策略
+    # → 完整策略 12−4=8；其余四期各 12（8<entropy_min_strategies → ENTROPY_PERIOD_SKIPPED，[L575]）。
+    assert combined.entropy.strategy_count_by_period['2026-Q3'] == 8
     assert 'M_AUM_MINOR' in combined.inactive_fallback_metrics
     assert eq_tol(combined.metric_weights['CONTRIB']['M_AUM_MINOR'], D('0.10'), TOL)
     assert eq_tol(combined.metric_trace['M_AUM_MINOR'].ahp_weight, D('0.10'), TOL)
