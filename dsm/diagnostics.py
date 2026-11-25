@@ -18,7 +18,7 @@ dsm.numeric and every code through dsm.reason_codes (H-7).
 '''
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from typing import Iterable, Literal, Mapping
 
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -213,14 +213,82 @@ def _cv(column) -> Decimal | None:
     return safe_div(numeric.sqrt(variance), mu, on_zero=None)
 
 
+def _ceil_log10(count: int) -> int:
+    '''ceil(log10(count)) for count >= 1, integer arithmetic only: how many extra
+    decimal digits a sum of `count` terms can carry over its widest addend. No float
+    and no math.log anywhere in this module (H-4 never float).'''
+    span, power = 0, 1
+    while power < count:
+        span += 1
+        power *= 10
+    return span
+
+
+def _digits_span(value) -> int:
+    '''The exact digit span of a Decimal -- how many significant digits writing the
+    value down at its own resolution would need, integer digits plus fractional
+    digits. Read off as_tuple(), so it is pure integer bookkeeping: no arithmetic,
+    no rounding, no float (H-4), and therefore safe to call at any magnitude.'''
+    _sign, digits, exponent = D(value).as_tuple()
+    if exponent >= 0:
+        return len(digits) + exponent                  # Decimal('150E+2') -> 5
+    return max(len(digits) + exponent, 1) - exponent   # Decimal('0.005')  -> 4
+
+
+def _pearson_prec(xs, ys) -> int:
+    '''The decimal precision _pearson must run at to stay EXACT down to the 1e-12 it
+    has to emit (V-9). Derived from the operands and never hardcoded, because how
+    wide a column is belongs to the data, not to the governance values (H-5).
+
+    Why the default context (prec=28) is not enough on money columns -- a real
+    defect, not a fixture artefact: T3 fact values of a minor-unit money metric are
+    integers ([L887] / C-09), so M_CAMPAIGN_COST_MINOR sits at ~2.8e6, and any bank
+    feed denominated in minor units lands in the same place. numeric.mean quantizes
+    to 1e-12, so a deviation dx = x - mean(x) already carries 7 integer digits plus
+    12 fractional ones. Step by step, with n = len(xs) = len(ys):
+
+      w       = widest exact operand of either column
+              = max span over the raw values + 12 (the q12-ed mean contributes 12
+                fractional digits) + 1 (a difference grows by at most one digit)
+      dx * dx = 2 * w                     (an exact product needs span(a)+span(b))
+      sxx     = 2 * w + ceil(log10 n) + 1 (a sum of n such squares, carry included)
+      sxx*syy = 2 * sxx + 1
+      q12(sxx*syy) needs integer_digits + 12 <= prec, and the integer part of the
+              product is bounded by its whole span, so span + 12 suffices.
+
+    On the frozen fixtures that evaluates to w=20, sxx=43, product=87, prec=103,
+    against a measured sxx*syy = 49016754199474433799.75 -- 20 integer digits, so
+    the quantize alone wants 32 slots and prec=28 answers decimal.InvalidOperation.
+    The trailing +4 is slack for the two carries the bounds above rounded down. The
+    budget is only ever used to RAISE a local context, never to lower it, and the
+    InvalidOperation trap stays armed: a budget that was ever too small would raise,
+    not silently round (V-14 -- no quiet degradation).'''
+    widest = max([_digits_span(v) for v in tuple(xs) + tuple(ys)] or [1])
+    width = widest + 12 + 1                                    # w of the derivation
+    column_sum = 2 * width + _ceil_log10(max(len(xs), len(ys), 2)) + 1
+    return 2 * column_sum + 1 + 12 + 4
+
+
 def _pearson(xs, ys) -> Decimal | None:
-    '''Pearson rho in Decimal, None when either column has zero variance.'''
-    dx = [D(v) - numeric.mean(xs) for v in xs]
-    dy = [D(v) - numeric.mean(ys) for v in ys]
-    sxy = sum((a * b for a, b in zip(dx, dy)), ZERO)
-    sxx = sum((a * a for a in dx), ZERO)
-    syy = sum((b * b for b in dy), ZERO)
-    return safe_div(q12(sxy), numeric.sqrt(q12(sxx * syy)), on_zero=None)
+    '''Pearson rho in Decimal, None when either column has zero variance.
+
+    The whole body runs inside a decimal.localcontext() whose precision is the
+    operand-derived budget of _pearson_prec: the 1e-12 quantize of a cross-product
+    of minor-unit money columns needs far more than the default 28 digits, and the
+    default context used to answer that with decimal.InvalidOperation, which is what
+    made `dsm score` exit 5 on the frozen fixtures. The arithmetic stays pure exact
+    Decimal -- no float (H-4), no coarser quantize to dodge the overflow, and no
+    try/except swallowing the trap into a 0 or a None.'''
+    with localcontext() as ctx:
+        needed = _pearson_prec(xs, ys)
+        if needed > ctx.prec:
+            ctx.prec = needed            # raise only: a narrower context is never set
+        dx = [D(v) - numeric.mean(xs) for v in xs]
+        dy = [D(v) - numeric.mean(ys) for v in ys]
+        sxy = sum((a * b for a, b in zip(dx, dy)), ZERO)
+        sxx = sum((a * a for a in dx), ZERO)
+        syy = sum((b * b for b in dy), ZERO)
+        return safe_div(q12(sxy), numeric.sqrt(q12(sxx * syy)), on_zero=None)
 
 
 def _corr_matrix(values, metric_ids, method: str):
@@ -440,9 +508,25 @@ def compute(facts, metric_dict, config, *, period=None, prior_gamma=None):
         report_alerts.add(RC.COLLINEAR.value)
     if any(pair.exceeds_max for pair in pairs):
         report_alerts.add(RC.MERGE_OR_DROP.value)
+    # B12-FIX B3 —— B1 修好之后在同一文件里浮出的第三处阻断（原来被 InvalidOperation
+    # 挡在前面，跑不到这一行）。_corr_matrix 的 None 格子表示「rho 无定义」（零方差列，
+    # 与 _cv / _pearson 同一口径），_pairs_and_max:349 与 _invert 都已经按 None 处理，
+    # 唯独这里把整张矩阵无差别塞进 CollinearityReport.matrix —— 而 models.py:143 的
+    # matrix 是 tuple[tuple[Ratio, ...], ...]，Ratio = BeforeValidator(numeric.D) 的
+    # **非空** Decimal，于是 q12(None) 抛 NumericError（dsm score 退出码 5）。
+    # models.py 单点、本包禁写，所以既不把 None 塞进非空列，也不给无定义的格子编一个
+    # 0 或 1（R-12：那是发明数值）。处置沿用本模块既有的「None 即无定义、绝不报数」
+    # 口径：矩阵只在**相关系数全有定义**的指标子集上上报；被摘掉的指标不消失，它在
+    # §9 diagnostic.rows 里照旧以 vif_j / max_abs_corr = NULL 加自己的 status 与建议
+    # 动作出现（渲染层 reports._section_9 的 NULL 就是披露位）。singular / vif / pairs
+    # 三条既有计算路径一行未动，全有定义时 reportable == active、矩阵逐位与原先相同。
+    reportable = tuple(metric_id for position, metric_id in enumerate(active)
+                       if all(cell is not None for cell in matrix[position])) if matrix else ()
+    slot = {metric_id: position for position, metric_id in enumerate(active)}
     report = CollinearityReport(
-        method=params.corr_method, metric_ids=active if matrix else (),
-        matrix=tuple(tuple(q12(cell) for cell in row) for row in matrix),
+        method=params.corr_method, metric_ids=reportable,
+        matrix=tuple(tuple(q12(matrix[slot[a]][slot[b]]) for b in reportable)
+                     for a in reportable),
         vif_by_metric=vif, max_abs_corr_by_metric=max_corr, pairs=pairs,
         singular=singular, alerts=tuple(sorted(report_alerts)))
     return diagnostic, report

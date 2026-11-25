@@ -42,6 +42,7 @@ __all__ = [
     'weighted_matrix', 'ideal_solutions', 'topsis_closeness', 'dimensionless',
     'reference_sequence', 'gra_coefficients', 'gra_relatedness',
     'gra_by_metric', 'rank_desc', 'rhos', 'verdict', 'run', 'veto', 'is_vetoed',
+    'zero_variance_metrics', 'drop_metrics',
 ]
 
 # eval_config 路径：SDD 1030-1031 给了参数名但没给 yaml 键位，拼写在这里定一次
@@ -59,6 +60,10 @@ GRA_NORM_METHODS = (GRA_NORM_INITIAL, GRA_NORM_MEAN)
 RC_DISABLED = RC.TRIANGULATION_DISABLED.value
 RC_AGREEMENT = RC.METHOD_AGREEMENT.value
 RC_DIVERGENCE = RC.METHOD_DIVERGENCE.value
+# 零方差列的显式降级码（见 zero_variance_metrics / _flags）：normalize.py:111 的
+# CODE_INACTIVE 与 [L943] 给同一条零变异归一化行落的就是这一枚，
+# 三角验证沿用同一口径，不新注册码（reason_codes.py 单点，R-15）。
+RC_INACTIVE = RC.INACTIVE_METRIC.value
 MIN_POPULATION = 2  # numeric.spearman 的下限，也是三角验证的最小有意义规模
 
 
@@ -171,6 +176,39 @@ def present_metrics(matrix) -> tuple:
     for row in matrix.values():
         seen.update(row)
     return tuple(sorted(seen))
+
+
+def zero_variance_metrics(matrix) -> tuple:
+    '''本次三角比对里「零方差」的指标：同一期内每个可评价策略的取值都在 numeric.TOL
+    之内相同。真实数据里这种列很常见（诊断层本来就有 INACTIVE / LOW_VARIATION 两个
+    状态，冻结 fixtures 的 M_AUM_MINOR 就是 12 个主体恒为 10000），而它在 GRA Step 2
+    的**两种**签认口径下参考值都恒为 0 —— min_max 归一后整列为 0，初值化的首值与均值
+    化的均值同为 0 —— 于是 dimensionless 按设计报错，且**不回落第三种口径**（发明
+    数值，R-12）。
+
+    所以正确的处置不是给恒定列编一个归一化，而是把它作为**显式降级**从本次比对的该列
+    贡献中排除，并由 run() 带 RC_INACTIVE 进 report.flags 披露。这条处置链沿用
+    SPEARMAN_ZERO_VARIANCE 的既有口径：模块出码 -> report.flags -> reports._section_8
+    正文「三角标记」行（另在「GRA 关联系数（metric_id -> 均值）」一行可见地少掉该列），
+    不进附录、不静默（V-14）。少于两个取值时无从判断方差，不列进来（MIN_POPULATION 与
+    _check_shape 另行把关）。纯函数（H-8）：只读入参，顺序确定（V-3）。'''
+    keys = tuple(sorted(matrix))
+    out = []
+    for metric in present_metrics(matrix):
+        column = [numeric.D(matrix[key][metric]) for key in keys if metric in matrix[key]]
+        if len(column) >= 2 and all(numeric.eq_tol(v, column[0]) for v in column[1:]):
+            out.append(metric)
+    return tuple(sorted(out))
+
+
+def drop_metrics(matrix, dropped) -> dict:
+    '''从矩阵**副本**里摘掉 dropped 的指标列。入参只读（INV-3），返回新字典；dropped
+    为空时原样复制，故非零方差场景逐位不变（回归钉）。'''
+    gone = frozenset(dropped)
+    if not gone:
+        return {key: dict(row) for key, row in matrix.items()}
+    return {key: {m: v for m, v in sorted(row.items()) if m not in gone}
+            for key, row in matrix.items()}
 
 
 def _check_shape(matrix) -> tuple:
@@ -433,17 +471,28 @@ def verdict(mean_rho, threshold):
     return RC_AGREEMENT if numeric.D(mean_rho) >= limit else RC_DIVERGENCE
 
 
-def _flags(agreement, rho_set):
+def _flags(agreement, rho_set, dropped=()):
     '''三角标记的构造（RC-1 / CONSUMPTION-TODO 第 3 条·模块侧）：有结论记结论码；
     三对 rho 或 mean_rho 任何一列为 None（_pair/verdict 的零方差回 None，不编数）就
     加记 SPEARMAN_ZERO_VARIANCE，供 reports._section_8 的「三角标记」与「Spearman
     相关无定义」披露位消费（V-14）。本码 WARN 且不阻断（M26 [L1022] 不入分，
     blocks_run=False），与 verdict 一致时结论码照旧单独成 flag。
+
+    dropped = 本次被显式排除的零方差指标（zero_variance_metrics）。排除是降级，降级
+    必须带注册码（V-14），故加记 INACTIVE_METRIC —— 与 normalize.py:111 的
+    CODE_INACTIVE / [L943] 给同一条零变异归一化行落的码同一口径，注册表措辞「指标零
+    变异，已剔除并预警」逐字就是这里做的事，不新注册码（reason_codes.py 单点，R-15）。
+    两枚码语义不重叠、也不互相顶替：SPEARMAN_ZERO_VARIANCE 说的是**一对排序**无秩
+    相关可言，INACTIVE_METRIC 说的是**一个指标列**无变异可比；恒定列被排除后三对 rho
+    仍可能全有定义，那时只出后者，挪用前者即虚报。默认 dropped=() 让既有非零方差路径
+    逐位不变（tests/test_reason_codes.py 钉死 flags 元组，R-14）。
     '''
     codes = [] if agreement is None else [agreement]
     if (rho_set.rho_main_topsis is None or rho_set.rho_main_gra is None
             or rho_set.rho_topsis_gra is None or rho_set.mean_rho is None):
         codes.append(RC.SPEARMAN_ZERO_VARIANCE.value)
+    if dropped:
+        codes.append(RC_INACTIVE)
     return tuple(codes)
 
 
@@ -496,10 +545,29 @@ def run(scores, normalized, weights, config, *, directions):
     if len(main) < MIN_POPULATION:
         raise TriangulationError('三角验证至少需要 ' + str(MIN_POPULATION)
                                  + ' 个可评价策略，got ' + str(len(main)))
-    w = metric_weights(matrix, weights)
-    dirs = _check_directions(directions, present_metrics(matrix))
-    closeness = topsis_closeness(matrix, w, dirs)
-    relatedness = gra_relatedness(matrix, w, dirs, rho, method)
+    # 零方差列的显式降级（见 zero_variance_metrics）：GRA 的两种签认口径在这种列上参考
+    # 值恒为 0，dimensionless 按自己的设计拒绝且**不回落第三种口径**。处置不是给恒定列
+    # 编一个归一化、也不是把它当成 0 或 1 塞进去，而是把该列从**本次**比对的贡献中排除
+    # 并带 RC_INACTIVE 进 flags 披露。TOPSIS 侧一并排除：恒定列的 A+ 与 A- 相同、对
+    # D+ / D- 的贡献恒为 0，本就无信息，一并摘掉只是让两法看同一组指标（对 TOPSIS 名次
+    # 无任何数值影响，见 tests/test_triangulation_zero_variance.py 的对照断言）。
+    # metric_weights 照 [L954] 既有口径在「实际参评指标」上重归一到 1，被排除的列不是
+    # 参评列 —— 与 normalize 给 INACTIVE_METRIC 行落码、Step5 不计入的处置同一口径，
+    # 不新设权重规则（R-12）。
+    # 不入分（[L1348]）：以上只影响本旁路的名次与 rho，Step1-7 的任何一格数值都不经过
+    # 这里，故 score_card / grade_ledger 与 reproducibility_hash 的值面不变。
+    dropped = zero_variance_metrics(matrix)
+    live = drop_metrics(matrix, dropped)
+    if dropped and not present_metrics(live):
+        raise TriangulationError(
+            '本期参评的 ' + str(len(dropped)) + ' 个指标全部零方差（'
+            + '、'.join(dropped) + '）：TOPSIS / GRA 没有任何可比对的信息，三角验证'
+            + '未定义（' + RC_INACTIVE + '）。不编造第三种归一化口径，也不把恒定列'
+            + '当成 0 或 1（R-12）')
+    w = metric_weights(live, weights)
+    dirs = _check_directions(directions, present_metrics(live))
+    closeness = topsis_closeness(live, w, dirs)
+    relatedness = gra_relatedness(live, w, dirs, rho, method)
     r = rhos(main, closeness, relatedness)
     agreement = verdict(r.mean_rho, threshold)
     topsis_rank = rank_desc(closeness)
@@ -510,8 +578,8 @@ def run(scores, normalized, weights, config, *, directions):
     return TriangulationReport(
         rows=rows, rho_main_topsis=r.rho_main_topsis, rho_main_gra=r.rho_main_gra,
         rho_topsis_gra=r.rho_topsis_gra, mean_rho=r.mean_rho, agreement=agreement,
-        gra_by_metric=gra_by_metric(matrix, dirs, rho, method),
-        flags=_flags(agreement, r))
+        gra_by_metric=gra_by_metric(live, dirs, rho, method),
+        flags=_flags(agreement, r, dropped))
 
 
 def veto(report) -> TriangulationVeto:
