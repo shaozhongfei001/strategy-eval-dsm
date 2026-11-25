@@ -1,0 +1,462 @@
+{
+ "orch_version": "v1.2-run-1",
+ "run_prompt": "docs/RUN-UNATTENDED-v1.2.md",
+ "supersedes": "ops/dag-state.json（v1.1 RUN 台账，已随 v1.1.0 发布；本 RUN 视为只读发布记录，禁止改写）",
+ "inherits": "R-12 / R-13 / R-14 / L-06 / L-11 / L-12 / L-13 / L-14 / R-16 模型路由 / 槽位 6 上限 / 固定 pytest 命令",
+ "sdd_fingerprint": {
+  "path": "/mnt/d/ws/codex_rd/ss_campaignlab/工行参考文件/开发设计文档-策略评价可辩护评分模型DSM-v1.1.md",
+  "sha256_12": "708679e9a83d",
+  "lines": 2003,
+  "mode": "read-only"
+ },
+ "repo": "/home/szf/dev/strategy-eval-dsm",
+ "baseline_head": "b7a46df",
+ "baseline_tag": "v1.1.0 -> fd46872（不移动）",
+ "readonly_neighbors": {
+  "CampaignLab": {
+   "branch": "m0-framework",
+   "head": "0cccb76",
+   "porcelain": 0,
+   "rev_list": 154
+  }
+ },
+ "goal": "关掉 v1.1 移交的 4 条工程阻塞项（G-8 / G-14 / G-15 + cli OSError）与 8 条 ⏳，使 V-14 具备由 ❌ 上调 ✅ 的四项齐备条件；发布 v1.2.0（仍为合成数据演练版）",
+ "out_of_scope": [
+  "G5(F-1 D6 复核)",
+  "G7(F-2 治理配置签认)",
+  "C-1~C-6/C-8 口径签认",
+  "LOO CSV 载体扩列",
+  "dsm/models.py 冻结容器结构",
+  "移动 v1.1.0 tag",
+  "改写 v1.1 台账"
+ ],
+ "t0_wall_clock": 1795612061.2549746,
+ "hard_stop_hours": 6.0,
+ "phase_order": [
+  "W1",
+  "W2",
+  "W3"
+ ],
+ "phase_current": "W1",
+ "run_status": "RUNNING",
+ "slots_limit": 6,
+ "slots_in_use": 0,
+ "model_routing": {
+  "rule": "R-16：spawn_agent 必须显式传 model + reasoning_effort",
+  "C3": "qwen3.8-max",
+  "C2": "qwen3.8-flash",
+  "C1": "qwen3.8-flash",
+  "escalation": "同一包 + 同一错误签名 + 连续 2 次未过门禁 -> close -> qwen3.8-max/high 重派，附两次失败日志原文"
+ },
+ "writeset_collision_selfcheck": {
+  "method": "主控对同波次包写集做集合求交（排除 gitignored dsm_stage/）",
+  "collisions": [],
+  "verdict": "空集 = 同波次写集两两不相交，可并发",
+  "note": "据此把 M28-1 排到 W2（依赖 RC-1 落的码 + M29-1 的报告路径）、BK-3 排到 W3（其 9 个文件与 RC-1/V2-500 撞车）、CLI-1 并入 M29-1（dsm/cli.py 单写者）"
+ },
+ "work_packages": {
+  "M29-1": {
+   "wave": "W1",
+   "cx": "C3",
+   "model": "qwen3.8-max",
+   "reasoning_effort": "xhigh",
+   "status": "pending",
+   "deps": [],
+   "budget_min": 90,
+   "writeset": [
+    "dsm/cli.py",
+    "tests/test_cli_marshal.py"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "RC-1": {
+   "wave": "W1",
+   "cx": "C2",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "high",
+   "status": "pending",
+   "deps": [],
+   "budget_min": 50,
+   "writeset": [
+    "dsm/preflight.py",
+    "dsm/triangulation.py",
+    "tests/test_reason_codes.py"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "V2-500": {
+   "wave": "W1",
+   "cx": "C1",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "low",
+   "status": "pending",
+   "deps": [],
+   "budget_min": 30,
+   "writeset": [
+    "tests/test_properties_all.py"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "V4-3L": {
+   "wave": "W1",
+   "cx": "C2",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "medium",
+   "status": "pending",
+   "deps": [],
+   "budget_min": 40,
+   "writeset": [
+    "dsm_stage/V12-V4-3L/"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "V20-G": {
+   "wave": "W1",
+   "cx": "C2",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "high",
+   "status": "pending",
+   "deps": [],
+   "budget_min": 40,
+   "writeset": [
+    "dsm_stage/V12-V20-G/"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "M29-3": {
+   "wave": "W1",
+   "cx": "C2",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "medium",
+   "status": "pending",
+   "deps": [],
+   "budget_min": 50,
+   "writeset": [
+    "config/",
+    "tests/test_config_dryrun.py"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "M29-2": {
+   "wave": "W2",
+   "cx": "C2",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "high",
+   "status": "pending",
+   "deps": [
+    "M29-1"
+   ],
+   "budget_min": 50,
+   "writeset": [
+    "dsm/cli.py",
+    "dsm/reports.py",
+    "tests/test_report_set_outlet.py"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "M28-1": {
+   "wave": "W2",
+   "cx": "C3",
+   "model": "qwen3.8-max",
+   "reasoning_effort": "high",
+   "status": "pending",
+   "deps": [
+    "M29-1",
+    "RC-1"
+   ],
+   "budget_min": 80,
+   "writeset": [
+    "tests/test_downgrade_matrix.py"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "V15-PROV": {
+   "wave": "W2",
+   "cx": "C2",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "medium",
+   "status": "pending",
+   "deps": [],
+   "budget_min": 40,
+   "writeset": [
+    "dsm_stage/V12-V15-PROV/"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "BK-3": {
+   "wave": "W3",
+   "cx": "C1",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "low",
+   "status": "pending",
+   "deps": [
+    "RC-1",
+    "M29-1",
+    "M29-2",
+    "V2-500"
+   ],
+   "budget_min": 20,
+   "writeset": [
+    "dsm/diagnostics.py",
+    "dsm/triangulation.py",
+    "dsm/whatif.py",
+    "tests/test_diagnostics.py",
+    "tests/test_golden_a.py",
+    "tests/test_methods_whatif.py",
+    "tests/test_sensitivity.py",
+    "tests/test_triangulation.py",
+    "tools/repro_offline.sh"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "BK-4": {
+   "wave": "W3",
+   "cx": "C1",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "low",
+   "status": "pending",
+   "deps": [
+    "V15-PROV"
+   ],
+   "budget_min": 30,
+   "writeset": [
+    "docs/deliverables/V-ACCEPTANCE-EVIDENCE.md"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  },
+  "V12-DOC-FINAL": {
+   "wave": "W3",
+   "cx": "C2",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "medium",
+   "status": "pending",
+   "deps": [
+    "M28-1",
+    "M29-2",
+    "BK-4"
+   ],
+   "budget_min": 60,
+   "writeset": [
+    "README.md",
+    "docs/deliverables/KNOWN-GAPS.md",
+    "docs/deliverables/P3b-REPRO-HARNESS.md",
+    "docs/deliverables/P3c-DELIVERY-PACKAGE.md"
+   ],
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   }
+  }
+ },
+ "sync_points": {
+  "SP-V12-1": {
+   "after": "W1",
+   "must": [
+    "M29-1 的 _chain_gate 不再 raise（实测）",
+    "RC-1 六条码落地",
+    "V2-500 500 例档实测墙钟与结果",
+    "三只读取证包产物齐备",
+    "主控复跑全量 pytest 并记录红条归属"
+   ],
+   "done": false
+  },
+  "SP-V12-2": {
+   "after": "W2",
+   "must": [
+    "M29-2 生产出口接线且 output_fingerprints 非空",
+    "M28-1 26 行断言全绿",
+    "V15-PROV 七键抽查含「合成待签认」标注",
+    "主控裁定 V-14 四项是否齐备"
+   ],
+   "done": false
+  },
+  "SP-V12-3": {
+   "after": "W3",
+   "must": [
+    "门禁 1~7 逐条主控亲测",
+    "新权威哈希登记 + invalidation_log 新 seq",
+    "KNOWN-GAPS 机械重算与汇总节自证相等",
+    "push + tag v1.2.0"
+   ],
+   "done": false
+  }
+ },
+ "gates_v12": {
+  "1": "全量 pytest 0 failed/0 error/0 skip/0 xfail，标准形式 + 门禁形式双跑，主控在最终 HEAD 亲测",
+  "2": "V-1~V-20 全 20 条在册；V-14 仅四项齐备才可上调，否则维持 ❌ 并逐字保留原因",
+  "3": "repro_offline.sh --strict-isolation --expect <新哈希> 在最终 HEAD PASS，L3-strong，两跑自等，DIRTY=0，HEAD_STABLE=yes",
+  "4": "权威哈希必变（实现面改动）-> 重新登记 + invalidation_log 新 seq + 新旧两值与归因；v1.1 的 e5923465… 只作历史保留",
+  "5": "邻居 CampaignLab 四项一致 + 契约 708679e9a83d/2003 行未变",
+  "6": "KNOWN-GAPS 机械清点与汇总节逐字相等；阻塞数自 13 下降的每条给关闭依据",
+  "7": "porcelain 空；编码门禁三形式 RC 全 0，四要素违规 0"
+ },
+ "decisions": {
+  "ORCH-49": {
+   "at_epoch": 1795612061.2549746,
+   "head_observed": "b7a46df",
+   "title": "v1.2 开跑裁定：新台账文件、写集冲突消解、evidence.py 禁改令有条件解除、BK-3 授权、哈希必变预声明",
+   "rulings": [
+    "1) v1.1 台账 ops/dag-state.json 已随 v1.1.0 发布，本 RUN 视为只读发布记录，一律不改写；v1.2 状态另立 ops/dag-state-v1.2.json。理由：发布记录与在飞状态混在一个文件里，会让 tag 所指内容随后续派工漂移，破坏可审计性。",
+    "2) 写集冲突消解（主控派工前做集合求交，实测见 writeset_collision_selfcheck）：(a) dsm/cli.py 单写者 = M29-1，故原拟独立的 CLI-1（约 :918 的 OSError 返工）并入 M29-1；(b) M28-1 的 26 行断言依赖 RC-1 落的码与 M29-1 的报告路径，从 W1 降到 W2；(c) BK-3 补末尾 LF 的 9 个文件与 RC-1（dsm/triangulation.py）、V2-500 撞车，降到 W3 单独执行；(d) M29-2 复用 dsm/cli.py，必须在 M29-1 落地之后（W2），二者不并发。",
+    "3) v1.1 ORCH-41 第1条「禁改 dsm/evidence.py」原是为避免 A1d 与 CODES-2 并发写同一文件，属 RUN 级写集管制而非永久禁令。本 RUN 有条件解除：evidence.py 不在任何包的初始写集内；若 RC-1 或 M29-1 实测发现必须改，先报 blocked 附差异表，由主控裁是否单独立包串行执行，不得自行顺手改。",
+    "4) BK-3 授权：v1.1 ORCH-44 第6条(a) 记录「9 个非 docs 文件缺末尾 LF，清零需主控单独授权」。现予授权，范围严格限于实测列出的 9 个文件、且只允许追加 1 个 LF 字节，零内容改写；目标披露项 16 -> 7。剩余 7 个属 docs 与 README.md，其 owner 在门禁作用域外（ORCH-36 第11条），本 RUN 不动。",
+    "5) 哈希必变预声明（吸取 v1.1 seq5「预声明被实测证伪」的教训，这次给可证伪的具体预期）：M29-1 改 dsm/cli.py、RC-1 改 dsm/preflight.py 与 dsm/triangulation.py，均在 spine 链路调用面内，故 repro_offline.sh 的权威哈希预期不再等于 e5923465…。若实测仍相等，说明这些改动未进入哈希输入面，必须查明原因（可能是 marshal 未被探针路径触达）并如实登记，不得当作「稳定」庆祝。",
+    "6) V-14 上调权只属主控，且必须四项齐备（M28 26 行断言全绿 / M29 marshal 落地 / RC-1 六条接线 / OSError 返工）。任何包不得在自己的回报里宣称 V-14 已 ✅；包自述不作为上调依据（沿用 v1.1 纪律）。",
+    "7) 时间盒 6h（预期约 4h，依 v1.1 校准 k=0.2917：实际墙钟约为预算的 29%）。到点未完成则如实登记遗留（缺什么/归属/下一版条件），不 push 半成品 tag。v1.1 教训：10h 盒子里最后 1.6h 全用在收尾对账，故本 RUN 把 DOC-FINAL 与 BK 类包排在 W3 前段，给门禁与签核留足 1h。",
+    "8) 本文件由主控用扁平化写法生成（逐条 append，不做深层括号嵌套）。原因：v1.2 台账首版脚本因深层 OD([...]) 嵌套两次踩括号不平衡（同 v1.1 的 patch_ledger.py 语法错），L-12 已立「自写脚本必须先 compile 自检」，此处再加一条工程约束：能用扁平结构就不用嵌套字面量。"
+   ]
+  }
+ },
+ "counters": {
+  "pkgs_total": 12,
+  "pkgs_done": 0,
+  "pkgs_running": 0,
+  "pkgs_pending": 12,
+  "w1_pkgs": 6,
+  "w2_pkgs": 3,
+  "w3_pkgs": 3,
+  "max_pkgs": 2,
+  "flash_pkgs": 10,
+  "slots_limit": 6,
+  "slots_in_use": 0,
+  "escalations": 0,
+  "rework_rounds": 0,
+  "budget_violations": 0,
+  "updated_at_epoch": 1795612061.2549746
+ },
+ "pytest_baseline": {
+  "at_kickoff": {
+   "head": "b7a46df",
+   "failed": 0,
+   "passed": 2302,
+   "collected": 2302,
+   "std_form": "2302 passed in 13.32s @b7a46df（BK-1 提交前脏树实测）",
+   "measured_by": "主控亲测"
+  }
+ },
+ "reproducibility_evidence": {
+  "v1_1_hash_frozen": "e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904",
+  "v1_1_signoff_commits": [
+   "06d1338",
+   "fd46872",
+   "1f74ab9",
+   "b7a46df"
+  ],
+  "v1_2_current_hash": null,
+  "v1_2_expected": "不等于 e5923465…（ORCH-49 第5条预声明，可证伪）",
+  "invalidation_log": []
+ },
+ "blocking_gaps_inherited": {
+  "total": 13,
+  "ids": [
+   "C-1",
+   "C-2",
+   "C-3",
+   "C-4",
+   "C-5",
+   "C-6",
+   "C-8",
+   "E-6",
+   "F-1",
+   "F-2",
+   "G-8",
+   "G-14",
+   "G-15"
+  ],
+  "closable_by_this_run": [
+   "G-8",
+   "G-14",
+   "G-15"
+  ],
+  "needs_contract_ruling": [
+   "E-6"
+  ],
+  "external_only": [
+   "C-1",
+   "C-2",
+   "C-3",
+   "C-4",
+   "C-5",
+   "C-6",
+   "C-8",
+   "F-1",
+   "F-2"
+  ]
+ },
+ "clock_now": {
+  "at_epoch": 1795612061.2549746,
+  "clock": "T+0.00h",
+  "head": "b7a46df",
+  "phase": "W1",
+  "remaining_hours": 6.0
+ }
+}
