@@ -122,6 +122,7 @@ import pytest
 
 from dsm import (aggregate, attainment, audit, evidence, grading, normalize, pooling, preflight,
                  redline, sensitivity)
+from dsm import reason_codes
 from dsm.io_loaders import Inputs
 from dsm.models import (AnchorSetDoc, DesignCardRow, GradeFrame, GradeLedgerRow, GradeRuleRow,
                         MetricDictRow, MetricFactRow, PoolFrame, PoolKey, PoolStats, RedlineRow,
@@ -158,11 +159,29 @@ K10_CANDIDATES = ((Decimal('0.05'), Decimal('0.20')), (Decimal('0.10'), Decimal(
                   (Decimal('0.95'), Decimal('0.99')))
 K11_CANDIDATES = ((Decimal('0.05'), Decimal('0.15')), (Decimal('0.10'), Decimal('0.20')),
                   (Decimal('0.15'), Decimal('0.25')))
-# 手算：评价期有事实的 strategy x version = 12；证据 D（不可评价）= 5（S-004 / S-005v2 /
-# S-007 / S-010 / S-012，GAP-E3-03）；S-008 因是 G-09 BLOCK 载体被剔除 -> assessed = 6。
+# G-14 分母三口径（ORCH-41 第2条 / ERRATUM-11；严禁混用，各自只服务自己的对象）：
+# 口径一 evidence 侧「出桥」= 评价期有事实行且过 EVID-1 评价期过滤的 pair 数（13 -> 12，
+#   ORCH-37 第9条）-> **只**服务 Step-3 分类断言（C 集合、4/12 -> 6/12、四类闭合）。
 EVAL_PAIR_COUNT = 12
-ASSESSED_COUNT = 6
-ASSESSED = ('S-001', 'S-002', 'S-003', 'S-006', 'S-009', 'S-011')
+# 口径二 pooling 侧 universe = 出桥 12 - 1（M31 [L1411] G-09 BLOCK 载体 S-008 不产出分数）= 11
+#   -> 服务 evidence_structure 四类闭合与 (C+D) 披露量。依据 M24 [L1003]「披露各池的证据结构
+#   （A/B/C/D 计数）」+ M30 [L1063]⑥「证据结构（A/B/C/D 计数与 NOT_ASSESSED 明细）」并列
+#   -> ORCH-37 第6条读法甲：四类全给、NOT_ASSESSED 另附明细。
+DEN_POOL = EVAL_PAIR_COUNT - 1                          # = 11
+# 口径三 pooling 侧已参评 = 11 - NOT_ASSESSED(2) = 9 -> 服务 c_class_share 与两列 share_*。
+#   依据 M24 [L1004]「NOT_ASSESSED 单独计数，不计入分母」+ ORCH-36 第3条「分母必须与两列
+#   share_* 同源」。NA = 证据 D 类（M05 [L494] / [L977]① D -> NOT_ASSESSED），A1c（D-A1-02
+#   给 S-004/S-005v1/S-005v2/S-007 补 alt_method_note -> 判 B）后 D = {S-010/v1, S-012/v1} = 2。
+NOT_ASSESSED_BASE = 2
+NOT_ASSESSED_VARIANT = 2
+DEN_ASSESSED = DEN_POOL - NOT_ASSESSED_BASE             # = 9
+DEN_ASSESSED_VARIANT = DEN_POOL - NOT_ASSESSED_VARIANT  # = 9
+# 参评集（等级 != NOT_ASSESSED 且有分数）：A1c 后 6 -> 9。独立探针 dsm_stage/E3b/probe_sens.py
+# （只用 fixtures 的 target_value / direction / 两级权重 / grade_rule 门槛 + [L977] 五步判级，
+# 不 import 任何 dsm 业务模块，R-14 合规）逐条算出：出桥 12 - D 类 2（S-010 / S-012）
+# - G-09 BLOCK 载体 S-008 = 9。
+ASSESSED_COUNT = 9
+ASSESSED = ('S-001', 'S-002', 'S-003', 'S-004', 'S-005', 'S-006', 'S-007', 'S-009', 'S-011')
 SIGNED_METRIC_COUNT = 14               # 15 个指标里 M_REPEAT_USE_COUNT 为 PENDING
 
 ATT_PARAMS = attainment.AttainmentParams(attainment_cap=ATTAINMENT_CAP, on_zero=ON_ZERO,
@@ -331,7 +350,7 @@ class Chain:
 def _chain(fx, period, *, cards=None, metric_dict=None, facts=None, weights=None, prev=None,
            streaks=None, exclude=(BLOCK_SUBJECT,), min_coverage=Decimal('0.60'),
            master=None,
-           with_pools=False):
+           with_pools=False, impute_anchor=True):
     md = fx['metric_dict'] if metric_dict is None else tuple(metric_dict)
     cards = fx['cards'] if cards is None else tuple(cards)
     weights = fx['weights'] if weights is None else weights
@@ -340,7 +359,17 @@ def _chain(fx, period, *, cards=None, metric_dict=None, facts=None, weights=None
     base_master = fx['master'] if master is None else tuple(master)
     masters = _live_master(base_master, live)
     ev = evidence.classify(cards, live, params=EV_PARAMS)
-    att = attainment.compute(live, md, params=ATT_PARAMS)
+    # ORCH-40 第9条 / ORCH-37 第8条 / ERRATUM-08：IMPUTE_MEDIAN 的统计量参考集优先取
+    # anchor_set（与 M43 [L941]「min_max 的 min/max 与 z_score 的 mean/sd 优先取自 anchor_set」
+    # 同口径）。ATT-1（commit dce1ac5）已给 attainment.compute() 加 keyword-only anchor_set=，
+    # 并用只读 pytest 插件把冻结 anchor_set.jsonl 注入每个调用点后实跑：g05 由红转绿
+    # （7 failed -> 6 failed，g05 出列），其余 6 条注入前后完全相同 -> 接线是唯一治法。
+    # 不接线 => anchor_set=None => 参考集退回当期池 => 追加 S-901 会撑动 S-011/v1 的 M_ROI
+    # 填补值 => M31 [L1407]（G-05）的不变性在结构上不可能满足。
+    # 注意：anchor_set 是 compute() 的入参，**不得**塞进 AttainmentParams（A1DPREP 实测反例：
+    # ValidationError @168）。impute_anchor=False 只用于复现旧的当期池回退分支做对照。
+    att = attainment.compute(live, md, params=ATT_PARAMS,
+                             anchor_set=(fx['anchor'] if impute_anchor else None))
     nrm = normalize.compute(att, md, fx['anchor'], params=NRM_PARAMS,
                             pools=_pool_map(ev, base_master))
     scores = aggregate.compose(att, nrm, weights, None)
@@ -447,6 +476,82 @@ def test_g05_appended_extreme_strategy_leaves_existing_norm_composite_grade_unch
                         + str(sum(1 for r in rows if not r.anchor_used)))
     if any(_code(r.reason_code) == _code(RC.RANK_REVERSAL_RISK) for r in rows):
         problems.append('RANK_REVERSAL_RISK: 手算=不标注（锚定集有效）实测=已标注')
+    _diffs(problems)
+
+IMPUTE_METRIC = 'M_ROI'                 # fixtures/input/metric_dict.jsonl -> missing_rule = IMPUTE_MEDIAN
+IMPUTE_CARRIER = ('S-011', 'v1')        # 评价期缺该指标事实行的载体（G-09 四分支之一）
+
+
+def _att_of(chain, sid, vid, metric_id):
+    '''从 AttainmentResult 里取单个 (sid, vid, period, metric_id) 的达成率（只读取值，不判期望）。'''
+    for r in chain.att.rows:
+        if (r.strategy_id, r.version_id, r.period, r.metric_id) == (sid, vid, EVAL_PERIOD, metric_id):
+            return r.attainment
+    return None
+
+
+def test_g05_impute_median_reference_set_is_anchor_set_so_append_cannot_move_it(fx, history):
+    '''G-05 x ORCH-40 第9条（ERRATUM-08）：IMPUTE_MEDIAN 的参考集 = anchor_set，故追加不改填补值。
+
+    原文依据（逐字）：
+      * M18 [L1134]「| missing_rule | 缺数据处置：ZERO / SKIP / IMPUTE_MEDIAN / BLOCK |」
+        —— 只枚举四个规则名，**对中位数取自哪个集合零字规定** = 原文缺口，故本条依据等级为
+        derived:（ERRATUM-08），不得当作 SDD 的明文要求引用。
+      * M43 [L941]「min_max 的 min/max 与 z_score 的 mean/sd **优先取自 anchor_set**；锚定集失效
+        → 回退当期池内统计 + 标注 RANK_REVERSAL_RISK」—— 同口径的原文锚点。
+      * M31 [L1407]（G-05）「存量全部策略的 norm、composite、grade **完全不变**」。
+    手算（符号化，不取任何实现输出）：
+      SAMPLE(M_ROI, v1) = { actual_value | metric_id = M_ROI ∧ period = 2026-Q3 ∧ version_id = v1
+                            ∧ strategy_id ∈ anchor_set.strategy_ids ∧ actual_value >= 0 ∧ 非 SUSPECT }
+      anchor_set.strategy_ids = {S-001,S-002,S-003,S-004,S-005,S-007,S-008,S-011}（**S-901 ∉ 集合**）
+      => S-901 的任何事实行都不进 SAMPLE => MED 不变 => ATT 不变 => norm/composite/grade 不变。
+      样本成员手算 = {S-001,S-002,S-003,S-004,S-007,S-008} = 6（S-005/v1 RETIRED 且
+      offline_date=2026-06-30、本期无事实行 -> 被 EVID-1 的 evaluation_scope() 排除；
+      S-011 自身缺该行）=> 偶数个 => 中位数 = 升序第 3、第 4 项之和 / 2（Decimal 端到端，V-9）。
+      填补后的 attainment / composite **绝对值** = PLACEHOLDER（GAPS P-02）：[L1134] 对参考集零字
+      规定，参考集本身是 derived: 裁决，且 6 个样本 actual_value 属 A1c 刚重生成的数据 ->
+      按 R-12/R-14 不硬编；本条用「追加前后逐位相同」的不变量替代，故不需要该绝对值。
+    '''
+    prev, streaks = history
+    cards = _variant_table(fx, 'design_card', 'G05_append_extreme')
+    facts = _variant_table(fx, 'metric_fact', 'G05_append_extreme')
+    masters = _variant_table(fx, 'strategy_master', 'G05_append_extreme')
+    sid, vid = IMPUTE_CARRIER
+
+    assert 'S-901' not in fx['anchor'].strategy_ids, 'S-901 必须不入锚定集（M31 [L1407] 构造要点）'
+    assert any(r.metric_id == IMPUTE_METRIC and r.missing_rule == 'IMPUTE_MEDIAN'
+               for r in fx['metric_dict']), '载体指标的 missing_rule 必须是 IMPUTE_MEDIAN（[L1134]）'
+    assert not [r for r in fx['facts']
+                if (r.strategy_id, r.version_id, r.metric_id, r.period)
+                == (sid, vid, IMPUTE_METRIC, EVAL_PERIOD)], '载体必须真的缺该事实行'
+
+    base_anchored = _chain(fx, EVAL_PERIOD, prev=prev, streaks=streaks, impute_anchor=True)
+    appended = _chain(fx, EVAL_PERIOD, cards=cards, facts=facts, master=masters,
+                      prev=prev, streaks=streaks, impute_anchor=True)
+    pooled = _chain(fx, EVAL_PERIOD, cards=cards, facts=facts, master=masters,
+                    prev=prev, streaks=streaks, impute_anchor=False)
+    problems = []
+    # (1) 核心不变量：接锚定集后，追加 S-901 不得改动 S-011/v1 的填补达成率。
+    before = _att_of(base_anchored, sid, vid, IMPUTE_METRIC)
+    after = _att_of(appended, sid, vid, IMPUTE_METRIC)
+    if before is None or after is None:
+        problems.append('填补未产出（V-14：不得静默降级为 None）：追加前=%s 追加后=%s'
+                        % (before, after))
+    elif not _ratio_eq(after, before):
+        problems.append('S-011/v1 M_ROI 填补达成率：手算=不变（参考集 anchor_set 不含 S-901，'
+                        'ORCH-40 第9条 / M31 [L1407]）实测 追加前=%s 追加后=%s' % (before, after))
+    # (2) 对照：不接锚定集（当期池回退）时该不变量在结构上无法保证 -> 只要求两者都被显式观测，
+    #     不静默。真正的判据是 (1)。V-14：不用 skip/xfail 掩盖。
+    if _att_of(pooled, sid, vid, IMPUTE_METRIC) is None:
+        problems.append('当期池回退分支也没有产出填补值（V-14）')
+    # (3) 关系式断言：任何填补/回退留痕都必须是**已注册码**（H-7），不硬编码名——
+    #     ANCHOR_SET_STALE 的适用条件与 EVID-1 的 ScopeExclusion.reason_code 都可能变，
+    #     用 is_registered(...) 才不会与主控注册结果冲突。
+    for chain in (base_anchored, appended, pooled):
+        for row in chain.att.rows:
+            code = _code(getattr(row, 'reason_code', None))
+            if code is not None and not reason_codes.is_registered(code):
+                problems.append('attainment 产出了未注册码（H-7 / V-14）：' + str(code))
     _diffs(problems)
 
 
@@ -614,34 +719,44 @@ def test_g06_flip_rate_is_flipped_over_assessed_and_labels_are_correct(fx, base)
     '''G-06 的 flip_rate 手算（M13 [L746] OAT_20 / [L1018] 输出、[L1016] 只重跑 Step 5-6）。
 
     手算（OAT_20 = 6 个维度 x ±20% = 12 次扰动；每次扰动后按 [L954] 重归一（除法 q12、
-      末位取残差使和恰为 1），再按 M05 Step 1 门槛 + Step 2 证据封顶重新定级）：
-      * 参评集（assessed，等级非 NOT_ASSESSED 且有分数）手算 = 6：
+      末位取残差使和恰为 1），再按 M05 Step 1 门槛（[L493]）+ Step 2 证据封顶（[L494]）重新定级）：
+      * 参评集（assessed，等级非 NOT_ASSESSED 且有分数）手算 = **9**（A1c D-A1-02 给
+        S-004 / S-005v1 / S-005v2 / S-007 四张 DID 卡补 [L1171] alt_method_note -> [L977]③ 判 B，
+        这四条由 D（NOT_ASSESSED）回到参评域，A1CPREP §9.1 耦合点 3 已预声明）：
           S-001（A，1.021580000000 -> L1）、S-002（A，1.005000000000 -> L1）、
-          S-003（C，1.084600000000 -> 证据封顶 L2）、S-006（C，0.793501146975 -> L3，
+          S-003（C，1.084600000000 -> 证据封顶 L2）、S-004（B，0.905000000000 -> L2）、
+          S-005/v2（B，0.843701606617 -> L3）、S-006（C，0.793501146975 -> L3，
           另越 M_COMPLAINT_RATE HARD 线 -> forced L4，见 E2 G-15）、
-          S-009（A，1.268600000000 -> L1）、S-011（C，0.960845891652 -> L2）。
-        其余 6 条不进分母：5 条证据 D（GAP-E3-03）+ S-008（G-09 BLOCK 载体，本期无分数）。
+          S-007（B，1.011310171243 -> L1）、S-009（A，1.268600000000 -> L1）、
+          S-011（C，0.960845891652 -> L2）。
+        其余 3 条不进分母：2 条证据 D（S-010/v1 卡缺失、S-012/v1 C 未写 interpretation_limit）
+        + S-008（G-09 BLOCK 载体，[L1411]，本期无分数）。
+        取值途径 = 独立探针 dsm_stage/E3b/probe_sens.py（只用 fixtures 的 target_value /
+        direction / 两级权重 / grade_rule 门槛 + [L977] 五步判级，**不 import 任何 dsm 业务
+        模块**，R-14 合规；实测值 3 只作归因交叉核对，不作期望来源）。
       * 逐策略翻转次数（12 次扰动里等级发生变化的次数）手算：
-          S-002 = 1（仅 CONTRIB +20%：1.005000000000 -> 0.999056603773 跌破 L1 门槛 1.00；
-            其中 CONTRIB 权重 0.30*1.2/1.02 = 0.352941176471、其余合计 0.647058823529，
-            0.352941176471*0.900000000000 + 0.647058823529*1.050000000000
-            = 0.317647058824 + 0.679411764706 = 0.997058823530? 逐位值由探针
-            probe_sens.py 的 OAT 0.20 detail 行给出 = 0.999056603773（六维逐项重算，
-            非 CONTRIB 维度的权重同样被 1.02 除小），两种口径都 < 1.00 -> 结论一致）
-          S-001 = 0（基线 1.021580000000 距 L1 门槛 1.00 有 0.021580 的余量，12 次扰动
-            的综合分始终 >= 1.00）
+          S-002 = 1（仅 CONTRIB +20%：CONTRIB 权重 0.30*1.2 后按 [L954] 重归一，
+            综合分 1.005000000000 -> 0.999056603773 跌破 [L493] 的 L1 门槛 1.00 -> L2）
+          S-004 = 1（仅 CONTRIB +20%：0.905000000000 -> 0.899056603775 跌破 L2 门槛 0.90 -> L3；
+            这正是 #11 test_g06_at_least_one_near_boundary_strategy_flips_to_l3 的同一载体，
+            A1c 已把该条修绿，本条不得破坏它）
+          S-007 = 1（仅 EXPER -20%：1.011310171243 -> 0.994800831821 跌破 L1 门槛 1.00 -> L2）
+          S-001 = 0（基线 1.021580000000 距 L1 门槛 1.00 有 0.021580 余量，12 次扰动始终 >= 1.00）
           S-003 / S-011 = 0（证据 C 封顶 L2，扰动不改等级）、S-006 = 0（HARD 强制 L4，
-            扰动不改等级）、S-009 = 0（1.268600000000 距门槛最远）
-      * overall_flip_rate = 翻转策略数 / 参评数 = 1 / 6 -> q12 = 0.166666666667
+            扰动不改等级）、S-009 = 0（1.268600000000 距门槛最远）、S-005/v2 = 0（0.843701606617
+            距 L3 门槛 0.70 有余量，且 +20% 方向只上不下）
+      * flipped_count = #{翻转次数 > 0 的参评策略} = 3（S-002 / S-004 / S-007）
+      * overall_flip_rate = 翻转策略数 / 参评数 = 3 / 9 -> q12 = 0.333333333333
+        （改前的 1/6 = 0.166666666667 是 A1c 之前 6 条参评集的陈旧手算值）
       * OAT_10（±10%，12 次）手算：0 次翻转 -> overall_flip_rate = 0.000000000000
-      * 逐策略 flip 比例（该策略翻转次数 / 扰动次数）：S-002 = 1/12 = 0.083333333333，
-        其余 5 条 = 0。
+      * 逐策略 flip 比例（该策略翻转次数 / 扰动次数 12）：S-002 = S-004 = S-007 =
+        1/12 = 0.083333333333，其余 6 条 = 0。
     K-11（stable_max / review_max，治理参数、PLACEHOLDER）的处置：本包不断言由阈值决定的
       档位标签为唯一结论，只对 **M13 [L746] 明文默认 0.05 / 0.15**（与 K-11 [L1748] 建议初值
       一致）断言 overall 与逐策略标签，并在三组候选值下把差异如实披露：
-        overall 0.166666666667：候选组 (0.05,0.15) -> 超 review_max（FLIP_RATE_UNUSABLE）、
-          (0.10,0.20) 与 (0.15,0.25) -> 落在 stable_max 与 review_max 之间（FLIP_RATE_REVIEW）；
-        S-002 逐策略 0.083333333333：(0.05,0.15) -> NEAR_BOUNDARY，
+        overall 0.333333333333：候选组 (0.05,0.15) -> 超 review_max（FLIP_RATE_UNUSABLE）、
+          (0.10,0.20) 与 (0.15,0.25) -> 同样超 review_max（0.333333333333 > 0.20 / 0.25）；
+        S-002 / S-004 / S-007 逐策略 0.083333333333：(0.05,0.15) -> NEAR_BOUNDARY，
           (0.10,0.20) / (0.15,0.25) -> STABLE。
       阈值与档位的对应关系属 [L746] 明文，不是本包拟定。
     '''
@@ -656,21 +771,31 @@ def test_g06_flip_rate_is_flipped_over_assessed_and_labels_are_correct(fx, base)
         return hits[0]
 
     s10, s20 = scheme(report10, 'OAT_10'), scheme(report20, 'OAT_20')
+    # 手算的逐策略翻转次数（探针 probe_sens.py 独立算出，见 docstring）：三条各恰 1 次。
+    hand_flips = {'S-002': 1, 'S-004': 1, 'S-007': 1}
+    hand_flipped = 3
     problems = []
     if s10.assessed_count != ASSESSED_COUNT:
-        problems.append('assessed_count: 手算=6 实测=' + str(s10.assessed_count))
+        problems.append('assessed_count: 手算=%d（出桥 12 - D 类 2 - G-09 BLOCK 载体 S-008）'
+                        ' 实测=%s' % (ASSESSED_COUNT, s10.assessed_count))
+    if s20.assessed_count != ASSESSED_COUNT:
+        problems.append('OAT_20 assessed_count: 手算=%d 实测=%s'
+                        % (ASSESSED_COUNT, s20.assessed_count))
     if s10.flipped_count != 0:
         problems.append('OAT_10 flipped_count: 手算=0 实测=' + str(s10.flipped_count))
     if not _ratio_eq(s10.overall_flip_rate, _q(Decimal(0))):
         problems.append('OAT_10 overall_flip_rate: 手算=0.000000000000 实测='
                         + str(s10.overall_flip_rate))
-    if s20.flipped_count != 1:
-        problems.append('OAT_20 flipped_count: 手算=1（只有 S-002）实测='
-                        + str(s20.flipped_count))
+    if s20.flipped_count != hand_flipped:
+        problems.append('OAT_20 flipped_count: 手算=%d（S-002 / S-004 / S-007 各恰 1 次）实测=%s'
+                        % (hand_flipped, s20.flipped_count))
     want20 = _q(Decimal(s20.flipped_count) / Decimal(s10.assessed_count))
-    if not _ratio_eq(s20.overall_flip_rate, _q(Decimal(1) / Decimal(6))):
-        problems.append('OAT_20 overall_flip_rate: 手算=1/6=%s 实测=%s'
-                        % (_q(Decimal(1) / Decimal(6)), s20.overall_flip_rate))
+    if not _ratio_eq(s20.overall_flip_rate,
+                     _q(Decimal(hand_flipped) / Decimal(ASSESSED_COUNT))):
+        problems.append('OAT_20 overall_flip_rate: 手算=%d/%d=%s 实测=%s'
+                        % (hand_flipped, ASSESSED_COUNT,
+                           _q(Decimal(hand_flipped) / Decimal(ASSESSED_COUNT)),
+                           s20.overall_flip_rate))
     elif not _ratio_eq(want20, s20.overall_flip_rate):
         problems.append('flip_rate 恒等式（翻转数/参评数）不成立：' + str(want20)
                         + ' vs ' + str(s20.overall_flip_rate))
@@ -682,16 +807,21 @@ def test_g06_flip_rate_is_flipped_over_assessed_and_labels_are_correct(fx, base)
         row = labels.get(sid)
         if row is None:
             continue
-        want = _q(Decimal(1) / Decimal(12)) if sid == 'S-002' else _q(Decimal(0))
+        n_flip = hand_flips.get(sid, 0)
+        want = _q(Decimal(n_flip) / Decimal(12))
         if not _ratio_eq(row.flip_under_pct20, want):
-            problems.append('%s flip_under_pct20: 手算=%s（翻转 %s / 12 次扰动）实测=%s'
-                            % (sid, want, 1 if sid == 'S-002' else 0, row.flip_under_pct20))
+            problems.append('%s flip_under_pct20: 手算=%s（翻转 %d / 12 次扰动）实测=%s'
+                            % (sid, want, n_flip, row.flip_under_pct20))
     _diffs(problems)
 
     s002 = labels['S-002']
     assert _code(s002.stability_label) == 'NEAR_BOUNDARY', \
         'K-11 取 [L746] 默认 0.05/0.15 时 0.083333333333 落 NEAR_BOUNDARY；' \
         '实测 ' + str(s002.stability_label) + '（候选组差异见 docstring）'
+    for sid in ('S-004', 'S-007'):
+        assert _code(labels[sid].stability_label) == 'NEAR_BOUNDARY', \
+            ('K-11 取 [L746] 默认 0.05/0.15 时 ' + sid + ' 的 1/12 = 0.083333333333 也应落'
+             ' NEAR_BOUNDARY；实测 ' + str(labels[sid].stability_label))
     assert scheme(report10, 'OAT_10').flag is None, \
         'OAT_10 手算 0 次翻转 -> overall_flip_rate = 0.000000000000，不触发任何 K-11 档位'
     for stable_max, review_max in K11_CANDIDATES:
@@ -699,7 +829,8 @@ def test_g06_flip_rate_is_flipped_over_assessed_and_labels_are_correct(fx, base)
         again = sensitivity.run(_sensitivity_ctx(base), ('OAT_20',), cfg,
                                 weights=base.fx['weights'], grade_fn=base.grade_fn())
         got = scheme(again, 'OAT_20')
-        assert _ratio_eq(got.overall_flip_rate, _q(Decimal(1) / Decimal(6))), \
+        assert _ratio_eq(got.overall_flip_rate,
+                         _q(Decimal(hand_flipped) / Decimal(ASSESSED_COUNT))), \
             'flip_rate 与 K-11 无关（候选组 ' + str((stable_max, review_max)) + '）'
 # --------------------------------------------------------------------------
 # G-07  LOO 单指标过度影响 -> loo_impact 最大者为该指标 + DOMINANT_METRIC 警示
@@ -748,15 +879,22 @@ def test_g07_loo_impact_max_is_the_dominant_weight_metric_m_rev_minor(fx, base):
                                     = 1.500000000000
         综合分跨度 = 0.30 * (1.900000000000 - 1.500000000000) = 0.30*0.400000000000
                   = 0.120000000000，即 1.268600000000 -> 1.148600000000
-      * 14 个签认指标的跨度上界（逐指标对 6 条参评策略取最大，见探针 probe_loo.py）：
-          M_REV_MINOR 0.120000000000 > M_CONTACT_FREQ_PER_30D 0.098323076923
-          > M_RETENTION_RATE 0.098000000000 > M_COMPLAINT_RATE 0.073984615385
-          > M_SATISFY_SCORE 0.046550000000 > M_AUM_MINOR 0.030000000000
-          > M_COST_PER_CONV_MINOR 0.025200000000 > M_ROI 0.016800000000
-          > M_REACH_RATE = M_OPTOUT_RATE 0.014000000000 > M_CONV_RATE 0.010800000000
-          > M_CUST_GAIN 0.004794666667 > M_HANDLE_SEC 0.002493086467
-          > M_CAMPAIGN_COST_MINOR 0.002493086466
-        -> loo_impact 最大者 = M_REV_MINOR（M31 G-07 的 loo_impact_max）。
+      * **K-29（LOO-1 @ 858ebc8 实测）**：LOO targets 实为 **15** 条，含未签认指标
+        M_REPEAT_USE_COUNT，不是本 docstring 旧版写的「14 个签认指标」；旧版逐指标跨度清单
+        绑定 A1c 之前的 fixtures，已整体作废。
+      * **K-26（LOO-1 @ 858ebc8 净树实测）**：[L748] 的 LOO 影响力排名列
+        （ORCH-40 第7条已裁 + R-15 授权新增承载字段 SensitivityReport.loo_impact）中
+        loo_impact_max = **M_REV_MINOR 0.120000000000**，与本条 assert 的手算跨度逐位相符；
+        同列的 M_RETENTION_RATE 已由旧版的 0.098000000000 变为 **0.012950000000**
+        （A1c 重冻后旧值失效）。
+      * 本条 **assert 行一行未改**（包令 ⑥ / K-26 / K-29 只授权更新 docstring 文字与陈旧清单，
+        改前改后均 2 passed）；assert 里的「综合分跨度」是测试内自算量（对 SIGNED 指标 x
+        ASSESSED 策略取 |composite(剔除该指标) - composite(基线)| 的最大值），ASSESSED 已由
+        6 扩为 9（A1c D-A1-02），候选变多而 M_REV_MINOR 仍以 0.120000000000 居首 ->
+        断言是**加强**而非弱化。手算：0.30 * (1.900000000000 - 1.500000000000)
+        = 0.120000000000（剔除后 CONTRIB = (0.10*1.000000000000 + 0.10*2.000000000000)
+        / (0.10 + 0.10) = 1.500000000000，[L954] 维度内重归一）。
+        -> loo_impact 最大者 = M_REV_MINOR（M31 [L1409] 的 loo_impact_max）。
       * DOMINANT_METRIC（[L748]「单指标剔除导致 flip_rate 超阈 -> 警示」）：把阈值取到区间
         下界 0（即「有任何翻转就算」，不引入任何治理签认值）时，主导清单必须非空且报告级
         flags 含 DOMINANT_METRIC，这就是 M31 要求的「存在单一指标过度影响」警示面。
@@ -856,7 +994,7 @@ def test_g10_pending_metric_is_dropped_coverage_falls_and_reason_is_registered(f
       * S-001 / S-002 / S-003 / S-004 / S-007 / S-009 / S-010 / S-012 有 15 行事实，其中
         M_REPEAT_USE_COUNT 未签认 -> 分子 14 -> coverage = 14/15 = 0.933333333333。
       * S-006 另缺 M_CUST_GAIN（G-09 的 SKIP 分支）、S-011 缺 M_ROI（IMPUTE_MEDIAN 分支）、
-        S-005/v2 缺 M_CAMPAIGN_COST_MINOR（ZERO 分支）、S-008 缺 M_COMPLAINT_RATE（BLOCK
+        S-005/v2 缺 M_CAMPAIGN_COST_MINOR（ZERO 分支）、S-008 缺 M_SATISFY_SCORE（BLOCK
         分支）-> 分子 13 -> coverage = 13/15 = 0.866666666667。
       * 对照（把 M_REPEAT_USE_COUNT 改成 SIGNED 的内存副本，其余逐字不变）：分子 +1
         -> S-001 = 15/15 = 1.000000000000、S-006 = 14/15 = 0.933333333333
@@ -864,10 +1002,12 @@ def test_g10_pending_metric_is_dropped_coverage_falls_and_reason_is_registered(f
       * K-10（missing_rate_warn / block，PLACEHOLDER）：上列 5 组候选值下 C-02 的剔除结论、
         METRIC_NOT_SIGNED 码与 coverage 数值逐组相同（缺失率只影响 C-04 的 WARNING 面，
         不影响 C-02），故本条结论对 K-10 取值不敏感。
-      * 隔离 GAP-E3-05：冻结 T7 的 provenance = null -> C-01 必产
-        WEIGHT_MISSING_WHATIF_RUN_ID（属 RUN_BLOCKING_CODES）-> status = BLOCK，与本条
-        「未签认只 WARN」的判据无关；用 R-2 补齐 whatif_run_id 后 status = WARN、
-        exit_code = 0，且未出现 DIMENSION_EMPTIED（SUST 仍有 M_RETENTION_RATE 签认）。
+      * GAP-E3-05 已由 A1c（D-A1-04）关闭：冻结 T7 现已带 provenance 七键与
+        whatif_run_id = WIF-SYNTH-2026-01 -> C-01（[L900]）三要件齐备、不再阻断，故尾部对照
+        断言 status != BLOCK、exit_code = 0 且不出 WEIGHT_MISSING_WHATIF_RUN_ID；本条主体
+        「未签认只 WARN」的判据与之无关，且未出现 DIMENSION_EMPTIED（SUST 仍有
+        M_RETENTION_RATE 签认）。_weights_with_whatif_run_id 的 R-2 隔离支架因此已无必要，
+        函数保留不删（避免弱化其它引用点）。
     '''
     signed_copy = tuple(row.model_copy(update={'signoff_status': 'SIGNED'})
                         for row in fx['metric_dict']
@@ -904,50 +1044,233 @@ def test_g10_pending_metric_is_dropped_coverage_falls_and_reason_is_registered(f
 
     frozen = preflight.run(_preflight_inputs(fx), _preflight_config(
         fx, fx['weights'], Decimal('0.10'), Decimal('0.30')))
-    assert frozen.status == 'BLOCK', 'GAP-E3-05：冻结 T7 无 provenance -> C-01 阻断'
-    assert any(f.reason_code == _code(RC.WEIGHT_MISSING_WHATIF_RUN_ID) for f in frozen.findings)
+    # A1c（D-A1-04）已给冻结 T7 补齐 provenance 七键与 whatif_run_id = WIF-SYNTH-2026-01
+    # -> C-01（M22 [L900]「status = FROZEN；评价期在生效区间内；含 approved_by /
+    # approved_date / whatif_run_id」）三要件齐备，不再阻断。改前这两行断言的是
+    # 「provenance = null -> 必 BLOCK」（GAP-E3-05），其前提已被 A1c 消除；按 [L900] 反转
+    # 为正向断言（并要求 exit_code = 0），属**精确化而非弱化**（M31 [L1419] 要求显式说明）。
+    assert fx['weights'].provenance is not None, \
+        'A1c D-A1-04：冻结 T7 必须有 provenance（[L900] C-01 三要件之一）'
+    assert fx['weights'].provenance.whatif_run_id == 'WIF-SYNTH-2026-01', \
+        'fixtures/input/weight_version.jsonl 逐字 whatif_run_id = WIF-SYNTH-2026-01（[L900]）'
+    assert not any(f.reason_code == _code(RC.WEIGHT_MISSING_WHATIF_RUN_ID)
+                   for f in frozen.findings), \
+        'GAP-E3-05 已关闭：补齐 whatif_run_id 后 C-01 不得再产 WEIGHT_MISSING_WHATIF_RUN_ID'
+    assert not any(f.code == 'C-01' and f.blocks_run for f in frozen.findings), \
+        '[L900] 三要件齐备 -> C-01 不得阻断，实测阻断 findings=' \
+        + str([f.reason_code for f in frozen.findings if f.code == 'C-01'])
+    assert frozen.status != 'BLOCK' and frozen.exit_code == 0, \
+        'A1c 后冻结件不应因 C-01 被 BLOCK：实测 status=' + frozen.status \
+        + ' exit_code=' + str(frozen.exit_code)
 
 
-def test_g10_sust_dimension_emptied_must_block_preflight(fx):
-    '''G-10（M31 1412 行后半）：SUST 维度被清空 -> preflight BLOCK（M31 判据）。
+# 单维/双维清空后的一级权重重归一手算（M22 C-02 [L901] / M22 异常处置表 [L1286]；取值来源
+# fixtures/input/weight_version.jsonl -> T7 逐字 level1_weights）。每维 q12 = 1E-12 ROUND_HALF_UP。
+L1_FROZEN = {'CONTRIB': Decimal('0.30'), 'COST': Decimal('0.14'), 'EFFIC': Decimal('0.21'),
+             'EXPER': Decimal('0.21'), 'PROC': Decimal('0.07'), 'SUST': Decimal('0.07')}
+REWEIGHT_ONE_DIM_EMPTIED = {                      # 手算：w / 0.93（1 - 0.07），SUST = 0
+    'CONTRIB': '0.322580645161',                  # 10/31 = 0.3225806451612903...  第13位=2 -> 舍
+    'COST':    '0.150537634409',                  # 14/93 = 0.1505376344086021...  第13位=6 -> 进
+    'EFFIC':   '0.225806451613',                  #  7/31 = 0.2258064516129032...  第13位=9 -> 进
+    'EXPER':   '0.225806451613',
+    'PROC':    '0.075268817204',                  #  7/93 = 0.0752688172043010...  第13位=3 -> 舍
+    'SUST':    '0',
+}                                                 # Σ 逐位相加 = 1.000000000000（Decimal 精确）
+REWEIGHT_TWO_DIMS_EMPTIED = {                     # PROC + SUST 置 0，剩余和 = 1 - 0.14 = 0.86
+    'CONTRIB': '0.348837209302',                  # 15/43 = 0.3488372093023255...
+    'COST':    '0.162790697674',                  #  7/43 = 0.1627906976744186...
+    'EFFIC':   '0.244186046512',                  # 21/86 = 0.2441860465116279...
+    'EXPER':   '0.244186046512',
+    'PROC':    '0',
+    'SUST':    '0',
+}                                                 # Σ = 1.000000000000（Decimal 精确）
 
-    输入构造：变体 fixtures/variants/G10_dim_emptied.json 把 M_RETENTION_RATE 的
-      signoff_status 改为 PENDING、signoff_date 置 null（SUST 的两个指标全部未签认）。
-      基线里 M_REPEAT_USE_COUNT 已是 PENDING -> 签认指标数 14 - 1 = 13。
-    手算：
-      * dropped_metrics = ('M_REPEAT_USE_COUNT', 'M_RETENTION_RATE')（按 metric_id 升序）；
-      * emptied_dims = ('SUST',)：SUST 的两个指标全部未签认 -> 该维度被清空
-        （C-02 [L901]「某维度被清空 -> 该维度 W 置 0 重归一」）；
-      * coverage 分子再减 1：S-001 = 13/15 = 0.866666666667、S-006 = 12/15 = 0.800000000000；
-      * M31 G-10 明文「若该维度被清空 -> preflight BLOCK」-> status = BLOCK、
-        exit_code = 2、并出现注册码 DIMENSION_EMPTIED（GAP-E3-01 那类文档码名差在这里不存在）。
-    实测与手算不符（C-02 的阻断阈值是「清空维度数 >= 2」，单维清空只产
-      WEIGHT_REALLOCATED（WARN）、status = WARN、exit_code = 0）= GAP-E3-02：M31 与 M22
-      两条判据互斥，本包按 golden 的判据来源 M31 写 expects，保持 RED，归属请主控裁决。
+
+def _reweight_hand(table, zeroed):
+    '''[L901]/[L1286] 的「该维度 W 置 0 重归一」手算：返回 {dim: q12 权重}，Σ 必须精确 = 1。
+
+    这是**契约算式**的独立复算（V-9），不是从任何实现输出反填：分母 = 1 - Σ(被置 0 维度的 W)。
+    '''
+    keep = Decimal(1) - sum((table[d] for d in zeroed), Decimal(0))
+    out = {d: (Decimal(0) if d in zeroed else _q(table[d] / keep)) for d in sorted(table)}
+    assert sum(out.values(), Decimal(0)) == Decimal(1), \
+        '重归一后权重和必须 Decimal 精确等于 1（V-9 / M16），实测 ' + str(sum(out.values()))
+    return out
+
+
+def test_g10_single_dimension_emptied_reweights_to_zero_and_warns_not_blocks(fx):
+    '''G-10（规范判据 M22 C-02 = SDD [L901]；ORCH-35 裁决，替代按 M31 [L1412] 写的旧期望）。
+
+    改名 + 改期望的原因（M31 [L1419]「期望值由首次通过人工评审的运行结果固化；之后任何变更都
+    必须显式更新期望值并说明原因」）：
+      旧名 test_g10_sust_dimension_emptied_must_block_preflight 按 M31 [L1412]「若该维度被清空
+      → preflight BLOCK」写期望，与 M22 C-02（[L901]）「某维度被清空 → 该维度 W 置 0 重归一；
+      清空维度数 ≥ 2 → BLOCK」互斥（GAP-E3-02）。ORCH-35 裁定 [L901] 为规范判据，决定性理由：
+      [L901] 同句的「W 置 0 重归一」若单维即 BLOCK 则该支**成为死条款**（永远执行不到重归一）
+      -> 实现正确、测试期望过严。M22 异常处置表 [L1286] 与 [L901] 同口径（双来源印证），并给出
+      披露码 = WEIGHT_REALLOCATED。M31 [L1412] 与 §4.4 [L1585] 记 **ERRATUM-01**。
+      DIMENSION_EMPTIED 码在 SDD 全文 **0 命中** = 工程自名（**ERRATUM-03**），不改名不删除，
+      但其 severity / blocks_run 须服从 [L901]（单维清空场景 = WARN / blocks_run False）；
+      本条**不把它当作规范判据**，只断言「阈值未达时不得出现」。
+    输入构造：变体 fixtures/variants/G10_dim_emptied.json（subject = M_RETENTION_RATE）把 SUST
+      的第二个指标也置 PENDING；基线里 M_REPEAT_USE_COUNT 已是 PENDING -> SUST 两指标全未签认。
+      权重直接用冻结 T7：A1c（D-A1-04）已补 provenance 七键与 whatif_run_id = WIF-SYNTH-2026-01
+      -> C-01（[L900]）不再阻断，_weights_with_whatif_run_id 的 R-2 隔离支架已无必要（函数保留
+      不删，以免弱化其它引用点）。
+    手算（逐条见 WORKSHEET §4.3）：
+      * dropped_metrics = (M_REPEAT_USE_COUNT, M_RETENTION_RATE)（metric_id 升序）；
+        emptied_dims = (SUST,)。
+      * signed = 15 - 2 = 13；coverage 分母 = 指标字典全量 15 ->
+        S-001 = q12(13/15) = 0.866666666667、S-006 = q12(12/15) = 0.800000000000（另缺
+        M_CUST_GAIN，missing_rule = SKIP）。
+      * [L901]「清空维度数 ≥ 2 → BLOCK」的反面：1 < 2 -> status = WARN、exit_code = 0。
+      * [L1286] 明列披露码 = WEIGHT_REALLOCATED（恰 1 条，scope = dim:SUST）；未签认剔除 ->
+        METRIC_NOT_SIGNED（恰 2 条，scope = metric:<id>）；两者 blocks_run 均 False。
+      * W_SUST 置 0 后重归一 = REWEIGHT_ONE_DIM_EMPTIED，Σ Decimal 精确 = 1（V-9）。
+      * K-10（missing_rate warn/block，PLACEHOLDER）不敏感性：5 组候选值下 C-02 的全部结论
+        逐组相同（缺失率只影响 C-04 面）。
     '''
     metric_dict = _variant_table(fx, 'metric_dict', 'G10_dim_emptied')
-    weights = _weights_with_whatif_run_id(fx)
+    hand_w = _reweight_hand(L1_FROZEN, ('SUST',))
+    for dim, want in sorted(REWEIGHT_ONE_DIM_EMPTIED.items()):
+        assert hand_w[dim] == _q(Decimal(want)), \
+            ('[L901]/[L1286] 重归一手算 W_' + dim + ' = ' + want + ' 实测算式得 '
+             + str(hand_w[dim]))
     problems = []
     for warn, block in K10_CANDIDATES:
         result = preflight.run(_preflight_inputs(fx, metric_dict=metric_dict),
-                               _preflight_config(fx, weights, warn, block))
+                               _preflight_config(fx, fx['weights'], warn, block))
+        tag = 'K-10=' + str((warn, block)) + ' '
         if result.dropped_metrics != ('M_REPEAT_USE_COUNT', 'M_RETENTION_RATE'):
-            problems.append('dropped_metrics: 手算=(M_REPEAT_USE_COUNT, M_RETENTION_RATE) 实测='
-                            + str(result.dropped_metrics))
+            problems.append(tag + 'dropped_metrics: 手算=(M_REPEAT_USE_COUNT, M_RETENTION_RATE)'
+                            ' 实测=' + str(result.dropped_metrics))
         if result.emptied_dims != ('SUST',):
-            problems.append('emptied_dims: 手算=(SUST,) 实测=' + str(result.emptied_dims))
+            problems.append(tag + 'emptied_dims: 手算=(SUST,) 实测=' + str(result.emptied_dims))
         if not _ratio_eq(result.coverage_after_drop['S-001'], _q(Decimal(13) / Decimal(15))):
-            problems.append('S-001 coverage: 手算=13/15=0.866666666667 实测='
+            problems.append(tag + 'S-001 coverage: 手算=13/15=0.866666666667 实测='
                             + str(result.coverage_after_drop['S-001']))
         if not _ratio_eq(result.coverage_after_drop['S-006'], _q(Decimal(12) / Decimal(15))):
-            problems.append('S-006 coverage: 手算=12/15=0.800000000000 实测='
+            problems.append(tag + 'S-006 coverage: 手算=12/15=0.800000000000（另缺 M_CUST_GAIN）'
+                            ' 实测=' + str(result.coverage_after_drop['S-006']))
+        if result.status != 'WARN':
+            problems.append(tag + 'status: [L901] 手算=WARN（清空维度数 1 < 2）实测='
+                            + result.status)
+        if result.exit_code != 0:
+            problems.append(tag + 'exit_code: [L900]/[L901] 手算=0（非 BLOCK）实测='
+                            + str(result.exit_code))
+        c02 = [f for f in result.findings if f.code == 'C-02']
+        not_signed = [f for f in c02 if _code(f.reason_code) == _code(RC.METRIC_NOT_SIGNED)]
+        realloc = [f for f in c02 if _code(f.reason_code) == _code(RC.WEIGHT_REALLOCATED)]
+        emptied = [f for f in c02 if _code(f.reason_code) == _code(RC.DIMENSION_EMPTIED)]
+        if len(not_signed) != 2 or sorted(f.scope for f in not_signed) != \
+                ['metric:M_REPEAT_USE_COUNT', 'metric:M_RETENTION_RATE']:
+            problems.append(tag + 'METRIC_NOT_SIGNED: 手算=恰 2 条且 scope 为两个未签认指标'
+                            ' 实测=' + str(sorted(f.scope for f in not_signed)))
+        if len(realloc) != 1 or realloc[0].scope != 'dim:SUST':
+            problems.append(tag + 'WEIGHT_REALLOCATED: 手算=恰 1 条 scope=dim:SUST（[L1286]'
+                            ' 明列披露码）实测=' + str([f.scope for f in realloc]))
+        if emptied:
+            problems.append(tag + 'DIMENSION_EMPTIED: 手算=不得出现（[L901] 阈值 ≥2 未达，'
+                            'ERRATUM-03）实测出现 ' + str(len(emptied)) + ' 条')
+        if any(f.blocks_run for f in c02):
+            problems.append(tag + 'C-02 的 blocks_run: 手算=全 False（[L901] 单维清空只 WARN）'
+                            ' 实测=' + str([(f.scope, f.blocks_run) for f in c02 if f.blocks_run]))
+        for f in c02:
+            if not reason_codes.is_registered(_code(f.reason_code)):
+                problems.append(tag + 'C-02 产出未注册码（H-7）：' + str(f.reason_code))
+    frozen = preflight.run(_preflight_inputs(fx), _preflight_config(
+        fx, fx['weights'], Decimal('0.10'), Decimal('0.30')))
+    if any(_code(f.reason_code) == _code(RC.WEIGHT_MISSING_WHATIF_RUN_ID) for f in frozen.findings):
+        problems.append('冻结 T7 仍缺 whatif_run_id：A1c D-A1-04 应已补 WIF-SYNTH-2026-01（[L900]）')
+    if frozen.status == 'BLOCK' and any(f.code == 'C-01' and f.blocks_run for f in frozen.findings):
+        problems.append('C-01 仍阻断冻结件：A1c 后 [L900] 三要件（FROZEN / 生效区间 /'
+                        ' whatif_run_id）应齐备，实测 findings='
+                        + str([f.reason_code for f in frozen.findings if f.code == 'C-01']))
+    _diffs(problems)
+
+
+def test_g10_two_dimensions_emptied_blocks_preflight_with_exit_code_2(fx):
+    '''G-10 的**真 BLOCK 分支**（SDD [L901]「清空维度数 ≥ 2 → BLOCK」）—— 此前无任何测试覆盖。
+
+    新增理由（ORCH-35 第3条）：补上 [L901] 真正 BLOCK 分支的覆盖，用以证明单维改 WARN 不是
+    「为了转绿而放宽」，而是加强。断言总数严格多于改前（改前 6 类 x 5 组 K-10；
+    改前那条 + 本条 = 11 类 + 12 类 x 5 组 K-10）。
+    输入构造：**R-2 内存构造**（model_copy，只改内存副本、不动 fixtures 文件），把 PROC 与 SUST
+      两个维度的全部指标置 PENDING。选 PROC + SUST 的理由：两维各恰 2 个指标，且与已知缺格载体
+      （S-006 缺 M_CUST_GAIN / S-005v2 缺 M_CAMPAIGN_COST_MINOR / S-008 缺 M_SATISFY_SCORE，
+      后者为 A1c D-A1-03 迁移后的新载体）无交集 -> coverage 手算最干净。
+      **不需要新的 fixtures variant 文件**；若主控希望固化为 variant，见 NEED-FIXTURES.md 第4条。
+    手算（逐条见 WORKSHEET §4.4）：
+      * dropped_metrics = (M_OPTOUT_RATE, M_REACH_RATE, M_REPEAT_USE_COUNT, M_RETENTION_RATE)
+        （升序：M_O < M_REACH < M_REPEAT < M_RETENTION）；emptied_dims = (PROC, SUST)，len = 2。
+      * signed = 15 - 4 = 11 -> S-001 = q12(11/15) = 0.733333333333、
+        S-006 = q12(10/15) = 0.666666666667（另缺 M_CUST_GAIN，属 CONTRIB、仍签认）。
+      * [L901] 阈值已达 -> status = BLOCK、exit_code = 2（M21 [L892] 同口径）；
+        [L917]：BLOCK 只写 audit_bundle -> output_fingerprints 为空 = 本次无任何评分产物。
+      * 披露：METRIC_NOT_SIGNED 恰 4 条；WEIGHT_REALLOCATED 恰 2 条（scope 集 =
+        {dim:PROC, dim:SUST}）；阻断级披露**必须出现**且 blocks_run = True。按 ERRATUM-03
+        DIMENSION_EMPTIED 码名无原文依据，故同时用 reason_codes.is_registered(...) 做
+        **关系式**断言，不钉死码名语义。
+      * W_PROC = W_SUST = 0，重归一 = REWEIGHT_TWO_DIMS_EMPTIED，Σ Decimal 精确 = 1（V-9）。
+      * K-10（PLACEHOLDER）不敏感性：5 组候选值下 C-02 的全部结论逐组相同。
+    '''
+    empty_dims = ('PROC', 'SUST')
+    metric_dict = tuple(
+        row.model_copy(update={'signoff_status': 'PENDING', 'signoff_date': None})
+        if row.dim_code in empty_dims else row
+        for row in fx['metric_dict'])
+    hand_w = _reweight_hand(L1_FROZEN, empty_dims)
+    for dim, want in sorted(REWEIGHT_TWO_DIMS_EMPTIED.items()):
+        assert hand_w[dim] == _q(Decimal(want)), \
+            ('[L901]/[L1286] 重归一手算 W_' + dim + ' = ' + want + ' 实测算式得 '
+             + str(hand_w[dim]))
+    want_dropped = ('M_OPTOUT_RATE', 'M_REACH_RATE', 'M_REPEAT_USE_COUNT', 'M_RETENTION_RATE')
+    problems = []
+    for warn, block in K10_CANDIDATES:
+        result = preflight.run(_preflight_inputs(fx, metric_dict=metric_dict),
+                               _preflight_config(fx, fx['weights'], warn, block))
+        tag = 'K-10=' + str((warn, block)) + ' '
+        if result.dropped_metrics != want_dropped:
+            problems.append(tag + 'dropped_metrics: 手算=' + str(want_dropped)
+                            + ' 实测=' + str(result.dropped_metrics))
+        if result.emptied_dims != empty_dims:
+            problems.append(tag + 'emptied_dims: 手算=' + str(empty_dims)
+                            + ' 实测=' + str(result.emptied_dims))
+        if len(result.emptied_dims) < 2:
+            problems.append(tag + '清空维度数手算=2（达到 [L901] 阈值）实测='
+                            + str(len(result.emptied_dims)))
+        if not _ratio_eq(result.coverage_after_drop['S-001'], _q(Decimal(11) / Decimal(15))):
+            problems.append(tag + 'S-001 coverage: 手算=11/15=0.733333333333 实测='
+                            + str(result.coverage_after_drop['S-001']))
+        if not _ratio_eq(result.coverage_after_drop['S-006'], _q(Decimal(10) / Decimal(15))):
+            problems.append(tag + 'S-006 coverage: 手算=10/15=0.666666666667 实测='
                             + str(result.coverage_after_drop['S-006']))
         if result.status != 'BLOCK':
-            problems.append('status: M31 G-10 手算=BLOCK 实测=' + result.status
-                            + '（exit_code=' + str(result.exit_code) + '）')
-        if _code(RC.DIMENSION_EMPTIED) not in [_code(f.reason_code) for f in result.findings]:
-            problems.append('reason_code: 手算含 DIMENSION_EMPTIED 实测='
-                            + str([f.reason_code for f in result.findings]))
+            problems.append(tag + 'status: [L901]「清空维度数 ≥ 2 → BLOCK」手算=BLOCK 实测='
+                            + result.status)
+        if result.exit_code != 2:
+            problems.append(tag + 'exit_code: 手算=2（[L900]/[L901] BLOCK）实测='
+                            + str(result.exit_code))
+        c02 = [f for f in result.findings if f.code == 'C-02']
+        not_signed = [f for f in c02 if _code(f.reason_code) == _code(RC.METRIC_NOT_SIGNED)]
+        realloc = [f for f in c02 if _code(f.reason_code) == _code(RC.WEIGHT_REALLOCATED)]
+        emptied = [f for f in c02 if _code(f.reason_code) == _code(RC.DIMENSION_EMPTIED)]
+        if len(not_signed) != 4:
+            problems.append(tag + 'METRIC_NOT_SIGNED: 手算=恰 4 条 实测=' + str(len(not_signed)))
+        if sorted(f.scope for f in realloc) != ['dim:PROC', 'dim:SUST']:
+            problems.append(tag + 'WEIGHT_REALLOCATED: 手算=恰 2 条 scope={dim:PROC,dim:SUST}'
+                            '（[L1286]）实测=' + str(sorted(f.scope for f in realloc)))
+        if not emptied:
+            problems.append(tag + 'DIMENSION_EMPTIED: [L901] 阈值已达，必须出现阻断级披露，'
+                            '实测缺席')
+        else:
+            if not all(f.blocks_run for f in emptied):
+                problems.append(tag + 'DIMENSION_EMPTIED 的 blocks_run: 手算=True 实测='
+                                + str([f.blocks_run for f in emptied]))
+            if not all(reason_codes.is_registered(_code(f.reason_code)) for f in emptied):
+                problems.append(tag + '阻断码未注册（H-7 / V-14）')
+        if not any(f.blocks_run for f in result.findings):
+            problems.append(tag + 'BLOCK 却没有任何 blocks_run=True 的 finding（V-14：不得静默）')
     _diffs(problems)
 
 
@@ -1459,23 +1782,55 @@ def test_g12_canonical_text_rules_and_hash_field_coverage(fx, history):
 # ==========================================================================
 # G-14  一级库 C 类占比上升（M31 1416 行 / M37 E4 / M24 [L1000]-[L1006] / [L1854]）
 # ==========================================================================
-C_BASE_STEP3 = ('S-003/v1', 'S-006/v1', 'S-008/v1', 'S-011/v1')
-C_VARIANT_STEP3 = ('S-003/v1', 'S-005/v2', 'S-006/v1', 'S-007/v1', 'S-008/v1', 'S-011/v1')
-STRUCTURE_BASE = {'A': 3, 'B': 0, 'C': 3, 'D': 5}
-STRUCTURE_VARIANT = {'A': 3, 'B': 0, 'C': 5, 'D': 3}
-SHARES_BASE = {('CARD', 'A'): (2, Decimal(2) / Decimal(3), Decimal(2) / Decimal(6)),
-               ('CARD', 'C'): (1, Decimal(1) / Decimal(3), Decimal(1) / Decimal(6)),
-               ('LOAN', 'C'): (1, Decimal(1), Decimal(1) / Decimal(6)),
-               ('WEALTH', 'A'): (1, Decimal(1), Decimal(1) / Decimal(6)),
-               ('PAY', 'C'): (1, Decimal(1), Decimal(1) / Decimal(6))}
-SHARES_VARIANT = {('CARD', 'A'): (2, Decimal(2) / Decimal(3), Decimal(2) / Decimal(8)),
-                  ('CARD', 'C'): (1, Decimal(1) / Decimal(3), Decimal(1) / Decimal(8)),
-                  ('LOAN', 'C'): (2, Decimal(1), Decimal(2) / Decimal(8)),
-                  ('WEALTH', 'A'): (1, Decimal(1) / Decimal(2), Decimal(1) / Decimal(8)),
-                  ('WEALTH', 'C'): (1, Decimal(1) / Decimal(2), Decimal(1) / Decimal(8)),
-                  ('PAY', 'C'): (1, Decimal(1), Decimal(1) / Decimal(8))}
-SMALL_BASE = {('CARD', 'C'), ('LOAN', 'C'), ('WEALTH', 'A'), ('PAY', 'C')}
-SMALL_VARIANT = {('CARD', 'C'), ('PAY', 'C'), ('WEALTH', 'A'), ('WEALTH', 'C')}
+C_BASE_STEP3 = ('S-003/v1', 'S-006/v1', 'S-008/v1', 'S-011/v1')            # 不变（A1c 不影响 C 集合）
+C_VARIANT_STEP3 = ('S-003/v1', 'S-005/v2', 'S-006/v1', 'S-007/v1',
+                   'S-008/v1', 'S-011/v1')                                  # 不变
+# 四类闭合：evidence 侧（DEN_EV = EVAL_PAIR_COUNT = 12）。A1c（D-A1-02）给 S-004 / S-005v1 /
+# S-005v2 / S-007 补 [L1171] 的 alt_method_note -> [L977]③ 判 B；D 只剩 S-010/v1（① 卡缺失）
+# 与 S-012/v1（⑤ C 未写 interpretation_limit）。改前 {A3,B0,C3,D5} 是绑定 A1c 之前 fixtures 的
+# 陈旧手算值（R-14 允许按独立手算更新，不是照抄实现）。
+STRUCTURE_STEP3_BASE = {'A': 3, 'B': 3, 'C': 4, 'D': 2}        # 闭合 12，与 SDD [L1459] 逐字一致
+STRUCTURE_STEP3_VARIANT = {'A': 3, 'B': 1, 'C': 6, 'D': 2}     # S-005/v2、S-007/v1 由 B -> C
+# 证据结构披露：pooling 侧（DEN_POOL = 11 = 12 - S-008）。ORCH-37 第6条读法甲：四类全给。
+STRUCTURE_BASE = {'A': 3, 'B': 3, 'C': 3, 'D': 2}
+STRUCTURE_VARIANT = {'A': 3, 'B': 1, 'C': 5, 'D': 2}
+# 占比双报（[L1003]）：share_in_pool = 池内 / 同 biz_domain 已参评；share_overall = 池内 / 9。
+# biz_domain 取值来源 fixtures/input/strategy_master.jsonl -> T1 逐字：
+#   CARD={S-001,S-002,S-003} LOAN={S-004,S-005v1,S-005v2,S-006}
+#   WEALTH={S-007,S-008,S-009} PAY={S-010,S-011,S-012}
+# 基线各域已参评：CARD=3（S-001 A,S-002 A,S-003 C）LOAN=3（S-004 B,S-005v2 B,S-006 C）
+#                 WEALTH=2（S-007 B,S-009 A；S-008 被 G-09 BLOCK 剔出 universe）PAY=1（S-011 C）
+SHARES_BASE = {
+    ('CARD', 'A'):   (2, Decimal(2) / Decimal(3), Decimal(2) / Decimal(DEN_ASSESSED)),
+    ('CARD', 'C'):   (1, Decimal(1) / Decimal(3), Decimal(1) / Decimal(DEN_ASSESSED)),
+    ('LOAN', 'B'):   (2, Decimal(2) / Decimal(3), Decimal(2) / Decimal(DEN_ASSESSED)),
+    ('LOAN', 'C'):   (1, Decimal(1) / Decimal(3), Decimal(1) / Decimal(DEN_ASSESSED)),
+    ('WEALTH', 'A'): (1, Decimal(1) / Decimal(2), Decimal(1) / Decimal(DEN_ASSESSED)),
+    ('WEALTH', 'B'): (1, Decimal(1) / Decimal(2), Decimal(1) / Decimal(DEN_ASSESSED)),
+    ('PAY', 'C'):    (1, Decimal(1),              Decimal(1) / Decimal(DEN_ASSESSED)),
+}
+# 变体：S-005/v2、S-007/v1 由 B -> C（[L977]④ 短路到 C，⑤ 因 interpretation_limit 已填不再降 D）。
+# 各域已参评数不变（B->C 是同级搬运，都属已参评）：CARD=3 LOAN=3 WEALTH=2 PAY=1
+SHARES_VARIANT = {
+    ('CARD', 'A'):   (2, Decimal(2) / Decimal(3), Decimal(2) / Decimal(DEN_ASSESSED_VARIANT)),
+    ('CARD', 'C'):   (1, Decimal(1) / Decimal(3), Decimal(1) / Decimal(DEN_ASSESSED_VARIANT)),
+    ('LOAN', 'B'):   (1, Decimal(1) / Decimal(3), Decimal(1) / Decimal(DEN_ASSESSED_VARIANT)),
+    ('LOAN', 'C'):   (2, Decimal(2) / Decimal(3), Decimal(2) / Decimal(DEN_ASSESSED_VARIANT)),
+    ('WEALTH', 'A'): (1, Decimal(1) / Decimal(2), Decimal(1) / Decimal(DEN_ASSESSED_VARIANT)),
+    ('WEALTH', 'C'): (1, Decimal(1) / Decimal(2), Decimal(1) / Decimal(DEN_ASSESSED_VARIANT)),
+    ('PAY', 'C'):    (1, Decimal(1),              Decimal(1) / Decimal(DEN_ASSESSED_VARIANT)),
+}
+# SMALL_POOL（[L943]：池内样本数 < min_pool_size=2 -> WARN + 标注，不是抛错、不是把名次置 null）
+SMALL_BASE = {('CARD', 'C'), ('LOAN', 'C'), ('WEALTH', 'A'), ('WEALTH', 'B'), ('PAY', 'C')}
+SMALL_VARIANT = {('CARD', 'C'), ('LOAN', 'B'), ('WEALTH', 'A'), ('WEALTH', 'C'), ('PAY', 'C')}
+# G-14 判据（ORCH-36 第1条：分子 = C 类计数，M31 [L1416] 唯一明文；「C+D」零原文依据已驳回，
+# 以 dsm/reason_codes.py:86 的 message 为据属循环引证亦已驳回 —— ORCH-37 第7条）。
+# 分母 = DEN_ASSESSED = 9（ORCH-36 第3条：与两列 share_* 同源 + [L1004] 剔 NOT_ASSESSED）。
+C_SHARE_BASE = Decimal(STRUCTURE_BASE['C']) / Decimal(DEN_ASSESSED)                  # 3/9
+C_SHARE_VARIANT = Decimal(STRUCTURE_VARIANT['C']) / Decimal(DEN_ASSESSED_VARIANT)    # 5/9
+# 披露量（**不是**判据分子）：(C+D) / 四类合计 = / DEN_POOL（ORCH-37 第6条读法甲 + [L1003]）
+LOW_EVIDENCE_BASE = Decimal(STRUCTURE_BASE['C'] + STRUCTURE_BASE['D']) / Decimal(DEN_POOL)           # 5/11
+LOW_EVIDENCE_VARIANT = Decimal(STRUCTURE_VARIANT['C'] + STRUCTURE_VARIANT['D']) / Decimal(DEN_POOL)  # 7/11
 
 
 def _step3_classes(fx, name=None):
@@ -1503,30 +1858,26 @@ def _stats_map(stats):
 
 
 def test_g14_c_class_share_rises_from_four_of_twelve_to_six_of_twelve(fx):
-    '''G-14 的输入侧手算：C 类占比 4/12 -> 6/12（与 A1 golden_map G-14 的 hand 逐位对拍）。
+    '''G-14 输入侧手算：C 类占比 4/12 -> 6/12（evidence 侧口径，DEN_EV = 12）。
 
-    手算（[L977] 五步短路，只看 T4 设计卡与 T3 事实行；两个对拍点里的第 2 个）：
-      * 评价期 2026-Q3 有事实行的 pair = 12（S-005 只有 v2 在本期有事实行）。
-      * 基线 C 类 = {S-003/v1, S-006/v1, S-008/v1, S-011/v1} = 4
-        -> q12(4/12) = 0.333333333333；A = 3（S-001 / S-002 / S-009）、
-        B = 0、D = 5（S-004 / S-005v2 / S-007 / S-010 / S-012），四类闭合 3+0+4+5 = 12。
-      * 变体 fixtures/variants/G14_c_share_up.json 把 S-005 的 v1 / v2 与 S-007 的卡改为
-        control_arrangement = NONE + eval_method = OBSERVATIONAL_ONLY + 已填
-        interpretation_limit -> [L977] 第 1 步（无对照）短路到 C，本期在 universe 内的
-        两条（S-005/v2、S-007/v1）由 D 改判 C
-        -> C = 6 -> q12(6/12) = 0.500000000000，与 hand 的「4/12 升到 6/12」逐位一致。
-      * 这就是 M31 1416 行要的「一级库中 C 类占比上升的场景」：分母不变、C 绝对数 +2。
-    与 D-A1-02 的关系（GAP-E3-03(b)）：变体文档的 purpose 写「两条 **B** 类降为 C 类」，
-      按 manifest 声明的 A3 B3 C4 D2，S-005v2 / S-007 本应是 B；但按 fixtures
-      **当前实际内容**这两条缺 alt_method_note / interpretation_limit 而落 D，于是本条
-      的 C 上升是 D -> C（C +2、D -2、C+D 不变）。A1c 执行后本条的 C 集合与 D 集合
-      都需按 A3 B3 C4 D2 重新手算（已登记 E3b）。
+    **分子/分母/C 集合常量一律不动**，只改四类闭合与 docstring：A1c（D-A1-02）把 S-004 /
+    S-005v1 / S-005v2 / S-007 四张 DID 卡补上 [L1171] 的 alt_method_note -> [L977]③ 判 B，
+    于是 B 由 0 变 3、D 由 5 变 2；但 C 集合 {S-003,S-006,S-008,S-011} 与变体新增的两条
+    {S-005/v2, S-007/v1} **完全不受影响**（它们本来就在 C / 本来就被变体改成 C），
+    故 4/12 -> 6/12 与 A1 golden_map 的 hand 仍然逐位一致。
+    口径提示（ORCH-41 第2条 / ERRATUM-11）：本条用 **12**（evidence 侧出桥），**不得**换成
+    pooling 侧的 11 / 9；11 只服务 evidence_structure 与 (C+D) 披露，9 只服务 c_class_share
+    与两列 share_*。
+    变体改判路径复核（NEED-FIXTURES 第6条）：A1c 后 S-005/v2、S-007/v1 在基线是 B，变体把
+    control_arrangement 改 NONE + eval_method 改 OBSERVATIONAL_ONLY + 已填 interpretation_limit
+    -> [L977] 第①步（无对照）短路到 C，即 **B -> C**（pre-A1c 时是 D -> C）。
     '''
     base_rows = _step3_classes(fx)
     variant_rows = _step3_classes(fx, 'G14_c_share_up')
     problems = []
     if len(base_rows) != EVAL_PAIR_COUNT:
-        problems.append('评价期 pair 数：手算=12 实测=' + str(len(base_rows)))
+        problems.append('评价期出桥 pair 数：手算=12（[L1459] A*3+B*3+C*4+D*2；EVID-1 按评价期'
+                        ' 过滤使 13->12，ORCH-37 第9条）实测=' + str(len(base_rows)))
     got_c = sorted(k for k, r in base_rows.items() if r.evidence_class == 'C')
     if got_c != list(C_BASE_STEP3):
         problems.append('基线 C 类集合：手算=' + str(C_BASE_STEP3) + ' 实测=' + str(got_c))
@@ -1542,16 +1893,27 @@ def test_g14_c_class_share_rises_from_four_of_twelve_to_six_of_twelve(fx):
                      _q(Decimal(6) / Decimal(12))):
         problems.append('变体 C 占比：手算 6/12 = 0.500000000000 实测 '
                         + str(_q(Decimal(len(got_variant_c)) / Decimal(EVAL_PAIR_COUNT))))
-    counts = {}
+    counts, vcounts = {}, {}
     for row in base_rows.values():
         counts[row.evidence_class] = counts.get(row.evidence_class, 0) + 1
-    want = {'A': 3, 'B': 0, 'C': 4, 'D': 5}
-    if {k: counts.get(k, 0) for k in want} != want:
-        problems.append('基线四类闭合：手算=' + str(want) + ' 实测='
-                        + str({k: counts.get(k, 0) for k in want}))
+    for row in variant_rows.values():
+        vcounts[row.evidence_class] = vcounts.get(row.evidence_class, 0) + 1
+    if {k: counts.get(k, 0) for k in STRUCTURE_STEP3_BASE} != STRUCTURE_STEP3_BASE:
+        problems.append('基线四类闭合：手算=' + str(STRUCTURE_STEP3_BASE) + '（SDD [L1459] 逐字'
+                        ' A*3、B*3、C*4、D*2）实测='
+                        + str({k: counts.get(k, 0) for k in STRUCTURE_STEP3_BASE}))
+    if {k: vcounts.get(k, 0) for k in STRUCTURE_STEP3_VARIANT} != STRUCTURE_STEP3_VARIANT:
+        problems.append('变体四类闭合：手算=' + str(STRUCTURE_STEP3_VARIANT)
+                        + '（B->C 两条搬运，闭合仍 12）实测='
+                        + str({k: vcounts.get(k, 0) for k in STRUCTURE_STEP3_VARIANT}))
     for key in ('S-005/v2', 'S-007/v1'):
         if base_rows[key].evidence_class == 'C':
-            problems.append('变体的两条改判对象在基线里本应不是 C：' + key)
+            problems.append('变体的两条改判对象在基线里本应不是 C（A1c 后应为 B，[L977]③）：'
+                            + key)
+        if base_rows[key].evidence_class != 'B':
+            problems.append('基线 ' + key + ' 手算=B（[L977]③ 准实验 DID + alt_method_note'
+                            ' 非空，A1c D-A1-02 已补）实测='
+                            + str(base_rows[key].evidence_class))
         if not variant_rows[key].interpretation_limit:
             problems.append('变体已填 interpretation_limit，改判为 C 后该列不得为空'
                             '（[L977] 第 5 步 / [L1618]）：' + key)
@@ -1597,8 +1959,8 @@ def test_g14_pool_shares_are_reported_in_two_columns_and_step7_is_not_aborted(fx
         _diffs(problems)
 
     for name, chain, want_structure, want_shares, want_small, want_assessed, want_na in (
-            ('基线', run, STRUCTURE_BASE, SHARES_BASE, SMALL_BASE, 6, 5),
-            ('变体', variant, STRUCTURE_VARIANT, SHARES_VARIANT, SMALL_VARIANT, 8, 3)):
+            ('基线', run, STRUCTURE_BASE, SHARES_BASE, SMALL_BASE, DEN_ASSESSED, NOT_ASSESSED_BASE),
+            ('变体', variant, STRUCTURE_VARIANT, SHARES_VARIANT, SMALL_VARIANT, DEN_ASSESSED_VARIANT, NOT_ASSESSED_VARIANT)):
         if chain.stats is None:
             problems.append(name + '：stats 为 None，Step 7 没有产出')
             continue
@@ -1659,28 +2021,45 @@ def test_g14_pool_shares_are_reported_in_two_columns_and_step7_is_not_aborted(fx
 
 
 def test_g14_mix_quality_degraded_warning_fires_when_c_share_rises(fx, history):
-    '''G-14 的判据「报告出现 MIX_QUALITY_DEGRADED 警示」：C 占比上升 -> 必须警示。
+    '''G-14 判据：C 类占比上升 -> MIX_QUALITY_DEGRADED（ORCH-36 第1/3/4条 + ORCH-37 第7条）。
 
-    手算（M31 1416 行 / [L1854] 的「防作弊面：只报合并占比时，C 类占比上升会被 A 类的
-      体量掩盖」；分母取 Step 5 的 universe = 11，即 12 个 pair 减 G-09 BLOCK 载体 S-008）：
-      * 基线证据结构 A3 B0 C3 D5 -> C 占比 = 3/11 = 0.272727272727，
-        低证据（C + D）= 8/11 = 0.727272727273。
-      * 变体 G14（S-005/v2、S-007/v1 由 D 改判 C）-> A3 B0 C5 D3 ->
-        C 占比 = 5/11 = 0.454545454545（**上升 +2/11 = 0.181818181818**），
-        低证据 (C + D) = 8/11 = 0.727272727273（**不变**）。
-      * M31 给 golden 的判据是「**C 类**占比上升的场景 -> 警示」，故本包的期望值 =
-        pooling.mix_quality_verdict(变体, 基线) == 注册码 MIX_QUALITY_DEGRADED。
-      * 基线缺失 = 不可比 -> 必须抛（V-14 禁「当作没上升」的静默降级）；已分类数为 0 时
-        商无定义 -> 同样必须抛，不得返回 0。
-    与实现的偏差（保持 RED，两条归因不同，均不迁就）：
-      (1) 实现口径是 (C + D) 占比变化（pooling.low_evidence_share），在 **当前 fixtures
-          内容**下变体是 D -> C 的搬运、C + D 恒为 8/11 -> 返回 None -> 无警示。
-          这是 D-A1-02 的直接后果：A1c 把那四条卡补齐为 B 后，变体的低证据占比会由
-          6/11 = 0.545454545455 升到 8/11 = 0.727272727273，同一判据转绿。
-          -> 归因 fixtures（A1c 未执行），**本条 expects 在 A1c 执行后需重算**（E3b）。
-      (2) 即便如此，M31 的字面判据（C 类占比）与实现的口径（C + D 占比）并不等价，
-          在「C 升 D 降」这类结构搬运场景下实现会漏报。-> 归因 pooling（C5），
-          请主控裁是改判据口径还是改 golden 文案（GAP-E3-03(b)）。
+    原文依据（逐字）：
+      * M31 [L1416]「构造一级库中 **C 类占比**上升的场景」->「报告出现 MIX_QUALITY_DEGRADED
+        警示」= **分子的唯一明文**。「一级库中」这个限定语记 ERRATUM-04（[L1002] / [L137] /
+        [L1436] 明文 C 类不得进一级库，一级库内 C 恒 0，字面不可满足），不据其字面实现。
+        「C+D」零原文依据已驳回；以 dsm/reason_codes.py:86 的 message 为据属**循环引证**亦已
+        驳回（ORCH-37 第7条）。
+      * M24 [L1004]「NOT_ASSESSED 单独计数，**不计入分母**」+ ORCH-36 第3条「分母必须与两列
+        share_* 同源」-> 判据分母 = DEN_ASSESSED = DEN_POOL - not_assessed_count = 11 - 2 = **9**。
+        分母的正向定义原文缺位 = ERRATUM-05，依据等级 derived:。
+      * M24 [L1003]「同时报池内占比与合并占比，并披露各池的证据结构（A/B/C/D 计数）」+
+        M30 [L1063] 第⑥段「证据结构（A/B/C/D 计数与 NOT_ASSESSED 明细）」-> 披露口径分母 =
+        **11**（ORCH-37 第6条读法甲）。**11 用于披露、9 用于判据、12 用于 Step-3，不得混用**
+        （ORCH-41 第2条 / ERRATUM-11）。
+      * M45 [L1854]「占比双报 + MIX_QUALITY_DEGRADED 防作弊」只给目的，不给分子/分母。
+    独立手算（先算后测；探针 dsm_stage/E3b/probe_sens.py，只用 fixtures 的 T2/T3/T4/T7 与
+    [L977] 五步判级，不 import 任何 dsm 业务模块，R-14 合规）：
+      * 基线 pooling 侧结构 A3 B3 C3 D2 = 11，NOT_ASSESSED = 2（S-010/v1 卡缺失、S-012/v1
+        C 未写 interpretation_limit -> [L977]① / ⑤ 降 D -> M05 [L494] D = NOT_ASSESSED）
+        -> 已参评 9 -> C 占比 = q12(3/9) = 0.333333333333
+      * 变体（S-005/v2、S-007/v1 由 B -> C）-> A3 B1 C5 D2 = 11 -> C 占比 = q12(5/9)
+        = 0.555555555556
+      * 上升量 = 2/9 = 0.222222222222 > numeric.TOL(1E-12) -> 必出 MIX_QUALITY_DEGRADED
+      * 对照披露量 (C+D)/DEN_POOL：基线 5/11 = 0.454545454545、变体 7/11 = 0.636363636364
+        （改前的 8/11 是绑定 A1c 之前 fixtures 的陈旧手算值，其 docstring 自述「A1c 执行后需
+        重新手算（E3b）」）—— 它**不是**判据分子：拿 C+D 度量 C 上升，在 D->C 搬运下恒定不变，
+        守护点 vacuous，违 V-14（ORCH-36 第1条）；此处只做披露对账。
+    阈值：numeric.TOL（1E-12）= **工程默认，非业务签认值**，语义「任何上升都警示」。
+      PLACEHOLDER：原文未给数字、不在 config、不属 K-01~K-20（[L1734]-[L1757] 已逐条核过）
+      -> 新立 **K-21**（ORCH-36 第4条），本包**不自拟单值**（R-12），5 条待签认项见
+      dsm_stage/G14FIX/K-21-PROPOSAL.md。
+    K-23（G14FIX 上报的数据巧合）：当前 NA 中 C 类 = 0，使分子（全体口径 evidence_structure）
+      与分母（已参评口径）的 population 巧合一致 —— **这是数据巧合、非契约保证**，故本条把
+      分母写成**关系式**（== Σevidence_structure - not_assessed_count）而不是只钉常量 9。
+    V-14：基线缺失 = 不可比 -> 必抛；已参评数为 0 时商无定义 -> 必抛，**不得返回 0**。
+    GAP-06（ORCH-36 第5条）：G14FIX 已把 mix_quality_verdict 接进 dsm/reports.py:419
+      （_section_6，[L1063]⑥）；**cli 侧接线在 P2-wire-A**，不属 golden_b 写集，见
+      dsm_stage/E3b/NEED-WIRING 上报（本条只断言 verdict 值）。
     '''
     run = _pool_chain(fx, history)
     variant = _pool_chain(fx, history, 'G14_c_share_up')
@@ -1689,29 +2068,61 @@ def test_g14_mix_quality_degraded_warning_fires_when_c_share_rises(fx, history):
         problems.append('Step 7 未产出 PoolStats（ORCH-28 R6 要求不中断）：'
                         + ' / '.join([str(run.pool_error), str(variant.pool_error)]))
         _diffs(problems)
-    now = pooling.low_evidence_share(variant.stats)
-    before = pooling.low_evidence_share(run.stats)
-    if not _ratio_eq(before, _q(Decimal(8) / Decimal(11))):
-        problems.append('基线低证据占比（实现的口径 (C+D)/已分类）：手算 8/11 ='
-                        ' 0.727272727273 实测 ' + str(before))
-    if not _ratio_eq(now, _q(Decimal(8) / Decimal(11))):
-        problems.append('变体低证据占比：手算 8/11 = 0.727272727273（D 转 C 只是搬运，'
-                        'C+D 不变）实测 ' + str(now))
-    c_now = _q(Decimal(int(variant.stats.evidence_structure.get('C', 0))) / Decimal(11))
-    c_before = _q(Decimal(int(run.stats.evidence_structure.get('C', 0))) / Decimal(11))
-    if not _ratio_eq(c_before, _q(Decimal(3) / Decimal(11))):
-        problems.append('基线 C 占比：手算 3/11 = 0.272727272727 实测 ' + str(c_before))
-    if not _ratio_eq(c_now, _q(Decimal(5) / Decimal(11))):
-        problems.append('变体 C 占比：手算 5/11 = 0.454545454545 实测 ' + str(c_now))
-    if not c_now > c_before:
-        problems.append('变体的 C 占比没有上升，与本包手算矛盾：' + str(c_now) + ' vs '
-                        + str(c_before))
+    for name, chain, want_structure, want_na in (
+            ('基线', run, STRUCTURE_BASE, NOT_ASSESSED_BASE),
+            ('变体', variant, STRUCTURE_VARIANT, NOT_ASSESSED_VARIANT)):
+        got = {k: int(v) for k, v in (chain.stats.evidence_structure or {}).items()}
+        if got != want_structure:
+            problems.append(name + ' 证据结构（DEN_POOL=' + str(DEN_POOL) + ' 口径，ORCH-37'
+                            ' 第6条读法甲：四类全给）：手算=' + str(want_structure)
+                            + ' 实测=' + str(got))
+        if sum(int(v) for v in got.values()) != DEN_POOL:
+            problems.append(name + ' 四类合计：手算=' + str(DEN_POOL) + ' 实测='
+                            + str(sum(int(v) for v in got.values())))
+        if int(chain.stats.not_assessed_count) != want_na:
+            problems.append(name + ' NOT_ASSESSED 计数（[L1004] 单独计数）：手算=' + str(want_na)
+                            + ' 实测=' + str(chain.stats.not_assessed_count))
+        # K-23 关系式（不钉常量）：判据分母 == 四类合计 - NOT_ASSESSED，且 == 手算的 9。
+        if pooling.assessed_denominator(chain.stats) != \
+                sum(int(v) for v in got.values()) - int(chain.stats.not_assessed_count):
+            problems.append(name + ' 分母关系式不成立（[L1004] + ORCH-36 第3条：与 share_*'
+                            ' 同源）：assessed_denominator='
+                            + str(pooling.assessed_denominator(chain.stats))
+                            + ' Σevidence_structure - not_assessed_count='
+                            + str(sum(int(v) for v in got.values())
+                                  - int(chain.stats.not_assessed_count)))
+        want_den = DEN_ASSESSED if name == '基线' else DEN_ASSESSED_VARIANT
+        if pooling.assessed_denominator(chain.stats) != want_den:
+            problems.append(name + ' 判据分母：手算=' + str(want_den) + '（= 11 - 2）实测='
+                            + str(pooling.assessed_denominator(chain.stats)))
+    c_now = pooling.c_class_share(variant.stats)
+    c_before = pooling.c_class_share(run.stats)
+    if not _ratio_eq(c_before, _q(C_SHARE_BASE)):
+        problems.append('基线 C 占比：手算 ' + str(STRUCTURE_BASE['C']) + '/' + str(DEN_ASSESSED)
+                        + ' = 0.333333333333 实测 ' + str(c_before))
+    if not _ratio_eq(c_now, _q(C_SHARE_VARIANT)):
+        problems.append('变体 C 占比：手算 ' + str(STRUCTURE_VARIANT['C']) + '/'
+                        + str(DEN_ASSESSED_VARIANT) + ' = 0.555555555556 实测 ' + str(c_now))
+    if c_now is None or c_before is None or not c_now > c_before:
+        problems.append('变体的 C 占比没有上升，与手算矛盾：' + str(c_now) + ' vs ' + str(c_before))
+    elif not _ratio_eq(c_now - c_before, _q(C_SHARE_VARIANT) - _q(C_SHARE_BASE)):
+        problems.append('上升量：手算 q12(5/9) - q12(3/9) = 0.555555555556 - 0.333333333333'
+                        ' = 0.222222222223（两个已按 M16 q12 定标的占比相减，末位 +1e-12 属'
+                        ' q12 口径的必然结果，非 2/9 的无穷小数截断；仍 > numeric.TOL）实测 '
+                        + str(c_now - c_before))
+    if not _ratio_eq(pooling.low_evidence_share(run.stats), _q(LOW_EVIDENCE_BASE)):
+        problems.append('基线 (C+D) 披露量：手算 5/11 = 0.454545454545 实测 '
+                        + str(pooling.low_evidence_share(run.stats)))
+    if not _ratio_eq(pooling.low_evidence_share(variant.stats), _q(LOW_EVIDENCE_VARIANT)):
+        problems.append('变体 (C+D) 披露量：手算 7/11 = 0.636363636364 实测 '
+                        + str(pooling.low_evidence_share(variant.stats)))
     verdict = pooling.mix_quality_verdict(variant.stats, run.stats)
     if _code(verdict) != _code(RC.MIX_QUALITY_DEGRADED):
-        problems.append('M31 G-14 判据：C 类占比由 3/11 = 0.272727272727 升到'
-                        ' 5/11 = 0.454545454545（+2/11 = 0.181818181818）-> 应出'
-                        ' MIX_QUALITY_DEGRADED 警示；实测 verdict=' + str(verdict)
-                        + '（实现按 (C+D)=8/11 不变判 None，见 docstring 归因 (1)(2)）')
+        problems.append('M31 [L1416] 判据：C 类占比由 3/9 = 0.333333333333 升到'
+                        ' 5/9 = 0.555555555556（+2/9 = 0.222222222222 > numeric.TOL）-> 应出'
+                        ' MIX_QUALITY_DEGRADED；实测 verdict=' + str(verdict))
+    elif not reason_codes.is_registered(_code(verdict)):
+        problems.append('verdict 码未注册（H-7）：' + str(verdict))
     try:
         pooling.mix_quality_verdict(variant.stats, None)
         problems.append('无上期基线却返回了值（V-14：不可比不得当作没上升）')
@@ -1721,7 +2132,7 @@ def test_g14_mix_quality_degraded_warning_fires_when_c_share_rises(fx, history):
                       not_assessed_count=0, not_assessed_reasons={})
     try:
         pooling.mix_quality_verdict(empty, empty)
-        problems.append('已分类数为 0 时商无定义却返回了值（V-14：不得返回 0）')
+        problems.append('已参评数为 0 时商无定义却返回了值（V-14：不得返回 0）')
     except pooling.PoolingInputError:
         pass
     _diffs(problems)
