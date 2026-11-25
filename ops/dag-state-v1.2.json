@@ -97,10 +97,10 @@
    "agent_id": "01a212d3-8a38-7fe0-a7d1-277ddf145a5b",
    "nickname": "Zeno",
    "orch_watch": {
-    "at_clock": "T+1.59h",
-    "disk_signal": "零产出（cli.py mtime 08:58 未变；无 dsm_stage/V12-M29-1/）",
-    "timebox": "40min -> T+2.35h",
-    "fallback": "done_partial 只提交全绿部分；或 blocked 由主控拆包改派（候选拆法：Step0-5 marshal / Step6-9 marshal + OSError 返工 两段，但 cli.py 单写者约束要求串行，故优先等时间盒结论）"
+    "at_clock": "T+1.70h",
+    "disk_signal": "ORCH-60 生效：PLAN.md 8139B + progress.log 已落盘；dsm/cli.py +732/-19（九步 marshal 本体在写）；自报 eta=30min",
+    "gaps_reported": "GAPS-1 soft_deductions 载体（-> ORCH-61 + CFG-1）；GAPS-2 --seed 事实必填；GAPS-3 output_fingerprints 鸡生蛋（-> ORCH-59 归 M29-2）；GAPS-4 previous_ledger 非空显式拒绝",
+    "timebox": "40min -> T+2.35h"
    }
   },
   "RC-1": {
@@ -842,6 +842,21 @@
    "writeset": "只读；产出 dsm_stage/V12-GATE-PRE/**",
    "budget_min": 40,
    "goal": "门禁②20 个 V 项判据+可跑命令+原始日志（不裁三态）；门禁⑥KNOWN-GAPS 13 条重计数四档；NG-V12-01..18 分类"
+  },
+  "CFG-1": {
+   "status": "running",
+   "agent": "Galileo 01a2132f-056d-7962-a4d5-9e790bcb59e8",
+   "model": "qwen3.8-max/high",
+   "complexity": "C2-高风险",
+   "budget_min": 25,
+   "writeset": [
+    "config/grade_rules.yaml",
+    "dsm/config.py(仅必要时·最小改动)",
+    "tests/test_config_soft_deductions.py(新)"
+   ],
+   "goal": "按 ORCH-61 补 soft_deductions 治理键，使 Step4 SOFT 扣减在仓库自带 config 上可跑通；给出精确访问路径供 M29-1/M29-2 接线",
+   "critical_path": true,
+   "why_critical": "M29-2 关闭 G-8 的判据是「CLI 实跑一条 WARN 不阻断路径，report.md ⑥ 出现 MIX_QUALITY_DEGRADED」=> 需要 dsm score 端到端成功 => 需要本键存在"
   }
  },
  "sync_points": {
@@ -1046,24 +1061,37 @@
    "ruling": "在 T+1.65h 以 interrupt 下发时间盒：5 分钟内落 PLAN.md；随后立即改 dsm/cli.py 小步落盘；每 15 分钟追加 progress.log；硬盒 40 分钟（至 T+2.35h），到点二选一：(a) 九步全通 + test_cli_marshal.py 绿 + 全量 0 failed -> 一个 commit；(b) 只提交已完成且全绿的部分，未完成处保留原 raise InvariantError 门 + PLACEHOLDER-TO-REFRESH(M29-1剩余)，报 done_partial 并逐步列缺口。第三态（继续沉默）不接受；若判定 40 分钟内不可完成，立即报 blocked 由主控拆包改派。",
    "why": "L-28 的「不要过早 interrupt」适用于深度推理期；但客观信号（磁盘零产出 + 下游 3 包串行 + 剩 4.3h）已到分级观察线的第二档。interrupt 的同时给出「可交付的最小完成定义」，避免摧毁已有推理又止住沉默。",
    "note_vs_L28": "本次不视为违反 L-28：L-28 的 1.8h 索取进度线已到，且索取方式是「先落 PLAN.md 再继续」，不打断其技术路线。"
+  },
+  "ORCH-61": {
+   "at_clock": "T+1.70h",
+   "topic": "soft_deductions 治理载体裁决（回答 M29-1 PLAN.md GAPS-1）",
+   "problem": "契约 [L484]「SOFT 红线扣减幅度由 grade_rules.yaml 配置」指定了载体，但契约不给数值；config/grade_rules.yaml（M29-3, ae2ca02）里没有该顶层键 => 九步 marshal 的 Step4 在仓库自带 config 上走 [L1080] 退出码 3。",
+   "ruling": "载体确认 = config/grade_rules.yaml 顶层 soft_deductions 映射（metric_id -> 0..1 比率字符串）。数值逐字取 tests/test_integration_spine.py:84 GOVERNANCE = {M_OPTOUT_RATE: \"0.05\"}（仓库内既有合成治理载荷，与冻结 reproducibility_hash 同一口径 = 口径唯一原则）。仅此一键一值，禁补其他指标（无出处即编造 R-12）。必须沿用文件头 DRILL ONLY / 合成待签认（F-2）标注。",
+   "dispatch": "另派 CFG-1（Galileo, qwen3.8-max/high, 25min）施工；写集 config/grade_rules.yaml + 必要时 dsm/config.py + tests/test_config_soft_deductions.py（新），与 M29-1 的 dsm/cli.py 零交集。",
+   "invariants_required": [
+    "哈希不变自证：改前改后 tests/test_integration_spine.py 的 reproducibility_hash 逐字相等（预期 e5923465..）；若变则立即 blocked（说明 config 进了值面，需重裁）",
+    "不得放宽 extra=forbid 等既有校验语义；若必须放宽 -> blocked 上报",
+    "回报必须给出「逐字可用的访问表达式」（app 的哪个属性），这是下游 M29-1/M29-2 的接线依据"
+   ],
+   "m29_1_instruction": "保持 exit-3 + 点名键位不变（H-5 不许自定数）；tests/test_cli_marshal.py 必须自包含（自建 tmp 配置树），不得依赖 CFG-1 是否落地，不得 skip/xfail；端到端在仓库 config/ 上的结果如实写三态。"
   }
  },
  "counters": {
-  "pkgs_total": 24,
+  "pkgs_total": 25,
   "pkgs_done": 17,
-  "pkgs_running": 4,
+  "pkgs_running": 5,
   "pkgs_pending": 3,
   "w1_pkgs": 6,
   "w2_pkgs": 3,
   "w3_pkgs": 3,
-  "max_pkgs": 4,
+  "max_pkgs": 5,
   "flash_pkgs": 18,
   "slots_limit": 6,
-  "slots_in_use": 4,
+  "slots_in_use": 5,
   "escalations": 0,
   "rework_rounds": 0,
   "budget_violations": 0,
-  "updated_at_epoch": 1795617833.9263232,
+  "updated_at_epoch": 1795618236.9724092,
   "adhoc_pkgs": 11,
   "orch_self_inflicted_errata": 4
  },
@@ -1133,18 +1161,18 @@
   ]
  },
  "clock_now": {
-  "at_epoch": 1795617833.9263232,
-  "clock": "T+1.59h",
-  "head": "b157e00",
-  "phase": "W1->W2（关键路径 M29-1）",
-  "remaining_hours": 4.41,
-  "note": "门禁① 2342/0 与门禁② V-2 16 passed 已由主控在 b157e00 亲测；最终 HEAD 须复测"
+  "at_epoch": 1795618236.9724092,
+  "clock": "T+1.70h",
+  "head": "6156e4b(台账)+M29-1 工作树脏",
+  "phase": "W2 关键路径",
+  "remaining_hours": 4.3,
+  "note": "槽位 5/6，留 1 槽给 M29-2"
  },
  "active_agents": {
   "M29-1": {
    "agent": "Zeno 01a212d3-8a38-7fe0-a7d1-277ddf145a5b",
    "model": "qwen3.8-max/xhigh",
-   "state": "interrupted ORCH-60，时间盒至 T+2.35h",
+   "state": "ORCH-60 已生效，cli.py +732/-19，eta 自报 30min",
    "critical_path": true
   },
   "M28-1": {
@@ -1170,7 +1198,13 @@
    "Cicero(BK-5)",
    "Halley(REPRO-PRE)",
    "Socrates(M29-2-PRE)"
-  ]
+  ],
+  "CFG-1": {
+   "agent": "Galileo 01a2132f-056d-7962-a4d5-9e790bcb59e8",
+   "model": "qwen3.8-max/high",
+   "state": "running",
+   "critical_path": true
+  }
  },
  "errata": [
   {
