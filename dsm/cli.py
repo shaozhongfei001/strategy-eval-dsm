@@ -334,6 +334,31 @@ def _chain_gate(run, app, loaded):
                          'M29 is a P2 integration deliverable; the shell refuses to '
                          'reimplement it (INV-2)')
 
+def _anchor_set_doc(app):
+    '''T8 anchor_set 在 shell 侧的**唯一**取法（A1d NEED-WIRING §3 / [L877]）：来源是
+    config 层加载的 AnchorSetDoc，**不是** io_loaders.Inputs —— Inputs
+    （dsm/io_loaders.py:149-159）只有 strategy_master / metric_dict / metric_facts /
+    design_cards / redlines / previous_ledger 六项，没有 anchor_set；ATT-1
+    NEED-WIRING 表格第 4 行「传 Step1 已加载的 inputs.anchor_set」的措辞有误，照抄
+    会 AttributeError。spine 侧的同一对象由 tests/test_integration_spine.py:137 的
+    _governance_docs() 给出（AnchorSetDoc(**anchor_set.jsonl[0])），Step1
+    attainment.compute(anchor_set=...) 与 Step2 normalize.compute 的第 3 位入参用的
+    就是它（[L941] 锚定集优先 / ERRATUM-08 / ORCH-40 R4），故两处必须同源同对象，
+    shell 不另开第二个来源（口径唯一）。
+    签认配置里没有 anchor_set -> 返回 None，由 dsm/preflight.py:344 显式披露
+    「未提供 anchor_set（T8），无锚定基准」：降级带披露位，不是静默降级（V-14）。
+    shell 绝不自己编一份锚定集顶上去（R-12）。
+    ⚠️ Step1 的**生产调用点**尚不存在：M29 L1330-1358 九步 marshal 未落地，
+    _chain_gate 在模块齐全时仍 raise InvariantError（退出码 5，INV-2 禁止 shell
+    内联任何一步）。marshal 落地时必须把本函数的返回值同时喂给
+    attainment.compute(anchor_set=...) 与 normalize.compute(..., anchor_set, ...)。'''
+    models = _require('dsm.models')
+    anchor = getattr(app, 'anchor_set', None)
+    if not anchor:
+        return None
+    return models.AnchorSetDoc.model_validate(anchor)
+
+
 def _signed_weight_version_id(app):
     '''[L1052] 的 weight_version_id 只从签认配置树里取：恰好一份 weights 文档时取它的
     weight_version_id；0 份或多份一律 None，由调用方按 [L1080] 退出码 3 拒绝。shell 不挑一份、
@@ -479,12 +504,11 @@ def _build_preflight_config(app, period):
     if len(weights) != 1:
         raise CliError('exactly one weights_*.yaml is required for preflight, got %d '
                        '(%s)' % (len(weights), ', '.join(sorted(weights))), EXIT_CONFIG)
-    anchor = app.anchor_set
     return config.PreflightConfig(
         period=period,
         period_ref_date=datetime.date.fromisoformat(str(ev['period_ref_date'])),
         weight_version=models.WeightVersionDoc.model_validate(weights[sorted(weights)[0]]),
-        anchor_set=None if not anchor else models.AnchorSetDoc.model_validate(anchor),
+        anchor_set=_anchor_set_doc(app),
         signed_signoff_status=tuple(ev['signed_signoff_status']),
         missing_rate_warn=ev['missing_rate_warn'], missing_rate_block=ev['missing_rate_block'])
 

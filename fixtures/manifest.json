@@ -61,9 +61,9 @@
   },
   "files": {
     "fixtures/golden/golden_map.json": {
-      "bytes": 22130,
+      "bytes": 24330,
       "rows": 1,
-      "sha256": "dcfffd6a657b4d029d526c3fb5a2ea48e7b9dc4f5825d22efbf91191920a6cfd"
+      "sha256": "27c12b3e15aad3e7a147ac99a7d9e598b0b8fc65a44f14f8554dafa53dd39cfe"
     },
     "fixtures/input/anchor_set.jsonl": {
       "bytes": 210,

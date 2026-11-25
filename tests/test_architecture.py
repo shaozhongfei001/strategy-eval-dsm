@@ -537,7 +537,18 @@ def pick(seed, rows):
 SYN_BARE_REASON_CODE = '''row = {'reason_code': 'MONEY_NON_INTEGER'}
 '''
 
-# Reviewed 2026-11-25 at commit 3fef4da, 32 (module, literal) pairs. These are
+# Reviewed 2026-11-25 at commit 5d13ef3, 28 (module, literal) pairs. P2-wire-B
+# shrank 32 -> 28 (ORCH-34 ruling 3, scheduled after A1c): the four fixtures_gen
+# pairs -- MONEY_NON_INTEGER, REDLINE_HARD_M_COMPLAINT_RATE,
+# REDLINE_HARD_M_CONTACT_FREQ_PER_30D, REDLINE_SOFT_M_OPTOUT_RATE -- were
+# re-measured against the live scanner (fresh collisions 0, stale allowances 4)
+# and no longer occur, because A1b @0547190 moved all four to registry symbols:
+# fixtures_gen.py:537 RC.MONEY_NON_INTEGER.value, :360/:363 redline_hard(...),
+# :366 redline_soft(...). A stale allowance is a HOLE in the ratchet -- it would
+# let fixtures_gen hand-spell those four codes again without tripping anything --
+# so dropping them tightens the gate. The direction is unchanged and now pinned
+# numerically by COLLISION_INVENTORY_CEILING below: the inventory may only shrink.
+# These are
 # bare literals that equal a registered reason_code but do NOT sit in a
 # reason_code position, so the P-8 test above does not fail on them. Three
 # groups, and the ratchet below is what keeps the list from growing:
@@ -561,9 +572,6 @@ SYN_BARE_REASON_CODE = '''row = {'reason_code': 'MONEY_NON_INTEGER'}
 COLLISION_INVENTORY = {
     'cli': frozenset({'ALPHA_INFEASIBLE'}),
     'diagnostics': frozenset({'COLLINEAR', 'LOW_VARIATION'}),
-    'fixtures_gen': frozenset({'MONEY_NON_INTEGER', 'REDLINE_HARD_M_COMPLAINT_RATE',
-                               'REDLINE_HARD_M_CONTACT_FREQ_PER_30D',
-                               'REDLINE_SOFT_M_OPTOUT_RATE'}),
     'grading': frozenset({'NOT_ASSESSED'}),
     'models': frozenset({'COLLINEAR', 'LOW_VARIATION', 'METHOD_AGREEMENT',
                          'METHOD_DIVERGENCE', 'NEAR_BOUNDARY', 'NOT_ASSESSED',
@@ -577,6 +585,14 @@ COLLISION_INVENTORY = {
                               'NORMALIZATION_SENSITIVE', 'NOT_ASSESSED', 'STABLE',
                               'UNSTABLE'}),
 }
+
+# P2-wire-B ratchet cap, measured 28 pairs at 5d13ef3 (the reviewed inventory held
+# 32 at 3fef4da; the four fixtures_gen pairs above went stale at A1b @0547190). The
+# guard test fails on ANY growth past this number, so shrinking is the only
+# unattended direction left and growing the inventory needs 主控 to raise the cap
+# with a written reason (R-15: reason_codes.py and the contract layer are
+# single-point; R-14: a ratchet may only tighten).
+COLLISION_INVENTORY_CEILING = 28
 
 
 def test_layer_map_covers_every_module_on_disk():
@@ -731,6 +747,11 @@ def test_p8_registry_name_collisions_stay_inside_the_reviewed_inventory():
         'new bare literal equal to a registered reason_code (M16 L855): use '
         'RC.<NAME>.value, or 主控 adds it to COLLISION_INVENTORY with a reason: '
         + repr(fresh))
+    pairs = sum(len(literals) for literals in COLLISION_INVENTORY.values())
+    assert pairs <= COLLISION_INVENTORY_CEILING, (
+        'COLLISION_INVENTORY holds ' + repr(pairs) + ' (module, literal) pairs, the '
+        'reviewed cap is ' + repr(COLLISION_INVENTORY_CEILING) + ': this ratchet only '
+        'shrinks, 主控 must raise the cap with a written reason (R-15, M16 L855)')
     hard_control, collisions_control = reason_code_literals(SYN_BARE_REASON_CODE, codes, prefixes)
     assert hard_control and 'MONEY_NON_INTEGER' in collisions_control, 'control is vacuous'
     assert 'MONEY_NON_INTEGER' not in COLLISION_INVENTORY.get('whatif', frozenset()), (
