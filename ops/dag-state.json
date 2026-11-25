@@ -621,6 +621,20 @@
     "7) tag-HEAD 不动点处置：本 ledger commit 只改 ops/dag-state.json，HEAD 会再前移一次；若要求「被 tag 的 commit 自身必须有实测签核」则陷入自指不动点(台账无法记录包含自身的 commit 的实测)。裁定：台账记录到最后一个可实测的内容 HEAD(06d1338)为止，并在 push+tag 之前于最终 HEAD 再跑一次 repro_offline.sh，其 RESULT 行原文记入发布报告(主控最终回报)，不回填台账；同时以 git diff --name-only 06d1338..最终HEAD 实测证明增量仅 ops/dag-state.json(不在哈希输入面)。此为诚实且不造假的终止条件。",
     "8) 授权发布：git add ops/dag-state.json(仅此一路径，禁 -A) -> 单笔 commit -> 复测 porcelain 空 + 邻居 CampaignLab 仍为 m0-framework/0cccb76/porcelain 0/rev-list 154 + 远端 main=3616f972 仍为 HEAD 祖先(FF_SAFE) -> 最终 HEAD 复跑签核 -> git push origin main -> git tag v1.1.0 -> git push origin v1.1.0 -> 复测 git tag -l 与 git ls-remote --tags。tag 打在「合成数据演练版」上，G5/G7 未过声明一字未改且有测试守护。任何一步核验失败即停止并如实上报，严禁强行凑绿。"
    ]
+  },
+  "ORCH-47": {
+   "at_epoch": 1795572833.1166868,
+   "clock": "T+8.94h",
+   "head_observed": "fd46872",
+   "title": "主控自引回归：ORCH-46 台账提交把 ops/dag-state.json 的末尾 LF 写丢了 —— 检出、定性、修复前进、tag 处置",
+   "rulings": [
+    "1) 事实（主控 push+tag 后自查发现，非任何子包上报）：ops/dag-state.json 末 3 字节在 3da51ab = 0x0a 0x7d 0x0a（有末尾 LF）、06d1338 同、fd46872（ORCH-46 台账提交，已 push 且为 v1.1.0 所指）= 0x7d 0x0a 0x7d（无末尾 LF）。根因：patch_ledger.py:5 捕获了 trail_nl = raw.endswith(chr(10)) 却从未在写回时使用，json.dumps(indent=1) 输出不含结尾换行；patch2 沿用同一写法。",
+    "2) 影响面实测：tools/normalize.py --check 真退出码 = 0，SCOPE 190 受控文件，FOUR_ELEMENTS 违规 0，NEEDS_NORMALIZATION 0 of 190，故四要素硬门禁未染红；受影响的是 DISCLOSURE TRAILING_LF_HISTORICAL 计数 16 -> 17（新增载体即 ops/dag-state.json），即把 V1-FINAL 刚为 P3b-REPRO-HARNESS.md 补齐 1 个 LF 的成果在计数上抵掉。风险点：该文件属「本次变更文件」，若以 --changed-since 06d1338 形式跑门禁，末尾 LF 断言会命中它而硬失败。",
+    "3) 处置 = 修复前进，不改历史、不移动已推送的 tag（R-13 禁 force/rebase/reset/amend，且移动已发布 tag 属重写公共历史）：为 ops/dag-state.json 补回 1 个末尾 LF（纯字节追加，零内容改写，JSON 语义不变），连同本 ORCH-47 与 ERRATUM-14 单笔提交，push main（fast-forward）。v1.1.0 保持指向 fd46872 不动。",
+    "4) tag 与修复提交的等价性不以论证代替实测：修复提交后于新 HEAD 复跑 tools/repro_offline.sh --strict-isolation --expect，若哈希仍为 e5923465… 则实证「v1.1.0 所指内容与修复后 HEAD 在哈希输入面上完全等价」，差异仅 1 个 LF 字节 + 台账文字，均在 docs/ops 面。RESULT 行原文记入发布报告。",
+    "5) 责任归属：本回归由主控自身造成（子包写集不含 ops/dag-state.json，V1-FINAL 自述 DAG_STATE_TOUCHED=no 经实测核验为真）。按 V-14「任何降级都显式可见、禁止静默降级」与 R-12，主控自引缺陷同样必须显式入账，不得因「已 push 已 tag」而隐瞒。",
+    "6) 新增 L-14：凡读改写文本资产的运维脚本，必须在写回时显式复用捕获到的末尾换行状态（trail_nl 捕而不用等于埋雷）；且提交前应对「本次变更文件」跑一次门禁的 --changed-since 形式，而不是只跑默认形式——默认形式在工作树干净时会把变更文件数报成 0，天然测不到自己刚提交的东西。"
+   ]
   }
  },
  "pkg_id_remap_from_5lane": {
@@ -5172,7 +5186,8 @@
    "lesson": "K 号（PLACEHOLDER 待签认项）必须由主控单点分配：LOO-1 自行上报的 K-23 与主控在 ORCH-40 第6条已登记的 K-23 撞号，已改记 K-29。纠正：后续派工卡一律附『当前最大 K 号 = N，你新报的项从 N+1 起暂记为 K-LOCAL-<包号>-<序号>，由主控统一入册』。"
   },
   "L-12（ORCH-46）：主控自写的运维/台账脚本同样必须先 compile()/py_compile 自检再执行。本轮 patch_ledger.py 带语法错(4 处 ])])) 应为 ])])躺了整轮，若直接信任移交单的「已写好」就会在收尾阶段空转。",
-  "L-13（ORCH-46）：任何用动态 HEAD 填的字段，必须与「在该 HEAD 上真实测得」的值同源。混装(commit 取新 HEAD、其余指标取旧 HEAD)在语义上等价于造假。正确做法二选一：把观测 HEAD 钉成常量并标注 measured_at，或在新 HEAD 上复跑一次再落盘——本轮选后者(27s 成本极低，收益是把适用域论证升级为实测)。"
+  "L-13（ORCH-46）：任何用动态 HEAD 填的字段，必须与「在该 HEAD 上真实测得」的值同源。混装(commit 取新 HEAD、其余指标取旧 HEAD)在语义上等价于造假。正确做法二选一：把观测 HEAD 钉成常量并标注 measured_at，或在新 HEAD 上复跑一次再落盘——本轮选后者(27s 成本极低，收益是把适用域论证升级为实测)。",
+  "L-14（ORCH-47）：读改写文本资产必须显式复用捕获到的末尾换行状态——trail_nl 捕而不用即埋雷（本轮主控自引回归）。且提交前须以 --changed-since REF 形式跑门禁：默认形式在工作树干净时报「changed 0 files」，恰好测不到自己刚提交的文件，会给出虚假的安心。"
  ],
  "gap_adjudications_SP1": {
   "total_gaps": 21,
@@ -5387,10 +5402,10 @@
   "epoch": 1795566056.22,
   "t_hours": 8.814,
   "remaining_hours": 1.186,
-  "at_epoch": 1795572387.7222314,
-  "clock": "T+8.81h",
+  "at_epoch": 1795572833.1166868,
+  "clock": "T+8.94h",
   "head": "06d1338",
-  "note": "ORCH-46：台账修复落盘 + 06d1338 上主控亲测签核 PASS(同哈希 e5923465…，wh_manifest 升为 verified 26)。ahead=63 tags=0(待主控 push+tag v1.1.0)。既有 160 处 ? mojibake 全在 work_packages 4 个节点，经备份对比确认为本轮之前既存、本补丁零新增(见 ORCH-46 第4条)。",
+  "note": "ORCH-47：补回 ops/dag-state.json 末尾 LF（主控自引回归，ERRATUM-14）；v1.1.0 已推送并指向 fd46872，修复以 fast-forward 追加，不移动 tag。",
   "ahead": 63,
   "tags": 0
  },
@@ -5782,6 +5797,16 @@
    "corrected_to": "06d1338 实测：RESULT=PASS HASH=e5923465… ELAPSED=27s ISOLATION=L3-strong DIRTY=0 HEAD_STABLE=yes；wheelhouse=…/dsm_stage/P3b-prep/wheelhouse；wh_manifest=verified(26 entries, sha256sum -c all OK)；tmpdir=/tmp/p3b-repro.aIuYYCRl；expect 命中。post_signoff_diff_check 落为 5 文件实测清单。",
    "preserved": "3da51ab 原签核记录逐字移入 reproducibility_evidence.prior_signoff_3da51ab，未删未改。",
    "ruling": "ORCH-46 第3条 / 第5条"
+  },
+  {
+   "id": "ERRATUM-14",
+   "at_epoch": 1795572833.1166868,
+   "clock": "T+8.94h",
+   "what_was_wrong": "ORCH-46 台账提交 fd46872 把 ops/dag-state.json 的末尾 LF 写丢（3da51ab/06d1338 均有，fd46872 无），DISCLOSURE TRAILING_LF_HISTORICAL 由 16 变 17；该提交已 push 且为 v1.1.0 所指。",
+   "detected_by": "主控 push+tag 后自查（比对三个 commit 的末 3 字节），非子包上报",
+   "corrected_to": "补回 1 个末尾 LF（纯字节追加、零内容改写），单笔提交后 push main；v1.1.0 保持指向 fd46872 不动；并于新 HEAD 复跑离线签核实证哈希仍为 e5923465…（RESULT 行见发布报告）。",
+   "gate_impact": "tools/normalize.py --check 真退出码始终为 0、四要素违规 0、NEEDS_NORMALIZATION 0；仅披露计数受影响。以 --changed-since 形式跑则会硬红，故必须修。",
+   "ruling": "ORCH-47"
   }
  ],
  "final_gate_check": {
