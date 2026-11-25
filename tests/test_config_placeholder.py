@@ -37,8 +37,9 @@ Coverage map (checklist letters, for the R4 review):
   L  T05-L  H-5 self scan: no business number in dsm/config.py nor in the two
             new test files (the two self scans are positive controls).
   M  T05-M  the do-not-break gate: existing modules still import, no new
-            skip/xfail, repo config/ stays empty, requirements stay pinned,
-            the new files stay BOM free / LF / tab free.
+            skip/xfail, repo config/ carries only the tracked M29-3 drill
+            files (ORCH-53, was "stays empty" in v1.1), requirements stay
+            pinned, the new files stay BOM free / LF / tab free.
 
 Three points are under-determined by ORCH-23 itself. They are pinned here in
 the conservative direction and flagged to the orchestrator instead of being
@@ -87,6 +88,17 @@ THIS_PATH = Path(__file__).resolve()
 PROPERTIES_PATH = REPO_ROOT / 'tests' / 'test_config_properties.py'
 REQUIREMENTS_PATH = REPO_ROOT / 'requirements.txt'
 REPO_CONFIG_DIR = REPO_ROOT / 'config'
+# ORCH-53: the M29-3 write set (commit ae2ca02) that docs/RUN-UNATTENDED-v1.2.md
+# :83 authorizes in plain text as `config/**`(new). Enumerated on purpose and
+# never globbed: a whitelist that could match anything approves nothing.
+APPROVED_CONFIG_FILENAMES = (
+    'ahp_matrices.yaml',
+    'anchor_set.yaml',
+    'eval_config.yaml',
+    'grade_rules.yaml',
+    'redlines.yaml',
+    'weights_WV-SYNTH-2026.yaml',
+)
 DSM_DIR = REPO_ROOT / 'dsm'
 
 
@@ -1590,11 +1602,74 @@ def test_t05_m03_no_dsm_module_imports_an_l0_module():
     assert not offenders, 'H-9 INV-1 violation: ' + repr(offenders)
 
 
-def test_t05_m04_the_repository_config_directory_stays_empty():
+def test_t05_m04_the_repository_config_directory_carries_only_tracked_drill_files():
     '''Ruling 13: the config dir belongs to the S2 fixtures write set, so no
-    T05 test may leave a file behind in it.'''
+    T05 test may leave a file behind in it.
+
+    v1.1 spelled that intent out as the literal proxy assertion
+    ``sorted(REPO_CONFIG_DIR.iterdir()) == []``, which held only because
+    config/ happened to be empty back then. ORCH-53 rules that the proxy
+    broke, not the intent: M29-3 committed six yaml files under ``config/**``,
+    a write set that docs/RUN-UNATTENDED-v1.2.md:83 authorizes in plain text,
+    so they are committed product content (the synthetic drill config; per
+    commit d7b8675 explicitly NOT the G7 signed-off boundary section) and not
+    debris a T05 test left behind. Ruling 13 is therefore unviolated and only
+    its v1.1 literal proxy misfires. Per ORCH-53 the proxy is realigned to the
+    legislative intent -- this guard is neither deleted nor loosened.
+
+    检测力不弱于原式（ORCH-53 硬要求），依据如下：原式 ``== []`` 无法区分
+    「合法产品文件」与「测试遗留垃圾」，只能一刀切要求空目录；改造后拆成三条
+    泄漏检测，覆盖面严格更大——
+      (a) 任何未跟踪的遗留物（正是 Ruling 13 要防的东西）必落进
+          present-minus-tracked 差集而报错；
+      (b) 被跟踪集合必须逐字等于 APPROVED_CONFIG_FILENAMES 六文件白名单，
+          任何人悄悄往 config/ 塞新文件（哪怕已 git add 并 commit）即报错，
+          这保住了「不许悄悄往 config/ 塞东西」的原意；
+      (c) 任何临时/生成物形态（.tmp / .bak / .swp 后缀、tmp 或点号前缀、
+          __pycache__、非 .yaml 后缀、子目录）即报错。
+    原式能抓的「config/ 里多了东西」全部三种形态改造后仍被抓，且 (b) 补上了
+    原式根本无法表达的枚举力（已提交但不在白名单者，原式一律放行）。
+
+    Whitelist provenance: the M29-3 write set (commit ae2ca02 = config/** plus
+    tests/test_config_dryrun.py) as authorized by
+    docs/RUN-UNATTENDED-v1.2.md:83.
+    '''
+    import subprocess
+
     assert REPO_CONFIG_DIR.is_dir()
-    assert sorted(REPO_CONFIG_DIR.iterdir()) == []
+
+    proc = subprocess.run(('git', 'ls-files', '--', 'config'),
+                          cwd=str(REPO_ROOT), capture_output=True, text=True,
+                          timeout=60, check=False)
+    assert proc.returncode == 0, (
+        'git ls-files -- config exited nonzero: ' + proc.stderr.strip())
+
+    tracked = sorted(line[len('config/'):] for line in proc.stdout.splitlines()
+                     if line.startswith('config/'))
+    present = sorted(entry.name for entry in REPO_CONFIG_DIR.iterdir())
+
+    # (a) leak detection: an entry on disk that git does not track is exactly
+    #     the debris Ruling 13 forbids a T05 test to leave behind.
+    untracked = [name for name in present if name not in tracked]
+    assert untracked == [], (
+        'Ruling 13 leak, untracked under config/: ' + repr(untracked))
+
+    # (b) the tracked set must equal the approved M29-3 whitelist, exactly.
+    assert tracked == sorted(APPROVED_CONFIG_FILENAMES), (
+        'config/ tracked set drifted from the approved whitelist: '
+        + repr(tracked))
+
+    # (c) no temporary or generated shape, reinforcing (a) against drift.
+    oddities = sorted(
+        name for name in present
+        if not name.endswith('.yaml')
+        or name.startswith('.')
+        or name.startswith('tmp')
+        or name.endswith(('.tmp', '.bak', '.swp'))
+        or '__pycache__' in name
+        or (REPO_CONFIG_DIR / name).is_dir())
+    assert oddities == [], (
+        'temporary or generated shape under config/: ' + repr(oddities))
 
 
 @pytest.mark.parametrize('pin', ['PyYAML==', 'hypothesis=='])
