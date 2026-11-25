@@ -96,6 +96,11 @@ _BUNDLE_KEYS = ('run_id', 'run_at', 'period', 'dsm_version', 'design_version',
                 'input_fingerprints', 'output_fingerprints', 'sensitivity_schemes',
                 'seed', 'preflight_findings', 'downgrade_actions', 'exit_code',
                 'reproducibility_hash')
+# ORCH-59（[L1046] / [L1051] item 10）：[L1062] 七件产物里唯一「正文就是 bundle 的
+# canonical 序列化」的那件。它的哈希不可能出现在它自己的正文里（自指），故落盘的
+# AuditBundle.output_fingerprints 键集恒为 reports.ARTIFACT_NAMES - {AUDIT_ARTIFACT}
+# = 六键；audit.json 自身的 SHA256 只经 CLI details / write_report_set 返回值对外披露。
+AUDIT_ARTIFACT = 'audit.json'
 
 class CliError(Exception):
     exit_code = EXIT_INTERNAL
@@ -943,10 +948,18 @@ def _chain_gate(run, app, loaded):
         preflight_findings=tuple(item.to_audit_finding() for item in findings),
         downgrade_actions=downgrades, exit_code=EXIT_OK,
         score_card=cards, grade_ledger=ledger)
-    # output_fingerprints 如实交 {}：[L1051] item 10 的七件产物由 reports.render 一次
-    # 生成、写盘之后才有指纹，而 render 又要先有 bundle（鸡生蛋），生产出口归 M29-2；
-    # 本次实测到的七件指纹在下面 details 里逐件披露，不静默（V-14）。
-    bundle = _attr(audit, 'build_manifest', 'Step9')(
+    # output_fingerprints（[L1051] item 10）的生产出口 = ORCH-59 裁决的**两遍渲染六键
+    # 口径**：契约 §3.15.1 的次序是 Step9 audit.build_manifest -> reports.render -> 七件
+    # 产物（含 audit.json），而 audit.json 的正文就是 bundle 的 canonical 序列化，故它
+    # **不可能**含自身终值的哈希（[L1046] 字面自指，已登记 ERRATUM-V12-07 / NG-V12-20）。
+    # 裁决口径（不得改写）：第一遍 bundle0（output_fingerprints={}）-> rs0；对 rs0 的
+    # **6 件非 audit.json** 产物按 reports.write_report_set 完全相同的编码算 SHA256 ->
+    # fps6；第二遍 bundle1（fps6）-> rs1；钉住 rs0/rs1 六件逐字节相等之后**只写盘一次**
+    # （7 件）。bundle1.output_fingerprints 键集 == reports.ARTIFACT_NAMES - {audit.json}
+    # == 6。两遍的装配全在 _render_reports（唯一出口）里，此处只交出第一遍的 bundle0 与
+    # 两遍共用的三个入参（loaded.fingerprints / app / run_context），shell 一个字节也不
+    # 重算哈希（R-7）。
+    bundle0 = _attr(audit, 'build_manifest', 'Step9')(
         loaded.fingerprints, app, run_context, {})
 
     # ---- reports.render（[L1358]：report.md 十段 + 五张表 + audit.json）-------
@@ -956,7 +969,8 @@ def _chain_gate(run, app, loaded):
         sensitivity=sens, triangulation=tri, entropy_diagnostics=entropy_rows,
         score_card=cards, grade_ledger=ledger,
         weight_provenance=getattr(weights, 'provenance', None))
-    fingerprints, render_details = _render_reports(run, bundle, frames, app)
+    bundle, fingerprints, render_details = _render_reports(
+        run, bundle0, frames, app, loaded.fingerprints, run_context)
 
     # ---- 披露面（details）：每一步一行，每条降级都带码，每个旁路都说清「不入分」----
     entropy_count = len(entropy_rows)
@@ -1011,8 +1025,12 @@ def _chain_gate(run, app, loaded):
         + ' 张表；score_card ' + str(len(cards)) + ' 行 / grade_ledger '
         + str(len(ledger)) + ' 行（[L1610]-[L1634]，每格取自九步真实产物，缺事实即'
         '缺格、不填 0）',
-        'output_fingerprints（[L1051] item 10）：bundle 内如实为 {}，生产出口归 '
-        'M29-2；本次七件产物的实测 SHA256 逐件披露如下，不静默（V-14）']
+        'output_fingerprints（[L1051] item 10）：ORCH-59 两遍渲染六键口径 -> bundle 内为 '
+        + str(len(bundle.output_fingerprints)) + ' 件非 audit.json 产物的 SHA256，键集 = '
+        'reports.ARTIFACT_NAMES - {' + AUDIT_ARTIFACT + '}（六键，逐值等于落盘文件的字节'
+        '哈希，不是格式合法的假指纹）；audit.json 的正文即 bundle 的序列化，其自指纹不可能'
+        '进自身（ERRATUM-V12-07 / NG-V12-20），故只在本披露面给出；本次七件产物的实测 '
+        'SHA256 逐件披露如下，不静默（V-14）']
     details += ['  ' + name + '=' + digest
                 for name, digest in sorted(fingerprints.items())]
     details.append('G5/G7 未签认 -> ' + reports.GATE_STATEMENT
@@ -1117,18 +1135,87 @@ def _report_frames(loaded, **products):
     return _attr(reports, 'AllFrames', 'score')(**kwargs)
 
 
-def _render_reports(run, bundle, frames, config):
-    '''S6 产物的渲染与写盘：reports.render -> reports.write_report_set（R-7：canonical 序列化、
-    产出指纹与 reproducibility_hash 全归 audit.py，shell 一个字节也不重算）。返回
-    (fingerprints, details)；details 把两个 V-14 载体的接线结果逐条说出来 —— G-14 基线有无、
-    范围过滤几张卡 —— 不静默（[L1051] item 14 降级动作全量 / V-14）。'''
+def _render_reports(run, bundle, frames, config, inputs_fp, run_ctx):
+    '''S6 产物的渲染与写盘 —— ORCH-59「两遍渲染六键口径」的**唯一**生产出口。
+
+    第一遍：调用方交进来的 bundle0（output_fingerprints={}）-> rs0 = reports.render；
+    对 rs0 的 6 件非 audit.json 产物、按 reports.write_report_set **完全相同的编码**算
+    SHA256 -> fps6（write_report_set 走 Path.write_text(text, encoding='utf-8')，落盘
+    字节就是 text.encode('utf-8')，故 fps6 = audit.sha256_text(text)；哈希本身归
+    audit.py，R-7：shell 一个字节也不重算）。
+    第二遍：bundle1 = audit.build_manifest(inputs_fp, config, run_ctx, fps6) -> rs1。
+    写盘只发生一次：reports.write_report_set(rs1, run.dir) 写出 [L1062] 的 7 件。
+
+    两道不变式，任一被破坏就 InvariantError（[L1081] 退出码 5、不产出自相矛盾的产物，
+    绝不静默降级 V-14）：
+      INV-A rs0 与 rs1 的 6 件非 audit.json 产物**逐字节相等** —— 证明把 fps6 回填进
+            bundle 不自相矛盾。若不等，说明某件产物内嵌了 output_fingerprints，此时
+            ORCH-59 明文要求停手上报主控，**不许**改成两遍写盘去伪造 audit.json 的
+            自指纹。
+      INV-B write_report_set 返回的 6 枚落盘指纹与 fps6 逐值全等 —— 把「内存编码 ==
+            落盘编码」这条平台假设变成实测对账（dsm/audit.py:162 check_sha256 只校验
+            64 位小写十六进制的**格式**，假指纹 '0'*64 照样通过，故格式校验不等于真对账）。
+
+    返回 (bundle1, fingerprints, details)：bundle1 是**落盘那份 audit.json 的母本**，
+    fingerprints 是 write_report_set 的 7 枚落盘指纹（含 audit.json 自身，只对外披露、
+    不进 audit.json 内部）；details 把两个 V-14 载体的接线结果逐条说出来 —— G-14 基线
+    有无、范围过滤几张卡 —— 不静默（[L1051] item 14 降级动作全量 / V-14）。
+    '''
     reports = _require('dsm.reports')
+    audit = _require('dsm.audit')
     if run.dir is None:
         run.prod_dir()
-    report_set = _attr(reports, 'render', 'score')(bundle, frames, config)
-    fingerprints = _attr(reports, 'write_report_set', 'score')(report_set, run.dir)
+    render = _attr(reports, 'render', 'score')
+    write_set = _attr(reports, 'write_report_set', 'score')
+    build_manifest = _attr(audit, 'build_manifest', 'score')
+    sha_text = _attr(audit, 'sha256_text', 'score')
+    # 六键的键集只从 reports.ARTIFACT_NAMES 派生（口径唯一，shell 不另列一份文件名）。
+    six = tuple(name for name in reports.ARTIFACT_NAMES if name != AUDIT_ARTIFACT)
+
+    # ---- 第一遍：bundle0 -> rs0 -> fps6 ----------------------------------------
+    rs0 = render(bundle, frames, config)
+    texts0 = rs0.artifacts()
+    fps6 = dict((name, sha_text(texts0[name])) for name in six)
+
+    # ---- 第二遍：fps6 回填进 bundle -> rs1 -------------------------------------
+    bundle1 = build_manifest(inputs_fp, config, run_ctx, fps6)
+    rs1 = render(bundle1, frames, config)
+    texts1 = rs1.artifacts()
+    drifted = tuple(name for name in six if texts0[name] != texts1[name])
+    if drifted:
+        raise InvariantError('ORCH-59 INV-A: re-rendering with the six output '
+                             'fingerprints filled back into the AuditBundle changed '
+                             + str(len(drifted)) + ' non-audit artifact(s): '
+                             + ', '.join(drifted) + ' -- an artifact therefore embeds '
+                             'output_fingerprints, and audit.json can never carry the '
+                             'digest of the very file it is written into ([L1046] is '
+                             'self-referential; ERRATUM-V12-07 / NG-V12-20). The ruling '
+                             'forbids faking that self fingerprint with a second pass '
+                             'over the disk, so the run stops without artifacts (V-14)',
+                             EXIT_INTERNAL)
+
+    # ---- 只写盘一次：[L1062] 七件 ---------------------------------------------
+    fingerprints = write_set(rs1, run.dir)
+    mismatched = tuple(name for name in six
+                       if fingerprints.get(name) != fps6[name])
+    if mismatched:
+        raise InvariantError('ORCH-59 INV-B: the digest taken over the rendered text '
+                             'is not the digest of the bytes reports.write_report_set '
+                             'landed for: ' + ', '.join(mismatched) + ' -- audit.json '
+                             'would then disclose a fingerprint that the [L1640] step-1 '
+                             'verification of a re-run cannot reproduce, so the run '
+                             'stops (V-14)', EXIT_INTERNAL)
+
     details = ['report set written to ' + str(run.dir) + ': '
                + ', '.join(sorted(fingerprints))]
+    details.append('ORCH-59 两遍渲染六键口径已执行：bundle.output_fingerprints 键集 = '
+                   + ', '.join(six) + '（= reports.ARTIFACT_NAMES - {' + AUDIT_ARTIFACT
+                   + '}，共 ' + str(len(six)) + ' 键）；INV-A rs0/rs1 六件逐字节相等已核；'
+                   'INV-B 回填指纹与落盘指纹逐值全等已核；写盘只发生一次（7 件）。'
+                   + AUDIT_ARTIFACT + ' 自身 SHA256='
+                   + str(fingerprints.get(AUDIT_ARTIFACT))
+                   + '，只在本披露面给出、不进 audit.json 内部（自指不可能，'
+                   'ERRATUM-V12-07 / NG-V12-20）')
     scope = getattr(frames, 'evaluation_scope', None)
     if scope is None:
         details.append('evaluation_scope: 未注入 -> report.md ②/⑥ 显式披露「本段无数据」'
@@ -1156,7 +1243,7 @@ def _render_reports(run, bundle, frames, config):
                                    str(getattr(verdict, 'value', verdict))
                                    + '（WARN / blocks_run=false，只披露，不改退出码、'
                                      '不中断九步）'))
-    return fingerprints, details
+    return bundle1, fingerprints, details
 
 
 def cmd_preflight(run):
