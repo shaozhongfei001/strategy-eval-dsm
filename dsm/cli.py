@@ -316,10 +316,33 @@ def _write_report(run, name, obj):
     path.write_text(payload + '\n', encoding='utf-8', newline='\n')
     return path
 
-def _chain_gate(run, app, loaded):
-    '''M29 L1330-1358: the chain runs only with every owning module live; even a
-    complete tree exits 5 until P2 lands the nine-step marshal, because the
-    shell must not inline a step (INV-2).'''
+# ---------------------------------------------------------------------------
+# M29 [L1325]-[L1358] 九步 marshal 本体（V-14 转正四项的第 2 项）。
+#
+# INV-2（M00 L301）在 marshal 落地之后含义没有变：shell 一步也不内联。下面每个
+# _step* / _*_hook 只做两件事 —— ①把上一步的**真实产物**按 owning module 自己的
+# 签名喂进去；②把签认配置里的治理值原样交到该模块手里。算法层（达成率、归一、
+# 证据、红线、双轨合成、等级、分池、三角、敏感性、审计、渲染）一行也没重写（R-7）。
+#
+# 治理值纪律：签认配置里没有的值一律按 [L1080] 退出码 3 拒绝，绝不用默认值顶上去
+# （H-5 / R-12 / K-01~K-20）。降级一律带码且进披露行，没有静默分支（V-14）。
+# ---------------------------------------------------------------------------
+_SCORE_INPUT_CARRIERS = ('strategy_master', 'metric_dict', 'metric_facts',
+                         'design_cards', 'redlines')
+_GRADE_ORDER = ('L1', 'L2', 'L3', 'L4')           # [L1200] / [L493] 等级枚举
+_MC_PREFIX = 'MC'                # [L1017] MC 无 seed 即拒（dsm/sensitivity.py:79-80）
+_POLICY_KEY = 'policy'           # T7 的全局滞回段（[L965] 明文默认的签认载体）
+_HYSTERESIS_KEYS = ('upgrade_consecutive_periods', 'demotion_immediate')
+_RULE_KEYS = ('grade_code', 'attainment_floor')   # dsm/config.py:987 认的同一对键
+_SOFT_KEY = 'soft_deductions'     # [L484]「扣减幅度由 grade_rules.yaml 配置」
+_K06_KEY = 'min_coverage_for_absolute_track'      # M38 [L1743]：位置 = eval_config
+_SWAP_GRAIN = 'SWAP'              # NORM_SWAP 钩子合成载体的占位主键，不含业务语义
+
+
+def _require_chain_modules():
+    '''九步的前置闸（原 _chain_gate 前半，marshal 落地后一字未改）：owning module
+    少一个就整条链不跑，逐模块点名、退出码 5（[L1081]），绝不产出半条链的分数
+    （V-14 / [L1091]）。'''
     missing = []
     for name in _CHAIN_MODULES:
         try:
@@ -330,9 +353,672 @@ def _chain_gate(run, app, loaded):
         raise ModuleMissingError('score chain needs un-landed modules: '
                                  + ', '.join(missing)
                                  + '; no partial score is produced (V-14, [L1091])')
-    raise InvariantError('chain modules are all present but the nine-step marshal of '
-                         'M29 is a P2 integration deliverable; the shell refuses to '
-                         'reimplement it (INV-2)')
+
+
+def _score_inputs(loaded):
+    '''[L1330] io_loaders 交出的表载体。少一张 -> [L1080] 退出码 4（M21 L892），
+    不塞空元组冒充「本期无数据」（空表会被读成「评了个空期」，正是 V-14 禁止的
+    静默降级）。T6/T7/T8 是 YAML，归 config 层（[L877]），不在这里取。'''
+    inputs = getattr(loaded, 'inputs', None)
+    absent = [name for name in _SCORE_INPUT_CARRIERS
+              if getattr(inputs, name, None) is None]
+    if absent:
+        raise CliError('the nine-step marshal of [L1330]-[L1358] needs the [L891] '
+                       'input carriers; io_loaders returned no ' + ', '.join(absent)
+                       + ' and no empty tuple is substituted for them (V-14, M21 L892)',
+                       EXIT_DATA)
+    return inputs
+
+
+def _eval_tree(app):
+    tree = getattr(app, 'eval_config', None)
+    if not isinstance(tree, dict) or not tree:
+        raise CliError('the marshal reads every governance value out of the signed '
+                       'eval_config tree ([L877]); the loaded configuration carries '
+                       'no eval_config block, and the CLI invents none of the '
+                       'K-01~K-20 values (H-5, R-12)', EXIT_CONFIG)
+    return tree
+
+
+def _governance_block(app, key, step):
+    '''eval_config 下的一个签认治理段。缺段 / 空段 -> [L1080] 退出码 3，逐段点名。'''
+    block = _eval_tree(app).get(key)
+    if not isinstance(block, dict) or not block:
+        raise CliError(step + ' needs the signed eval_config.' + key + ' block; the '
+                       'configuration carries none and the CLI defaults no governance '
+                       'value (H-5, R-12, K-01~K-20)', EXIT_CONFIG)
+    return dict(block)
+
+
+def _min_coverage(app):
+    '''K-06（M38 [L1743]：位置 = eval_config，技术参数）。grading.GradeRuleSet 的这一项
+    必填且无默认（dsm/grading.py:82-90：属 PLACEHOLDER 治理参数，H-5 不猜业务数），
+    所以拿不到就 [L1080] 退出码 3，绝不上一个默认阈值（那会静默移动全系统的封顶线）。'''
+    tree = _eval_tree(app)
+    value = tree.get(_K06_KEY)
+    if value in (None, ''):
+        raise CliError('Step6 grading needs the signed K-06 eval_config.' + _K06_KEY
+                       + ' ([L1743]); dsm/grading.py:90 makes it mandatory without a '
+                       'default, and the CLI invents no coverage threshold (H-5, R-12)',
+                       EXIT_CONFIG)
+    return value
+
+
+def _rule_mappings(node, found=None):
+    '''grade_rules 树里的规则行收集，口径逐字跟 dsm/config.py:974-987（ruling 14）：
+    SDD 从未命名 grade_rules.yaml 的顶层键，所以「任何同时带 grade_code 与
+    attainment_floor 的映射，任意深度」就是一条规则行。shell 不另立第二套口径
+    （判据唯一性），也不猜顶层键名（R-12）。'''
+    found = [] if found is None else found
+    if isinstance(node, dict):
+        if all(key in node for key in _RULE_KEYS):
+            found.append(node)
+        for key in sorted(node, key=str):
+            _rule_mappings(node[key], found)
+    elif isinstance(node, (list, tuple)):
+        for item in node:
+            _rule_mappings(item, found)
+    return found
+
+
+def _grade_rule_rows(app):
+    '''T7 -> Step6 的 GradeRuleRow 元组（[L1196]-[L1206]）。「四级各一条」是
+    config.validate_semantics 已经判过的（dsm/config.py:997-1003），这里再点一次名，
+    让失败信息说的是 marshal 缺什么，而不是从 Step6 内部抛出一个键错。'''
+    models = _require('dsm.models')
+    found = _rule_mappings(getattr(app, 'grade_rules', None) or {})
+    codes = sorted(str(row.get(_RULE_KEYS[0])) for row in found)
+    if codes != sorted(_GRADE_ORDER):
+        raise CliError('Step6 grading needs exactly the four [L1200] grade rules '
+                       '(L1/L2/L3/L4, one row each) in grade_rules.yaml; the signed '
+                       'tree carries ' + (', '.join(codes) or 'nothing')
+                       + ' and no grade rule is invented (R-12)', EXIT_CONFIG)
+    return tuple(models.GradeRuleRow.model_validate(row) for row in found)
+
+def _sensitivity_config(app):
+    '''Step8 的 config 入参。dsm/sensitivity.py:112-135 的 _cfg / _need / _number 直接
+    按**块内**键名读 stable_max / review_max / mc_samples / loo_* / norm_swap_*，所以
+    交出去的必须是签认的 eval_config.sensitivity 段本身，不是整棵树。K-11 载体 =
+    eval_config.sensitivity（M38 [L1748]）。缺段 / 空段 -> [L1080] 退出码 3：自己发明
+    一个 review_max 就等于替行方挪动 [L1019] 的首屏否决线（H-5 / R-12）。'''
+    return _governance_block(app, 'sensitivity', 'Step8 sensitivity')
+
+
+def _aggregate_config(app):
+    '''Step5 的 config 入参。算子开关的键名 digest 未定，由 aggregate 自己按
+    score_operator / operator 两个拼写从映射或命名空间上读（dsm/aggregate.py:20-28
+    与 :49），读不到就落它自己的 LINEAR 默认。交出去的是签认的 eval_config 原始树：
+    Step5 只读 FROZEN 权重文档（[L1342] / INV-3），算子开关将来若签认也只会有这一个
+    落点，shell 不另立第二份口径（判据唯一性），更不在这里替行方选算子（R-12）。'''
+    return _eval_tree(app)
+
+
+def _soft_deductions(app):
+    '''[L484]「SOFT 扣减幅度由 grade_rules.yaml 配置」，而 GradeRuleRow 没有这一列
+    （dsm/redline.py:16-19 原话：按 ADJ-2 做成必填入参 soft_deductions，缺失即抛错，
+    绝不自定数 H-5）。故 shell 从 grade_rules 树的 soft_deductions 映射逐字读出
+    metric_id -> 扣减比率；没有这个块就 [L1080] 退出码 3 拒绝，绝不编一个扣减幅度
+    顶上去（R-12 / K-01~K-20）。'''
+    tree = getattr(app, 'grade_rules', None)
+    block = tree.get(_SOFT_KEY) if isinstance(tree, dict) else None
+    if not isinstance(block, dict) or not block:
+        raise CliError('Step4 redline needs the [L484] SOFT deduction ratios out of '
+                       'grade_rules.yaml (key ' + _SOFT_KEY + ', metric_id -> ratio); '
+                       'the signed tree carries none and dsm/redline.py:243-249 refuses '
+                       'a missing ratio, so the CLI invents no deduction (H-5, R-12)',
+                       EXIT_CONFIG)
+    numeric = _require('dsm.numeric')
+    return dict((str(key), numeric.D(block[key])) for key in sorted(block, key=str))
+
+
+def _directions(inputs):
+    '''旁路 triangulation 的必填注入（dsm/triangulation.py:432-441：三个入参都没有
+    direction 列，理想解与参考序列都要方向）。唯一合法来源是 T2 指标字典自己签认的
+    direction 列（[L1137]）；shell 不按数据形状猜方向（R-12）。'''
+    out = {}
+    for row in inputs.metric_dict:
+        out[row.metric_id] = int(row.direction)
+    if not out:
+        raise CliError('triangulation needs the [L1137] direction column of the T2 '
+                       'metric_dict; io_loaders returned an empty dictionary and no '
+                       'direction is guessed from the data shape (R-12, V-14)',
+                       EXIT_DATA)
+    return out
+
+
+def _previous_grade_frame(loaded):
+    '''Step6 的 prev（滞回 + 版本断点，[L1344]）。合法载体只有上期的 GradeFrame；
+    io_loaders 的 previous_ledger 是 T9 的 GradeLedgerRow（[L890]），没有
+    grade_reason_path / capped / cap_reason / usable_for_elimination 四列，转不成
+    GradeRow，硬转就是编造（R-12）。当前 _load_inputs 不传 previous_period，故恒为空
+    -> prev=None，由 grading 自己落 FIRST_PERIOD（注册 INFO 码；dsm/io_loaders.py:321-331
+    「a missing one is FIRST_PERIOD and nothing else」）—— 有码的披露，不是静默。
+    一旦出现非空的 previous_ledger，marshal 显式拒绝，而不是把滞回状态悄悄丢掉（V-14）。'''
+    rows = tuple(getattr(getattr(loaded, 'inputs', None), 'previous_ledger', ()) or ())
+    if rows:
+        raise CliError('Step6 hysteresis needs the previous period as a GradeFrame; '
+                       'io_loaders carried ' + str(len(rows)) + ' T9 grade_ledger rows '
+                       'instead ([L890]), and those have no grade_reason_path / capped '
+                       '/ cap_reason column, so the CLI converts no carrier it does '
+                       'not own (R-12). Re-run the previous period or wire '
+                       '--previous-period; dropping the streak state silently is the '
+                       'degradation V-14 forbids', EXIT_DATA)
+    return None
+
+
+def _wanted_schemes(run, sensitivity):
+    '''[L1089] / [L1554]：dsm score 没有 --schemes，跑 sensitivity.SCHEME_ORDER 的全部
+    五个方案（[L1350] OAT / MC / LOO / NORM_SWAP）；dsm sensitivity 用它自己的
+    --schemes（cmd_sensitivity 已校验非空）。方案名合不合法一律交给
+    sensitivity._ordered_schemes 判（dsm/sensitivity.py:288-295），shell 不另立名单。'''
+    text = getattr(run.args, 'schemes', None)
+    if text is None:
+        order = getattr(sensitivity, 'SCHEME_ORDER', None)
+        if not isinstance(order, tuple) or not order:
+            raise ModuleMissingError('Step8: dsm.sensitivity.SCHEME_ORDER is absent '
+                                     'or empty; dsm score has no --schemes of its own '
+                                     '([L1089]), so the shell would have to invent the '
+                                     '[L1350] scheme list, and it does not (R-12)')
+        return tuple(order)
+    return tuple(part.strip() for part in str(text).split(',') if part.strip())
+
+
+def _step6_hook(grading, attain, ev, red, prev, rules):
+    '''Step8 注入的 Step6 钩子（dsm/sensitivity.py:30-33：grade_fn = ScoreFrame ->
+    key -> FrameGrade）。真调 grading.assign，等级逻辑一行也不在 shell 里（R-7 / INV-2）。'''
+    assign = _attr(grading, 'assign', 'Step6')
+
+    def grade_fn(frame):
+        rerun = assign(frame, attain, ev, red, prev, rules)
+        return dict(((row.strategy_id, row.version_id, row.period), row.grade)
+                    for row in rerun.rows)
+
+    return grade_fn
+
+
+def _step2_hook(normalize, models, params, anchor, inputs, period):
+    '''Step8 NORM_SWAP 注入的 Step2 钩子（dsm/sensitivity.py:33-35 与 :436-441：
+    (一个 pool x metric 组的原始达成率, 换用的方法) -> 归一值，且「the hook applies
+    the pure method」）。三个归一公式归 normalize.py 所有，shell 只造它要求的载体：
+
+      * 字典壳子由 T2 排序第一行 model_copy 出来（dict_version / caliber_version /
+        unit / target_value / 签认状态全部沿用签认值），只换 metric_id，故没有任何
+        业务数值被拟定（R-12）；
+      * 锚定集用签认 T8 的 model_copy(strategy_ids=())，即 dsm/normalize.py:378-379
+        说的「an empty strategy_ids tuple is the explicit no anchor case」，正好对上
+        钩子「applies the pure method」的要求（[L941] 的锚定参考尺属 normalize 自己）；
+      * params 与 Step2 同一份（从签认的 eval_config.normalize 读出来），只把 method
+        换成钩子拿到的那一个，并经 NormalizeParams 重新校验（不接受未校验的拼写）。
+    '''
+    compute = _attr(normalize, 'compute', 'Step2')
+    loose_key = _attr(normalize, 'step2_pool_key', 'Step2')
+    carrier = _attr(normalize, 'NormalizeParams', 'Step2')
+    template = sorted(inputs.metric_dict, key=lambda row: row.metric_id)[0]
+    shell = template.model_copy(update={'metric_id': _SWAP_GRAIN})
+    direction = int(template.direction)
+    no_anchor = anchor.model_copy(update={'strategy_ids': ()})
+    pool_key = loose_key(template.dim_code)
+    base = params.model_dump()
+
+    def normalizer(values, method):
+        rows = tuple(models.AttainmentRow(
+            strategy_id='%s-%05d' % (_SWAP_GRAIN, index), version_id=_SWAP_GRAIN,
+            period=period, metric_id=_SWAP_GRAIN, attainment=value,
+            direction=direction, has_target=True, capped_flag=False)
+            for index, value in enumerate(values))
+        frame = compute(rows, (shell,), no_anchor,
+                        params=carrier(**dict(base, method=method)),
+                        pools=dict((row.strategy_id, pool_key) for row in rows))
+        got = dict((row.strategy_id, row.norm_value) for row in frame.rows)
+        dropped = [index for index in range(len(values))
+                   if '%s-%05d' % (_SWAP_GRAIN, index) not in got]
+        if dropped:
+            raise InvariantError('NORM_SWAP: the swapped Step2 frame returned no value '
+                                 'for ' + str(len(dropped)) + ' of ' + str(len(values))
+                                 + ' inputs (method=' + str(method) + '); a dropped '
+                                 'value would silently shorten the [L749] Spearman '
+                                 'rho, so the run stops instead (V-14)')
+        return [got['%s-%05d' % (_SWAP_GRAIN, index)] for index in range(len(values))]
+
+    return normalizer
+
+
+def _gate_status(reports):
+    '''reports.AllFrames 的必填 gate_status（dsm/reports.py:94-99：无默认，缺了就抛，
+    「本模块不猜大概已经签了」ADJ-2）。契约里没有 G5/G7 的签认载体，本 RUN 也明确
+    不做 G5/G7（属行方），故两项一律 False —— 首屏声明由 reports.GATE_STATEMENT
+    （dsm/reports.py:55-58）逐字给出，shell 一个字也不改，更不宣称已签（R-12）。'''
+    return _attr(reports, 'GateStatus', 'score')(
+        g5_dispute_source_review_signed=False, g7_governance_config_signed=False)
+
+
+def _dict_version(inputs):
+    '''ScoreCardRow.dict_version（[L1616]）的唯一来源是 T2 自己签认的那一列。
+    preflight C-06 已经判过全表一致；这里再确认一次，不一致就拒绝，绝不挑一行
+    冒充全表（R-12）。'''
+    values = sorted({str(row.dict_version) for row in inputs.metric_dict})
+    if len(values) != 1:
+        raise CliError('score_card.dict_version ([L1616]) needs one single T2 '
+                       'dict_version; the loaded metric_dict carries '
+                       + (', '.join(values) or 'nothing') + ' and the CLI picks no row '
+                       'out of a disagreeing table (R-12, V-14)', EXIT_DATA)
+    return values[0]
+
+def _assemble_score_outputs(run, inputs, attain, ev, red, scores, grades, pool,
+                            sens, weights, anchor, dict_version, usable):
+    '''[L1610]-[L1626] 的 score_card 与 [L1630]-[L1634] 的 grade_ledger：每一格都取自
+    九步的真实产物，没有任何一格是 shell 自己算出来的（INV-2 / R-7）。这里做的是
+    **装配**而不是算法：定位三元组对齐、把 Step8 的稳定性标签与首屏可用性判定贴到
+    对应行上、缺事实就缺格（不填 0，V-14）。池大小取 pooling.groups 的读侧接口
+    （dsm/pooling.py:204-212），不在 shell 侧另数一遍（判据唯一性）；ledger_complete
+    由 reports.ledger_missing_items 判（dsm/reports.py:225-237），shell 不自定
+    「台账完整」的口径。'''
+    models = _require('dsm.models')
+    reports = _require('dsm.reports')
+    pooling = _require('dsm.pooling')
+    metric_cell = _attr(models, 'ScoreCardMetricCell', 'score_card')
+    dim_cell = _attr(models, 'ScoreCardDimCell', 'score_card')
+    card_row = _attr(models, 'ScoreCardRow', 'score_card')
+    ledger_row = _attr(models, 'GradeLedgerRow', 'grade_ledger')
+    missing_items = _attr(reports, 'ledger_missing_items', 'grade_ledger')
+    groups = _attr(pooling, 'groups', 'Step7')(pool)
+
+    fact_of = dict(((f.strategy_id, f.version_id, f.metric_id), f)
+                   for f in inputs.metric_facts)
+    dict_of = dict((m.metric_id, m) for m in inputs.metric_dict)
+    attain_of = dict(((r.strategy_id, r.version_id, r.metric_id), r)
+                     for r in attain.rows)
+    ev_of = dict(((r.strategy_id, r.version_id), r) for r in ev.rows)
+    grade_of = dict(((r.strategy_id, r.version_id, r.period), r) for r in grades.rows)
+    pool_of = dict(((r.strategy_id, r.version_id, r.period), r) for r in pool.rows)
+    stable_of = dict(((r.strategy_id, r.version_id), r) for r in sens.by_strategy)
+    master_of = dict(((m.strategy_id, m.version_id), m) for m in inputs.strategy_master)
+    hard_of = {}
+    for row in red.rows:
+        if row.level == 'HARD' and row.hit:
+            hard_of.setdefault((row.strategy_id, row.version_id), []).append(row)
+
+    cards, ledger = [], []
+    for score in sorted(scores.rows, key=lambda r: (r.strategy_id, r.version_id)):
+        key = (score.strategy_id, score.version_id, score.period)
+        grade, pool_row = grade_of[key], pool_of[key]
+        ev_row = ev_of[(score.strategy_id, score.version_id)]
+        per_metric = {}
+        for metric_id in sorted(dict_of):
+            fact = fact_of.get((score.strategy_id, score.version_id, metric_id))
+            if fact is None:
+                continue          # 缺事实 = 缺格，不填 0（[L1613] / V-14）
+            row = attain_of.get((score.strategy_id, score.version_id, metric_id))
+            per_metric[metric_id] = metric_cell(
+                actual_value=fact.value,
+                target_value=dict_of[metric_id].target_value,
+                attainment=(row.attainment if row is not None else None))
+        per_dim = dict((dim, dim_cell(
+            coverage=score.coverage, weight=weights.level1_weights[dim],
+            attainment=score.dim_absolute[dim],
+            relative_score=score.dim_relative.get(dim)))
+            for dim in sorted(score.dim_absolute))
+        hard = hard_of.get((score.strategy_id, score.version_id), [])
+        stable = stable_of.get((score.strategy_id, score.version_id))
+        row_usable = bool(grade.usable_for_elimination and usable)
+        cards.append(card_row(
+            strategy_id=score.strategy_id, version_id=score.version_id,
+            period=score.period, weight_version_id=weights.weight_version_id,
+            dict_version=dict_version, anchor_set_id=anchor.anchor_set_id,
+            run_id=run.run_id, per_metric=per_metric, per_dim=per_dim,
+            composite_absolute=score.composite_absolute,
+            composite_relative=score.composite_relative,
+            evidence_class=ev_row.evidence_class,
+            evidence_reason=ev_row.evidence_reason,
+            evidence_source=ev_row.evidence_source,
+            interpretation_limit=ev_row.interpretation_limit,
+            redline_pass=not hard,
+            redline_flags=tuple(row.reason_code for row in hard),
+            grade=grade.grade,
+            grade_reason_codes=tuple(grade.grade_reason_path),
+            capped_flag=grade.capped, cap_reason=grade.cap_reason,
+            ranking_pool=pool_row.pool_key, rank_in_pool=pool_row.pool_rank,
+            pool_size=len(groups.get(pool_row.pool_key, ())),
+            eligible_for_L1_library=pool_row.primary_pool_eligible,
+            l1_gate_reasons=() if pool_row.reject_reason is None
+            else (pool_row.reject_reason,),
+            stability_label=(stable.stability_label if stable is not None else None),
+            flip_under_pct10=(stable.flip_under_pct10 if stable is not None else None),
+            flip_under_pct20=(stable.flip_under_pct20 if stable is not None else None),
+            usable_for_elimination=row_usable))
+        master = master_of.get((score.strategy_id, score.version_id))
+        row = ledger_row(
+            strategy_id=score.strategy_id, version_id=score.version_id,
+            period=score.period, grade=grade.grade, previous_grade=None,
+            recommended_action=(' | '.join(grade.action) if grade.action else None),
+            owner_dept=(master.owner_dept if master is not None else None),
+            owner_name=(master.owner_name if master is not None else None),
+            ledger_complete=True, usable_for_elimination=row_usable)
+        ledger.append(row.model_copy(
+            update={'ledger_complete': not missing_items(row)}))
+    if not cards:
+        raise CliError('the nine steps produced no score row for period '
+                       + repr(run.args.period) + '; an empty score_card would read as '
+                       '"nothing to assess" instead of "this period could not be '
+                       'scored", so the run stops without artifacts (V-14, [L1091])',
+                       EXIT_DATA)
+    return tuple(cards), tuple(ledger)
+
+def _rule_set_kwargs(app):
+    '''Step6 治理值集合（dsm/grading.py:79-92）的装配。K-06 必填且无默认 -> 取签认的
+    eval_config.min_coverage_for_absolute_track（M38 [L1743]）；四级规则行取 T7；
+    upgrade_consecutive_periods / demotion_immediate 是 [L965] 的明文默认，签认树里
+    带了 grade_rules.policy（K-08 载体）就用签认值，没带就留给模块自己的 [L965] 默认
+    —— 两种情况都不是 shell 拟出来的数（H-5 / R-12）。'''
+    kwargs = {'rows': _grade_rule_rows(app),
+              'min_coverage_for_absolute_track': _min_coverage(app)}
+    tree = getattr(app, 'grade_rules', None)
+    policy = tree.get(_POLICY_KEY) if isinstance(tree, dict) else None
+    if isinstance(policy, dict):
+        for key in _HYSTERESIS_KEYS:
+            if policy.get(key) is not None:
+                kwargs[key] = policy[key]
+    return kwargs
+
+
+def _downgrade_actions(gate, attain, normalized):
+    '''[L1051] item 13 的**全量**降级动作台账（H-6：不带注册 reason_code 的降级根本
+    记不进去，所以这里一条也不许丢，shell 也一条都不新造）。三个来源各有各的 owning
+    module：判定点 preflight 的 downgrade_actions（dsm/preflight.py:410）、Step1 的
+    BLOCK 抑制与缺失规则通知（dsm/attainment.py:735 与 :761，挂在
+    AttainmentResult.downgrades）、Step2 逐行「适用但被优先序挤出单值槽」的 warnings
+    （dsm/normalize.py:433）。shell 只汇总并按 (码, 动作, 对象) 去重，排序交
+    audit.build_manifest（dsm/audit.py:270）。'''
+    sources = (tuple(getattr(gate, 'downgrade_actions', ()) or ())
+               + tuple(getattr(attain, 'downgrades', ()) or ())
+               + tuple(warning for row in normalized.rows
+                       for warning in (getattr(row, 'warnings', ()) or ())))
+    seen, out = set(), []
+    for item in sources:
+        key = (str(getattr(item, 'reason_code', item)),
+               str(getattr(item, 'action', '')), str(getattr(item, 'subject', '')))
+        if key not in seen:
+            seen.add(key)
+            out.append(item)
+    return tuple(out)
+
+
+def _chain_gate(run, app, loaded):
+    '''M29 [L1325]-[L1358] 的九步 marshal 本体（V-14 转正四项的第 2 项）。
+
+    顺序逐字照契约流程图，一步也不换位、一步也不内联（INV-2 / M00 L301）：
+    config.load_all() 与 io_loaders 由调用方（cmd_score / cmd_sensitivity）先做完 ->
+    判定点 preflight（[L1315]-[L1326]：BLOCK -> 只写 audit_bundle、退出码 2、不产
+    score_card）-> Step1 attainment -> Step2 normalize（松键，ORCH-29 第 4 条）->
+    旁路 diagnostics -> Step3 evidence -> Step4 redline -> Step5 aggregate（只读
+    FROZEN 权重，[L1342]）-> Step6 grading -> Step7 pooling -> 旁路 triangulation ->
+    Step8 sensitivity -> [L1352]-[L1354] 首屏可用性判定 + Step7 回灌 -> Step9 audit
+    （manifest + reproducibility_hash）-> reports.render（report.md 十段 + 五张表 +
+    audit.json）。返回 (exit_code, status, details)，与其余七个 handler 同一形状；
+    details 是披露面：每一条降级都带码，每一个旁路都说清「不入分」（V-14 / [L1542]）。'''
+    _require_chain_modules()
+    inputs = _score_inputs(loaded)
+    models = _require('dsm.models')
+    attainment = _require('dsm.attainment')
+    normalize = _require('dsm.normalize')
+    diagnostics = _require('dsm.diagnostics')
+    evidence = _require('dsm.evidence')
+    redline = _require('dsm.redline')
+    aggregate = _require('dsm.aggregate')
+    grading = _require('dsm.grading')
+    pooling = _require('dsm.pooling')
+    triangulation = _require('dsm.triangulation')
+    sensitivity = _require('dsm.sensitivity')
+    audit = _require('dsm.audit')
+    reports = _require('dsm.reports')
+
+    # ---- 治理载体：全部来自签认配置，一个也不现编（H-5 / R-12）----------------
+    # PreflightConfig 是 cmd_preflight 已在用的同一个构造口（:492），marshal 复用它，
+    # 于是 T6 权重文档、T8 锚定集（经 :337 _anchor_set_doc 的唯一取法）与 [L900] C-01
+    # 的 period_ref_date 三者在 preflight 与九步之间恒为同一对象（口径唯一）。
+    pfc = _build_preflight_config(app, run.args.period)
+    weights = pfc.weight_version
+    anchor = pfc.anchor_set
+    if anchor is None:
+        raise CliError('Step2 normalize ([L1334] 锚定集参照) needs the signed T8 '
+                       'anchor_set, and dsm/normalize.py:376-380 refuses anything '
+                       'that is not an AnchorSetDoc; --config '
+                       + repr(run.args.config) + ' carries no anchor_set and the CLI '
+                       'fabricates no anchor member (R-12, K-12)', EXIT_CONFIG)
+    ev_params = _attr(evidence, 'params_from_config', 'Step3')(app)
+    norm_params = _attr(normalize, 'params_from_config', 'Step2')(app)
+    sens_config = _sensitivity_config(app)
+    soft = _soft_deductions(app)
+    directions = _directions(inputs)
+    prev = _previous_grade_frame(loaded)
+    dict_version = _dict_version(inputs)
+    # Step6 的 GradeRuleSet 也在这一段装配完（fail fast）：治理载体的缺口一律在跑第
+    # 一步之前就按 [L1080] 退出码 3 点名键位（[L1328]「列出全部未填字段」的精神），
+    # 而不是等九步跑到一半才从某个 owning module 内部抛一个键错出来。
+    rules = _attr(grading, 'GradeRuleSet', 'Step6')(**_rule_set_kwargs(app))
+
+    # ---- 判定点 preflight（[L1315]-[L1326]）----------------------------------
+    # [L1542]：WARN 全部进最终报告附录，不会被静默吞掉 -> findings 与降级台账全量进
+    # Step9 的 audit_bundle（[L1051] item 12 / 13）。BLOCK 走 preflight.execute 自己
+    # 的出口：只写 audit.json、退出码 2、不产 score_card（[L917] / [L1091]）。
+    run_dir = run.prod_dir()
+    gate_context = run.audit_context(loaded, app,
+                                     weight_version_id=weights.weight_version_id)
+    code, gate, _paths = _attr(_require('dsm.preflight'), 'execute', 'preflight')(
+        inputs, pfc, str(run_dir), gate_context)
+    findings = tuple(getattr(gate, 'findings', ()) or ())
+    if code == EXIT_BLOCK:
+        return code, 'BLOCK', [
+            'preflight status=BLOCK: no score card is produced ([L917] / [L1091]), '
+            'the only artifact is the audit_bundle under ' + str(run_dir),
+            'findings=%d kept in that audit_bundle, never swallowed ([L1542])'
+            % len(findings)]
+
+    # ---- Step 1 attainment（[L1332]）-----------------------------------------
+    attain = _attr(attainment, 'compute', 'Step1')(
+        inputs.metric_facts, inputs.metric_dict, app, anchor_set=anchor)
+
+    # ---- Step 2 normalize（[L1334]）：松键 —— Step3 还没跑，evidence_class 不存在，
+    # 故用 normalize.step2_pool_key（dsm/normalize.py:342-351，ORCH-29 第 4 条），
+    # 绝不填默认值伪造严键（V-14）。params 与 NORM_SWAP 钩子共用同一份。
+    loose_key = _attr(normalize, 'step2_pool_key', 'Step2')
+    pools = dict((row.strategy_id, loose_key(row.biz_domain))
+                 for row in inputs.strategy_master)
+    normalized = _attr(normalize, 'compute', 'Step2')(
+        attain, inputs.metric_dict, anchor, params=norm_params, pools=pools)
+
+    # ---- 旁路 diagnostics（[L1336]：在线熵权 / CV / VIF / 相关，不入分，出工单）--
+    # INV-3（M00 L302）在这里不破：Step5 只读 FROZEN 权重文档（下面 compose 的第三个
+    # 入参就是 pfc.weight_version），diagnostics 的 d_j / gamma_j 只进
+    # entropy_diagnostic.csv 的工单，从不回流成分数或权重。
+    entropy, collinearity = _attr(diagnostics, 'compute', 'diagnostics')(
+        inputs.metric_facts, inputs.metric_dict, app, period=run.args.period)
+    entropy_rows = tuple(getattr(entropy, 'rows', ()) or ())
+    collin_pairs = tuple(getattr(collinearity, 'pairs', ()) or ())
+
+    # ---- Step 3 evidence（[L1338]）-------------------------------------------
+    ev = _attr(evidence, 'classify', 'Step3')(inputs.design_cards,
+                                              inputs.metric_facts, app)
+
+    # ---- Step 4 redline（[L1340]：HARD 强制降级 / SOFT 独立扣减，不进加权）-----
+    # 豁免：8 张输入表里没有豁免审批的载体（dsm/redline.py:36-37 已登记 A1），故
+    # WaiverSet 恒为空 —— 这是「没有载体」的如实陈述，并在 details 里显式披露，
+    # 不表现为静默不触发（V-14）。as_of 取 C-01 同一份签认的 period_ref_date
+    # （H-8：不读时钟；口径唯一）。
+    red = _attr(redline, 'evaluate', 'Step4')(
+        inputs.metric_facts,
+        _attr(redline, 'RedlineSet', 'Step4')(rows=inputs.redlines),
+        _attr(redline, 'WaiverSet', 'Step4')(rows=()),
+        as_of=pfc.period_ref_date, soft_deductions=soft,
+        metric_dict=inputs.metric_dict)
+
+    # ---- Step 5 aggregate（[L1342]：只读 FROZEN 权重，INV-3）------------------
+    scores = _attr(aggregate, 'compose', 'Step5')(attain, normalized, weights,
+                                                  _aggregate_config(app))
+
+    # ---- Step 6 grading（[L1344]）-------------------------------------------
+    # GradeRuleSet 已在上面的治理载体段装配完（K-06 取签认的 eval_config，M38
+    # [L1743]；upgrade_consecutive_periods / demotion_immediate 取 grade_rules.policy
+    # 或 dsm/grading.py:91-92 的 [L965] 明文默认；每级 promotion_streak 来自 T7 行
+    # 本身，K-08 —— 没有一个值是 shell 拟的）。这里只调 grading.assign：基础等级 ->
+    # 证据封顶 -> 目标封顶 -> 红线覆盖 -> 滞回 -> 版本断点，六段全在 grading 内部。
+    grades = _attr(grading, 'assign', 'Step6')(scores, attain, ev, red, prev, rules)
+    # ---- Step 7 pooling（[L1346]：分池禁混排 + 一级库门禁 + 占比双报 +
+    #      NOT_ASSESSED 单列）。此刻 Step8 还没跑，稳健性无从举证 -> 举证制（R5，
+    #      dsm/pooling.py:389-392 与 :461）下一律不给一级库准入；normalized 是
+    #      [L943] 的可比性标注载体，R6 靠它把「有留痕的不可比」与「真契约违规的
+    #      null」分开。config 交签认的 AppConfig，min_pool_size 由 pooling 自己从
+    #      eval_config.normalize 读（dsm/pooling.py:140-151），shell 不另拟池下限。
+    build_pool = _attr(pooling, 'build', 'Step7')
+    pool, pool_stats = build_pool(scores, grades, ev, inputs.strategy_master, app,
+                                  sensitivity=None, normalized=normalized)
+
+    # ---- 旁路 triangulation（[L1348]：TOPSIS / GRA / Spearman -> AGREE or
+    #      DIVERGENCE）。不入分（RK-5）：该模块不产出任何等级、分数或综合分列，
+    #      对分数与等级的影响恒等于零。directions 是必填注入
+    #      （dsm/triangulation.py:450-459：三个入参都没有 direction 列，而理想解与
+    #      参考序列都要方向），唯一合法来源是 T2 自己签认的 direction 列（[L1137]）。
+    #      enabled=false -> run() 返回 None，veto() 落注册码披露「已关闭」，不静默。
+    tri = _attr(triangulation, 'run', 'triangulation')(
+        scores, normalized, weights, app, directions=directions)
+    tri_veto = _attr(triangulation, 'veto', 'triangulation')(tri)
+
+    # ---- Step 8 sensitivity（[L1350]：OAT / MC / LOO / NORM_SWAP -> flip_rate +
+    #      稳定性标签）。Step1-4 的产物按 [L1016] 经 ScoringContext 在各方案间复用，
+    #      只重跑 Step5-6：grade_fn 真调 grading.assign、normalizer 真调
+    #      normalize.compute（见 _step6_hook / _step2_hook），算法层一行也不在
+    #      shell 里（R-7 / INV-2）。
+    schemes = _wanted_schemes(run, sensitivity)
+    if any(name.startswith(_MC_PREFIX) for name in schemes) and run.args.seed is None:
+        raise CliError('--seed missing: MC schemes refuse to run without it ([L1089] '
+                       '/ [L1017]); dsm score runs the whole [L1350] scheme list, so '
+                       'the run is refused instead of silently dropping the MC scheme '
+                       '(V-14) and no unseeded rerun is produced', EXIT_CONFIG)
+    scoring = _attr(models, 'ScoringContext', 'Step8')(
+        period=run.args.period, run_at=run.run_at, run_id=run.run_id,
+        seed=run.args.seed, weight_version_id=weights.weight_version_id,
+        evidence_mode=ev_params.evidence_mode, cel_enabled=ev_params.cel_enabled,
+        input_fingerprints=dict(loaded.fingerprints), attainment=attain,
+        normalized=normalized, evidence=ev, redline=red, score=scores, grade=grades,
+        pool=pool, pool_stats=pool_stats)
+    sens = _attr(sensitivity, 'run', 'Step8')(
+        scoring, schemes, sens_config, weights=weights,
+        grade_fn=_step6_hook(grading, attain, ev, red, prev, rules),
+        normalizer=_step2_hook(normalize, models, norm_params, anchor, inputs,
+                               run.args.period))
+    sens_veto = _attr(sensitivity, 'veto', 'Step8')(sens)
+
+    # ---- [L1352]-[L1354] 首屏可用性判定 -------------------------------------
+    # flip_rate > review_max（sensitivity.veto 落 BLOCK 级 flag）或三角不一致
+    # （triangulation.veto）-> usable_for_elimination = false，本期暂停淘汰。两个
+    # 阈值判据与两个码都归各自的 owning module；shell 只做「两个非补偿否决相与」这
+    # 一件装配事（P0-2：否决一旦带数值就能被后续加权补偿掉，所以 SensitivityVeto 与
+    # TriangulationVeto 都只有 bool 与 reason_code，没有可乘的东西）。
+    usable = bool(sens_veto.usable_for_elimination and tri_veto.usable_for_elimination)
+
+    # ---- Step 7 回灌（[L1352]-[L1354] -> [L1346]）---------------------------
+    # 一级库门禁的稳健性条件只有 Step8 跑完才存在，故 pooling.build 带 sensitivity
+    # 再跑一次；判据仍在 pooling 内部（dsm/pooling.py:461 flip_rate_unusable），
+    # shell 不复制那套判据（判据唯一性，ORCH-36 第 2/4 条）。
+    pool, pool_stats = build_pool(scores, grades, ev, inputs.strategy_master, app,
+                                  sensitivity=sens, normalized=normalized)
+
+    # 池数披露走 pooling.groups 的读侧接口（dsm/pooling.py:204-212），shell 不另数一遍。
+    pool_groups = _attr(pooling, 'groups', 'Step7')(pool)
+    # ---- Step 9 audit（[L1356]：manifest + reproducibility_hash）-------------
+    # score_card（[L1610]-[L1626]）与 grade_ledger（[L1630]-[L1634]）由九步真实产物
+    # 装配（_assemble_score_outputs），[L1052] 哈希的真源是 dsm/audit.py:242 的
+    # reproducibility_hash，shell 一个字节也不重算（R-7）。cel_contract_version 保持
+    # PLACEHOLDER：[L1897] 明文「首版固定为占位版本」，与 Run.audit_context 同口径。
+    cards, ledger = _assemble_score_outputs(
+        run, inputs, attain, ev, red, scores, grades, pool, sens, weights, anchor,
+        dict_version, usable)
+    downgrades = _downgrade_actions(gate, attain, normalized)
+    run_context = _attr(audit, 'RunContext', 'Step9')(
+        run_id=run.run_id, run_at=run.run_at, period=run.args.period,
+        dsm_version=dsm.__version__, design_version=dsm.DESIGN_DOC_VERSION,
+        cel_contract_version=PLACEHOLDER,
+        weight_version_id=weights.weight_version_id, seed=run.args.seed,
+        sensitivity_schemes=tuple(item.scheme for item in sens.by_scheme),
+        preflight_findings=tuple(item.to_audit_finding() for item in findings),
+        downgrade_actions=downgrades, exit_code=EXIT_OK,
+        score_card=cards, grade_ledger=ledger)
+    # output_fingerprints 如实交 {}：[L1051] item 10 的七件产物由 reports.render 一次
+    # 生成、写盘之后才有指纹，而 render 又要先有 bundle（鸡生蛋），生产出口归 M29-2；
+    # 本次实测到的七件指纹在下面 details 里逐件披露，不静默（V-14）。
+    bundle = _attr(audit, 'build_manifest', 'Step9')(
+        loaded.fingerprints, app, run_context, {})
+
+    # ---- reports.render（[L1358]：report.md 十段 + 五张表 + audit.json）-------
+    frames = _report_frames(
+        loaded, gate_status=_gate_status(reports), attainment=attain, evidence=ev,
+        redline=red, score=scores, pool=pool, pool_stats=pool_stats,
+        sensitivity=sens, triangulation=tri, entropy_diagnostics=entropy_rows,
+        score_card=cards, grade_ledger=ledger,
+        weight_provenance=getattr(weights, 'provenance', None))
+    fingerprints, render_details = _render_reports(run, bundle, frames, app)
+
+    # ---- 披露面（details）：每一步一行，每条降级都带码，每个旁路都说清「不入分」----
+    entropy_count = len(entropy_rows)
+    details = [
+        'nine-step marshal of [L1325]-[L1358] ran to completion, in this order: '
+        'preflight gate / Step1 attainment / Step2 normalize (loose pool key) / '
+        'diagnostics bypass / Step3 evidence / Step4 redline / Step5 aggregate / '
+        'Step6 grading / Step7 pooling / triangulation bypass / Step8 sensitivity / '
+        'Step7 reflow / Step9 audit / reports.render',
+        'preflight status=' + str(getattr(gate, 'status', 'PASS')) + '，findings='
+        + str(len(findings)) + ' 条全量进 audit_bundle（[L1542] 不静默吞）；'
+        'downgrade_actions=' + str(len(downgrades)) + ' 条（[L1051] item 13，'
+        'preflight + Step1 + Step2 三个来源汇总去重）',
+        'Step1 attainment：anchor_set=' + str(anchor.anchor_set_id) + '（[L941] 锚定集'
+        '优先，与 Step2 同一个对象；_anchor_set_doc 是 shell 侧唯一取法）；rows='
+        + str(len(attain.rows)),
+        'Step2 normalize：松键构池（[L1334] 排在 [L1338] 之前，evidence_class 尚不'
+        '存在 -> dsm/normalize.py:342-351 的 step2_pool_key，绝不填默认值伪造严键）；'
+        'method=' + str(norm_params.method) + '；rows=' + str(len(normalized.rows)),
+        'diagnostics 旁路（[L1336]，不入分、只出工单）：entropy ' + str(entropy_count)
+        + ' 行 / collinearity ' + str(len(collin_pairs)) + ' 对；Step5 只读 FROZEN 权重 '
+        + str(weights.weight_version_id) + '（[L1342] / INV-3），d_j 与 gamma_j 一律'
+        '不回流成分数或权重',
+        'Step3 evidence：mode=' + str(ev_params.evidence_mode) + '，cel_enabled='
+        + str(ev_params.cel_enabled) + '；A/B/C/D 短路判定归 evidence.classify'
+        '（[L1338]），shell 不复算',
+        'Step4 redline：SOFT 扣减幅度逐字取自 grade_rules.soft_deductions（[L484]）；'
+        'WaiverSet 恒空 = 8 张输入表里没有豁免审批载体（dsm/redline.py:36-37 已登记）'
+        '的如实陈述，不表现为静默不触发（V-14）；as_of=' + str(pfc.period_ref_date)
+        + '（与 C-01 同一份签认值，H-8 不读时钟）',
+        'Step6 grading：K-06 min_coverage_for_absolute_track='
+        + str(rules.min_coverage_for_absolute_track) + '；上期 GradeFrame 载体='
+        + ('无（--previous-period 未接线，滞回状态由 grading 自己按首期处理并带注册码'
+           '披露，shell 不造假基线 R-12）' if prev is None else '已注入'),
+        'Step7 pooling：池数=' + str(len(pool_groups)) + '，pool_rows='
+        + str(len(pool.rows)) + '；Step8 回灌后重跑一次，一级库门禁判据始终在 '
+        'pooling 内部（判据唯一性）',
+        'triangulation 旁路（[L1348]，不入分）：codes='
+        + (', '.join(str(item) for item in tri_veto.codes) or 'none') + '；vetoed='
+        + str(tri_veto.vetoed) + '；usable_for_elimination='
+        + str(tri_veto.usable_for_elimination),
+        'Step8 sensitivity：schemes=' + ','.join(schemes) + '；[L1019] veto codes='
+        + (', '.join(str(item) for item in sens_veto.codes) or 'none') + '；vetoed='
+        + str(sens_veto.vetoed) + '；usable_for_elimination='
+        + str(sens_veto.usable_for_elimination) + '；seed=' + str(run.args.seed)
+        + '（[L1017] 写入 audit_bundle）',
+        '[L1352]-[L1354] 首屏可用性判定：usable_for_elimination=' + str(usable)
+        + '（阈值判据归 sensitivity.veto / triangulation.veto，shell 只把两个非补偿'
+        '否决相与）',
+        'Step9 audit：reproducibility_hash=' + str(bundle.reproducibility_hash)
+        + '（[L1052]）；input_fingerprints=' + str(len(bundle.input_fingerprints))
+        + ' 张表；score_card ' + str(len(cards)) + ' 行 / grade_ledger '
+        + str(len(ledger)) + ' 行（[L1610]-[L1634]，每格取自九步真实产物，缺事实即'
+        '缺格、不填 0）',
+        'output_fingerprints（[L1051] item 10）：bundle 内如实为 {}，生产出口归 '
+        'M29-2；本次七件产物的实测 SHA256 逐件披露如下，不静默（V-14）']
+    details += ['  ' + name + '=' + digest
+                for name, digest in sorted(fingerprints.items())]
+    details.append('G5/G7 未签认 -> ' + reports.GATE_STATEMENT
+                   + '（声明逐字取自 dsm/reports.py:55-58，shell 一字未改，更不宣称已签）')
+    details += render_details
+    return EXIT_OK, 'OK', details
 
 def _anchor_set_doc(app):
     '''T8 anchor_set 在 shell 侧的**唯一**取法（A1d NEED-WIRING §3 / [L877]）：来源是
@@ -348,10 +1034,11 @@ def _anchor_set_doc(app):
     签认配置里没有 anchor_set -> 返回 None，由 dsm/preflight.py:344 显式披露
     「未提供 anchor_set（T8），无锚定基准」：降级带披露位，不是静默降级（V-14）。
     shell 绝不自己编一份锚定集顶上去（R-12）。
-    ⚠️ Step1 的**生产调用点**尚不存在：M29 L1330-1358 九步 marshal 未落地，
-    _chain_gate 在模块齐全时仍 raise InvariantError（退出码 5，INV-2 禁止 shell
-    内联任何一步）。marshal 落地时必须把本函数的返回值同时喂给
-    attainment.compute(anchor_set=...) 与 normalize.compute(..., anchor_set, ...)。'''
+    生产调用点（M29-1 已落地）：_chain_gate 经 _build_preflight_config 拿到本函数的
+    返回值之后，把**同一个对象**同时喂给 attainment.compute(anchor_set=...)（[L1332]）
+    与 normalize.compute(..., anchor_set, ...)（[L1334]），并作为 score_card
+    .anchor_set_id（[L1616]）与 Step8 NORM_SWAP 钩子里那份「无锚定」副本的母本；
+    四处同源，shell 不另开第二个锚定集（口径唯一）。'''
     models = _require('dsm.models')
     anchor = getattr(app, 'anchor_set', None)
     if not anchor:
@@ -402,8 +1089,10 @@ def _evaluation_scope(loaded):
 
 def _previous_pool_stats(loaded):
     '''G-14 的上期基线（dsm_stage/G14FIX/HANDOFF-P2.md §2）：只有两个合法来源 —— 上期同链路
-    重算，或上期 audit_bundle 的 pool_stats。九步 marshal（M29 L1330-1358）未落地前第一个来源
-    不存在，[L1051] 的 audit_bundle 十六列里也没有 pool_stats 列，故第二个来源同样不存在 ->
+    重算，或上期 audit_bundle 的 pool_stats。九步 marshal（M29-1）已落地，但一次调用只跑
+    本期，第一个来源要的是**上期那一次运行**留下的 pool_stats；而 [L1051] 的 audit_bundle
+    十六列里没有 pool_stats 列，io_loaders.Inputs（dsm/io_loaders.py:149-159）也没有
+    previous_pool_stats 字段 -> 两个来源都仍然不存在，
     返回 None，由 reports._mix_quality_lines 显式披露「本期不可比」。
     绝不在 shell 侧造假基线，也绝不另写一套 C 占比比较：判据唯一性是
     pooling.mix_quality_verdict（ORCH-36 第 2/4 条），MIX_QUALITY_DEGRADED 是 WARN /
@@ -894,9 +1583,18 @@ HANDLERS = {('preflight', None): cmd_preflight, ('score', None): cmd_score,
 def _write_failure_bundle(run, exc, code):
     '''[L1091]: a failing command leaves an audit_bundle; values the failure
     prevented are PLACEHOLDER, never invented [L878]. L0b failures stay inside
-    their calibrate/whatif group (INV-2).'''
+    their calibrate/whatif group (INV-2).
+
+    V-14 第 4 项返工（M29-1）：返回 (path_or_None, notes)，不再用
+    `except OSError: return None` 把「审计包写不出来」吞成一个静默的 None。写不出来
+    时 notes 里带注册 reason_code、目标路径、异常类型与原文，并明说本次审计链不完整；
+    run 还没建起来（连目录都没有）同样出一行披露。降级必须带码且可见（H-6），
+    静默降级正是 V-14 禁止的那件事。'''
     if run is None:
-        return None
+        return None, ('audit_bundle NOT written: the failure happened before a Run '
+                      'existed, so there is no run directory to put it in ([L1091]); '
+                      'the error line above is the entire audit trail of this '
+                      'invocation -- disclosed, not silently dropped (V-14)',)
     try:
         if run.dir is None:
             group = run.command if run.command in _L0B_GROUPS else 'failed'
@@ -914,9 +1612,28 @@ def _write_failure_bundle(run, exc, code):
         path = run_dir / 'audit_bundle.json'
         path.write_text(json.dumps(doc, sort_keys=True, ensure_ascii=False, indent=2)
                         + '\n', encoding='utf-8', newline='\n')
-        return path
-    except OSError:
-        return None
+        return path, ()
+    except OSError as write_exc:
+        # 这里曾是 `except OSError: return None`：[L1091]「任何命令失败都写
+        # audit_bundle」被无声地破掉，调用方只会看到 details 里少了一行
+        # audit_bundle=...。码取自注册表（R-15 单点，shell 不自造码，也不写字面量
+        # P-8）；注册表里没有「审计包写盘失败」的专码，故用 [L1081] 的
+        # INVARIANT_VIOLATION —— 写不出审计包正是本 shell 自己的不变量被破，
+        # 是否需要专码已上报主控裁决（GAPS）。
+        codes = _require('dsm.reason_codes')
+        reason = _attr(codes, 'RC', 'audit_bundle').INVARIANT_VIOLATION
+        say = _attr(codes, 'message', 'audit_bundle')
+        target = (run.dir if run.dir is not None else
+                  Path(run.args.out) / (run.command if run.command in _L0B_GROUPS
+                                        else 'failed') / run.run_id)
+        return None, ('reason_code=' + reason.value + ': ' + say(reason.value)
+                      + ' -- [L1091] requires an audit_bundle for EVERY failed '
+                      'command, and writing ' + str(target / 'audit_bundle.json')
+                      + ' failed with ' + type(write_exc).__name__ + ': '
+                      + str(write_exc) + '; the audit trail of this run is '
+                      'INCOMPLETE, all that survives is the ' + type(exc).__name__
+                      + ' (exit=' + str(code) + ') above. Disclosed, never silently '
+                      'degraded (V-14, H-6).',)
 
 def _emit(command, code, status, run_id, details):
     print('dsm %s: exit=%d status=%s run_id=%s'
@@ -948,9 +1665,10 @@ def main(argv=None):
         code = exit_code_for(exc)
         status = _CODE_STATUS.get(code, 'FAILED')
         details = ['error: %s: %s' % (type(exc).__name__, exc)]
-        bundle = _write_failure_bundle(run, exc, code)
+        bundle, bundle_notes = _write_failure_bundle(run, exc, code)
         if bundle is not None:
             details.append('audit_bundle=' + str(bundle))
+        details.extend(bundle_notes)
         if code not in (EXIT_BLOCK, EXIT_CONFIG, EXIT_DATA):
             details.append('no score card is produced on a non-zero exit ([L1091])')
     _emit(command, code, status, run.run_id if run else None, details)
