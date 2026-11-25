@@ -78,7 +78,7 @@
    "cx": "C3",
    "model": "qwen3.8-max",
    "reasoning_effort": "xhigh",
-   "status": "running",
+   "status": "running-interrupted-ORCH-60",
    "deps": [],
    "budget_min": 90,
    "writeset": [
@@ -95,7 +95,13 @@
    "dispatched_at_epoch": 1795612339.11821,
    "dispatched_at_clock": "T+0.06h",
    "agent_id": "01a212d3-8a38-7fe0-a7d1-277ddf145a5b",
-   "nickname": "Zeno"
+   "nickname": "Zeno",
+   "orch_watch": {
+    "at_clock": "T+1.59h",
+    "disk_signal": "零产出（cli.py mtime 08:58 未变；无 dsm_stage/V12-M29-1/）",
+    "timebox": "40min -> T+2.35h",
+    "fallback": "done_partial 只提交全绿部分；或 blocked 由主控拆包改派（候选拆法：Step0-5 marshal / Step6-9 marshal + OSError 返工 两段，但 cli.py 单写者约束要求串行，故优先等时间盒结论）"
+   }
   },
   "RC-1": {
    "wave": "W1",
@@ -268,9 +274,9 @@
   "M28-1": {
    "wave": "W2",
    "cx": "C3",
-   "model": "qwen3.8-max",
+   "model": "qwen3.8-max/high",
    "reasoning_effort": "high",
-   "status": "pending",
+   "status": "running",
    "deps": [
     "M29-1",
     "RC-1"
@@ -285,7 +291,9 @@
     "pytest": null,
     "first_pass": null,
     "gate_changed_since_rc": null
-   }
+   },
+   "orch_note": "ORCH-56 渲染层口径；26 行 x 5 列（ERRATUM-V12-05）",
+   "agent": "Gibbs 01a21315-dcfa-7f20-991e-831adeda9149"
   },
   "V15-PROV": {
    "wave": "W2",
@@ -359,7 +367,32 @@
     "first_pass": null,
     "gate_changed_since_rc": null
    },
-   "deps_note": "ORCH-53 追加 T05-FIX/RC-2：BK-3 是末尾 LF 规范化包，必须在所有代码面改动落定后执行，否则会与在飞写集撞车。RC-1 已修掉 triangulation.py 使其剩 8 个非 docs 文件"
+   "deps_note": "ORCH-53 追加 T05-FIX/RC-2：BK-3 是末尾 LF 规范化包，必须在所有代码面改动落定后执行，否则会与在飞写集撞车。RC-1 已修掉 triangulation.py 使其剩 8 个非 docs 文件",
+   "scope_corrected_by_AUD_V12": {
+    "old": "9 个非 docs 文件，披露 16→7",
+    "new": "**8 个非 docs 文件，披露 15→7**",
+    "reason": "RC-1 已顺带修掉 dsm/triangulation.py 末尾 LF，使 TRAILING_LF_HISTORICAL 由 16 降为 15；AUD-V12 独立亲跑 normalize --check 复核为 15/200，且实测这 15 项与本 RUN 区间改动的 13 个文件**交集为空** → 全属 v1.1 遗留披露，本 RUN 零责任",
+    "remaining_8": [
+     "dsm/diagnostics.py",
+     "dsm/whatif.py",
+     "tests/test_diagnostics.py",
+     "tests/test_golden_a.py",
+     "tests/test_methods_whatif.py",
+     "tests/test_sensitivity.py",
+     "tests/test_triangulation.py",
+     "tools/repro_offline.sh"
+    ],
+    "remaining_7_docs": [
+     "docs/adr/ORCH-19.md",
+     "docs/adr/RUN-A1c-fixtures-controlled-thaw.md",
+     "docs/digest/S1-T01.md",
+     "docs/digest/S1-T01b.md",
+     "docs/digest/S1-T01c.md",
+     "docs/digest/S1-T01d.md",
+     "docs/digest/S1-T01e.md"
+    ],
+    "sequencing": "⚠️ 其中 dsm/diagnostics.py、dsm/whatif.py、tools/repro_offline.sh 可能落在权威哈希输入面内 → 若 REPRO-PRE 问题B 答『是』，则 **BK-3 必须在门禁③/④ 哈希登记之前执行**"
+   }
   },
   "BK-4": {
    "wave": "W3",
@@ -426,7 +459,8 @@
     "docs/deliverables/KNOWN-GAPS.md",
     "docs/deliverables/P3b-REPRO-HARNESS.md",
     "docs/deliverables/P3c-DELIVERY-PACKAGE.md",
-    "docs/deliverables/V-ACCEPTANCE-EVIDENCE.md"
+    "docs/deliverables/V-ACCEPTANCE-EVIDENCE.md",
+    "docs/deliverables/K-SIGNOFF-REQUEST.md"
    ],
    "ev": {
     "min": null,
@@ -435,7 +469,7 @@
     "first_pass": null,
     "gate_changed_since_rc": null
    },
-   "writeset_note": "ORCH-53 扩展：追加 V-ACCEPTANCE-EVIDENCE.md，**仅限**在 §M-2 追加 ERRATUM-V12-04 的主控更正（V-4 子断言权威计数 = checks 18 条，作废转录值 15）。BK-4 已收工故无并发冲突。其余章节一字不许动"
+   "writeset_note": "ORCH-54 再扩展：追加 K-SIGNOFF-REQUEST.md，**仅限**回填 :240 的 PLACEHOLDER-TO-REFRESH(主控/T05-FIX)（新函数名 test_t05_m04_the_repository_config_directory_carries_only_tracked_drill_files，def :1605 @cba7320）；以及刷新 KNOWN-GAPS.md:197 的双重陈旧引用。V-ACCEPTANCE-EVIDENCE.md 仅限追加 ERRATUM-V12-04 更正（V-4 权威计数=checks 18 条）。其余章节一字不动"
   },
   "SIGN-1": {
    "wave": "W1-adhoc",
@@ -468,7 +502,7 @@
    "cx": "C2",
    "model": "qwen3.8-flash",
    "reasoning_effort": "high",
-   "status": "running",
+   "status": "done",
    "deps": [],
    "budget_min": 35,
    "writeset": [
@@ -487,14 +521,31 @@
    "agent_id": "01a212e4-396f-7da2-8eea-2f281c9e67da",
    "nickname": "Laplace",
    "adhoc": true,
-   "created_by": "ORCH-51"
+   "created_by": "ORCH-51",
+   "orch_risk_flag": {
+    "at_epoch": 1795615824.5557702,
+    "at_clock": "T+1.03h",
+    "observed_head": "dcb6f21",
+    "measurement": "主控亲跑 pytest tests/test_cel_disabled_fieldwise.py -o addopts= -q → **2 failed / 5 passed**（文件仍为未跟踪 ?? 状态，CEL-EQ 施工中）",
+    "failures": [
+     "test_disabled_cel_output_is_fieldwise_identical_on_the_wire_surface_modulo_sha：逐字段比对 12510 叶子中 1 条不同 = chain['bundle'].input_fingerprints['design_cards.csv'].sha256（A=fb86dbdc… / B=fc2afd0b…）——测试名自称 modulo_sha，但排除清单似未覆盖 input_fingerprints",
+     "test_negative_control_one_minor_unit_propagates_through_every_output_face：『扰动没有穿到输出面 attain，实为 ['']』——负向对照未穿透"
+    ],
+    "ruling": "**红线：该文件绝不允许以红态提交**（门禁① 要求 0 failed/0 error/0 skip/0 xfail）。若 CEL-EQ 无法转绿，主控将裁定：删除该未跟踪 WIP 文件以保持门禁①与⑦，并将 NG-V12-04(GK-1) 如实维持为未关闭移交 v1.3——**宁可留缺口，不可凑绿、不可弱化断言**。",
+    "watch": "等待 Laplace 正式回报后再裁决"
+   },
+   "orch_verified": {
+    "at_head": "b157e00",
+    "full_pytest": "2342 passed / 0 failed（主控亲跑）",
+    "note": "包自报 7 passed 定向；GK-1 专用逐字段用例已入库；V-20 三态由主控在最终 HEAD 裁定，未据包自报上调"
+   }
   },
   "T05-FIX": {
    "wave": "W2",
    "cx": "C3",
    "model": "qwen3.8-max",
    "reasoning_effort": "high",
-   "status": "running",
+   "status": "done",
    "deps": [],
    "budget_min": 25,
    "writeset": [
@@ -502,25 +553,53 @@
    ],
    "purpose": "ORCH-53 裁决执行：把 t05_m04 的『config/ 恒空』代理式对齐回 Ruling 13 立法原意（禁止 T05 测试遗留文件），改为『仅允许 git 已跟踪的 6 文件白名单 + 无形态漂移』三条断言；净断言不减；改名并全仓 grep 旧名。**当前唯一阻塞门禁①的红条**",
    "ev": {
-    "min": null,
-    "commit": null,
-    "pytest": null,
-    "first_pass": null,
-    "gate_changed_since_rc": null
+    "min": 18,
+    "commit": "cba7320",
+    "pytest": "2335 passed / 0 failed（标准形式 22.77s + 门禁形式 -o addopts= -q 19.45s，HEAD 前后均锁定 cba7320）",
+    "first_pass": true,
+    "gate_changed_since_rc": 0
    },
    "dispatched_at_epoch": 1795614826.5055509,
    "dispatched_at_clock": "T+0.75h",
    "agent_id": "01a212f2-48a6-72c2-a7c2-8c0afbbc1847",
    "nickname": "Pauli",
    "adhoc": true,
-   "created_by": "ORCH-53"
+   "created_by": "ORCH-53",
+   "orch_verified": {
+    "by": "Orchestrator",
+    "at_epoch": 1795615824.5557702,
+    "at_clock": "T+1.03h",
+    "observed_head": "cba7320",
+    "commands": [
+     "git show --stat cba7320",
+     "grep -c stays_empty / new name",
+     "AST assert+skip+try count",
+     "git cat-file commit cba7320 | od -c",
+     "full pytest"
+    ],
+    "results": [
+     "1 file changed, +80/-5（numstat 80\\t5）",
+     "新名 1 处、旧名 0 处",
+     "ASSERTS **5**（原 2）/ SKIP_NODES 0 / TRY_NODES 0 → R-14 净断言不减成立",
+     "白名单 APPROVED_CONFIG_FILENAMES 为 6 个字面文件名、无 glob，注释明写『never globbed: a whitelist that could match anything approves nothing』",
+     "commit msg 中 2 个 0x3F 经主控亲验上下文为 `与 ??`（git porcelain 未跟踪标记的逐字引用），**非 mojibake**；subject 中文完好；无 BOM",
+     "门禁①唯一红条已消"
+    ],
+    "verdict": "accept；ORCH-53 第1条裁决已按『对齐立法原意而非弱化』正确执行"
+   },
+   "carried_gaps": [
+    "4 个 git 跟踪文件仍引旧函数名：ops/evidence/S1-T05/L1-red.txt:619,:635 + L4-checklist.txt:263（追加式历史 RED 证据日志，**裁定不改**，属历史存档）；docs/deliverables/KNOWN-GAPS.md:197（双重陈旧→V12-DOC-FINAL）；docs/deliverables/K-SIGNOFF-REQUEST.md:240（挂着 PLACEHOLDER-TO-REFRESH(主控/T05-FIX)，需回填新函数名）",
+    "新守卫引入对 git 可执行文件与 .git 的依赖（原式纯文件系统）；非 git 导出场景下 assert returncode==0 **响亮失败**而非静默放行=保守方向，予以采信并披露",
+    "正向对照为逻辑级（仓库外运行），未真往 config/ 丢垃圾做端到端红测——理由成立（§2 禁碰 config/ 且共用工作树会造成别包假红），如实披露",
+    "写集内另改模块 docstring 覆盖图第40行以消除文件内自相矛盾（合理）；副作用 ops/evidence/S1-T05/L5-r6-fix2.txt:936 成为陈旧历史引用（追加式日志，不改）"
+   ]
   },
   "RC-2": {
    "wave": "W2",
    "cx": "C3",
    "model": "qwen3.8-max",
    "reasoning_effort": "high",
-   "status": "running",
+   "status": "done",
    "deps": [
     "RC-1"
    ],
@@ -533,25 +612,57 @@
    ],
    "purpose": "落地 RC-1 差异表 #4（ALPHA_INFEASIBLE 泛码拆为 H2/H3/H5 细码，泛码仅留可行集为空）与 #7（CONFIG_SEMANTIC_ERROR→WEIGHT_DICT_MISALIGNED + 同步 test_preflight 三断言）。**明令禁止顺手做 #5/#9**",
    "ev": {
-    "min": null,
-    "commit": null,
-    "pytest": null,
-    "first_pass": null,
-    "gate_changed_since_rc": null
+    "min": 27,
+    "commit": "dcb6f21",
+    "pytest": "主控亲跑全量见 clock_now；子包隔离归因待其正式回报补充",
+    "first_pass": true,
+    "gate_changed_since_rc": 0
    },
    "dispatched_at_epoch": 1795614826.5055509,
    "dispatched_at_clock": "T+0.75h",
    "agent_id": "01a212f3-1a9c-7281-9df1-6d754a8c2fc4",
    "nickname": "Lagrange",
    "adhoc": true,
-   "created_by": "ORCH-53"
+   "created_by": "ORCH-53",
+   "orch_verified": {
+    "by": "Orchestrator",
+    "at_epoch": 1795615824.5557702,
+    "at_clock": "T+1.03h",
+    "observed_head": "dcb6f21",
+    "commands": [
+     "git show --stat dcb6f21",
+     "grep -n ALPHA_INFEASIBLE / H2|H3|H5 dsm/weights_combine.py",
+     "grep -n WEIGHT_DICT_MISALIGNED dsm/preflight.py tests/test_preflight.py",
+     "git diff --name-only dcb6f21^ dcb6f21 | grep -E 'attainment|golden'",
+     "AST assert before->after",
+     "git cat-file commit dcb6f21 | od -c"
+    ],
+    "results": [
+     "恰好 4 个授权文件（preflight 13/5、weights_combine 18/5、test_methods_combine 43/1、test_preflight 3/3），**未越界**",
+     "#4 落地：H-2/H-3/H-5 → RC.H2_DIM_WEIGHT_BELOW_FLOOR / H3_METRIC_WEIGHT_BELOW_FLOOR / H5_SHIFT_FROM_AHP_EXCEEDED（:85/:86/:88）；ALPHA_INFEASIBLE 仅作 H-1 残余保留（:84），且子包**如实上报『注册表无 H-1 细码』这一缺口而非自造码名** = R-12 正确行为",
+     "#7 落地：preflight:229 换用 RC.WEIGHT_DICT_MISALIGNED，已同步 RUN_BLOCKING_CODES(:46) 与 DISCLOSURE(:63)；CONFIG_SEMANTIC_ERROR 仍留在表中（未被删除=正确，其仍服务其他路径）；tests/test_preflight.py:237/:242/:244 三条断言已同步为新码",
+     "#5/#9 确认未碰：diff 文件清单无 attainment、无 golden",
+     "R-14：test_methods_combine.py assert **140→157**（+17，无净减）；test_preflight.py assert **181→181** 且 numstat 3/3 = 仅三处码名替换、断言结构未松动（完全符合主控『只许换码名』的指令）",
+     "commit message 编码**干净**：od 显示合法 UTF-8 中文（347 254 254=第），无 0x3F、无 BOM → **L-19 生效，第三起事故被成功预防**"
+    ],
+    "verdict": "accept"
+   },
+   "full_report_accepted": true,
+   "h1_residual_ruling": {
+    "issue": "ALPHA_INFEASIBLE 未达成『仅剩可行集为空』——H-1 在 dsm/weights_combine.py:84 保留一条残余映射",
+    "subagent_reasoning": "全量 93 个注册码中无 H-1 专用码；reason_codes.py 不在写集不得自行增注册；三个候选码逐一否决：INVARIANT_VIOLATION(注册语义=本次不产出任何结果，而 H-1 失守时其余 α 照常出数→挪用即虚报)、NORMALIZATION_SENSITIVE(语义无关)、CONFIG_SEMANTIC_ERROR(配置层码跨层挪用同样虚报)；若改为 H-1 不出码则 tests/test_methods_combine.py:236 断言必须删除、reasons 期望 1→0，直接违反主控 §3『严禁减少期望条数』与『净断言不得减少』",
+    "orch_ruling": "ORCH-55 **采信子包处置，判定为正确工程判断，不予返工**。理由：①其否决候选码所用的『挪用即虚报』判准与主控自己对 #9 下的判准完全一致，属正确适用而非规避；②它在『弱化断言』与『保留一条有据可查的残余』之间选了后者，并在代码注释+commit message 双处留痕，符合 R-12/R-14；③其补充事实——H-1 在生产路径不可达（step4 的 _scale_to 已把两级和归一到 1，仅手构夹具可触发），残余实际影响面为零——使该残余不构成缺陷而构成**已披露的注册表缺口**。",
+    "registered_as": "NG-V12-15",
+    "v13_action": "在 dsm/reason_codes.py 增注册 H-1 专用码（建议 H1_WEIGHTS_NOT_NORMALIZED），届时只需改映射表一行 + tests/test_methods_combine.py:236 一处码名"
+   },
+   "isolation_methodology_note": "子包用 git archive→/tmp 造 A1/B1/A2/B2 四棵隔离树做归因，diff -rq 确认恰好 4 文件不同、失败集恒等（唯一差异 +1 passed=其新测试）→ **零新增红**成立。其并如实指出 A2/B2 的 1 条红是隔离手法自身的环境伪影（git archive 不含 .git → T05-FIX 新守卫 shell 出 git ls-files 得 rc=128），非其引入。该归因方法论予以采纳为后续代码包标准做法。"
   },
   "SIGN-2": {
    "wave": "W2",
    "cx": "C1",
    "model": "qwen3.8-flash",
    "reasoning_effort": "low",
-   "status": "running",
+   "status": "done",
    "deps": [
     "SIGN-1",
     "M29-3"
@@ -562,25 +673,46 @@
    ],
    "purpose": "刷新被并发推翻的实测事实：§5.2/§7 config 计数 0→6（保留【实测@22f8179】历史行）、§5.3 边界节强化（演练 config≠G7 已签 + expert_count=2 vs K-01≥5 披露）、GAPS-3 K 动作数三口径对账表。45 勾选位必须保持全空白",
    "ev": {
-    "min": null,
-    "commit": null,
-    "pytest": null,
-    "first_pass": null,
-    "gate_changed_since_rc": null
+    "min": 18,
+    "commit": "78a9df3",
+    "pytest": "未跑全量（写集仅 1 md）",
+    "first_pass": true,
+    "gate_changed_since_rc": 0
    },
    "dispatched_at_epoch": 1795614826.5055509,
    "dispatched_at_clock": "T+0.75h",
    "agent_id": "01a212f4-0b8c-73a1-be87-66925fbe93e7",
    "nickname": "Bernoulli",
    "adhoc": true,
-   "created_by": "ORCH-53"
+   "created_by": "ORCH-53",
+   "orch_verified": {
+    "by": "Orchestrator",
+    "at_epoch": 1795616186.8204947,
+    "at_clock": "T+1.13h",
+    "observed_head": "78a9df3",
+    "commands": [
+     "git diff --numstat 78a9df3^ 78a9df3",
+     "git diff 逐字比对被删行与新增行",
+     "grep -c 勾选位/[x]/签认人",
+     "git cat-file commit 78a9df3 | od -c"
+    ],
+    "results": [
+     "1 file/+20 −1",
+     "**那 1 处 deletion 经主控逐字比对确认非弱化**：被删的 K-01 表格行与新增行**字节级同文**，仅在行尾追加【SIGN-2】子句（expert_count=2 vs 专家组≥5 披露）→ R-14 成立",
+     "45 勾选位仍全空白：顶层 `- [ ] K-` = 40、K-21 子项 = 5、`[x]` = **0**、已填『签认人』= **0**",
+     "§5.2 新值【实测@5bef1cb】=6 已追加，且 :173 的【实测@22f8179】历史行原样保留；§7 期望值 0→6 刷新且旧值保留",
+     "commit message 干净：首字节 0x53('S')、0x3F 计数 0、CR 0 → L-19 生效"
+    ],
+    "verdict": "accept；红线（G7 仍未签、K-01~K-20 零填、不宣称任何 V/G5/G7 通过）全部守住",
+    "commendation": "子包对『两起 commit message 编码事故是否写进送签单据』的判断正确——选择只回报主控而不写进给行方的签认单，避免冲淡签认焦点，符合主控 brief 的授权裁量"
+   }
   },
   "AUD-V12": {
    "wave": "W3",
    "cx": "C2",
    "model": "qwen3.8-flash",
    "reasoning_effort": "medium",
-   "status": "running",
+   "status": "done",
    "deps": [],
    "budget_min": 35,
    "writeset": [
@@ -588,18 +720,128 @@
    ],
    "purpose": "只读审计 09379be..HEAD：A 逐 commit 写集合规（侦测 git add -A 事故）/ B 四要素全量 / C 提交信息编码全扫（是否有第三起事故）/ D gitignore 与未跟踪物归因 / E 只读不变量第二人复核（邻库四值+契约三值+v1.1 台账是否被动）/ F 净断言面（R-14 客观证据）。直接供门禁⑦",
    "ev": {
-    "min": null,
+    "min": 15,
     "commit": null,
-    "pytest": null,
-    "first_pass": null,
-    "gate_changed_since_rc": null
+    "pytest": "未跑（零字节改动原则，避免写 .pytest_cache/.hypothesis）",
+    "first_pass": true,
+    "gate_changed_since_rc": "N/A（只读包）"
    },
    "dispatched_at_epoch": 1795614826.5055509,
    "dispatched_at_clock": "T+0.75h",
    "agent_id": "01a212f7-a05a-7932-a135-3314cb819d48",
    "nickname": "Linnaeus",
    "adhoc": true,
-   "created_by": "ORCH-53"
+   "created_by": "ORCH-53",
+   "orch_verified": {
+    "by": "Orchestrator",
+    "at_epoch": 1795616186.8204947,
+    "at_clock": "T+1.13h",
+    "observed_head": "b0b26ac",
+    "verdict": "accept 全部判定",
+    "adopted": [
+     "写集越界 **0**（7 commit 逐枚比对授权表）",
+     "四要素违规 **0/14**",
+     "**全区间删除断言行 = 0**；AST 级 tests/ 3757→3847 净 +90 且无任何文件净减",
+     "新增 skip/skipif/xfail = **0**",
+     "提交信息编码事故**恰 2 起、无第三起**（ae2ca02 message 80 个 0x3F/17 处 ?? 串；877b8fb subject 带 BOM）；**文件内容污染 = 零**（逐 commit blob 实测）",
+     ".gitignore:20:dsm_stage/ 隔离有效；真垃圾 0 条；config/ 6/6 已跟踪",
+     "**门禁⑤第二人复核完成**：契约 708679e9a83d/2003行/177646B 逐位一致；邻库 m0-framework/0cccb76/porcelain0/rev-list154 四值全符；v1.1 FROZEN 台账 ops/dag-state.json 经 git log 09379be..HEAD 实测 **0 commit 触碰**",
+     "TRAILING_LF_HISTORICAL 实测 **15/200**，与本 RUN 区间改动的 13 文件**交集为空** → 全属 v1.1 遗留披露，本 RUN 零责任"
+    ],
+    "orch_judgments": [
+     "其标记 UNKNOWN-PKG(DEFER) 的 `b0b26ac` 由主控确认＝主控自己的 ORCH-53 台账同步点提交，属授权行为（子包不越权判定他人授权范围＝纪律正确，予以嘉许）",
+     "2 条『or化/区间化』候选主控判读：①`assert 'weights_*' in excinfo.value.missing_files`（M29-3）＝断言错误对象逐字报告了 glob 模式串本身，是字面成员判定非通配弱化 → **非违规**；②`assert md.count(RC.SPEARMAN_ZERO_VARIANCE.value) >= 2`（RC-1）＝**新增**的下界计数断言（保证披露在两处出现），非改写既有断言，对目标回归有效 → **可接受并留档**",
+     "V2-500 的 opt-in 经证实为环境变量 + settings 门而**非 skip 标记**，常规回归仍跑 25 例 → **合规**"
+    ]
+   }
+  },
+  "BK-5": {
+   "wave": "W3",
+   "cx": "C1",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "medium",
+   "status": "done",
+   "deps": [
+    "BK-4"
+   ],
+   "budget_min": 30,
+   "writeset": [
+    "docs/deliverables/V-ACCEPTANCE-EVIDENCE.md"
+   ],
+   "purpose": "完成 RUN 契约 §3 对 BK-4 的**原始定义**（前一手派工遗漏的那一半）：结掉 V-ACCEPTANCE-EVIDENCE.md 中残留的 PLACEHOLDER-TO-REFRESH（索引 #2/#3/#4/#6/#8/#10），每条写「已定值+亲跑命令+观测HEAD」或「仍缺什么+归属」。**不许改任何三态**（三态重判归 V12-DOC-FINAL 且只依主控亲测），只许提建议",
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   },
+   "dispatched_at_epoch": 1795615824.5557702,
+   "dispatched_at_clock": "T+1.03h",
+   "agent_id": "01a21302-172d-7c92-ad27-e4edfa69f22f",
+   "nickname": "Cicero",
+   "adhoc": true,
+   "created_by": "ORCH-54",
+   "orch_note": "占位串 26 行 -> 19（余为沿革/台账/元述，逐条写明保留理由）；三态列逐字符未动；唯一上调建议 V-2；#3 外部条件、#6 卡 M29-1、#10 主项 M28 无包认领 -> 由 M28-1 落地后主控裁"
+  },
+  "M28-PRE": {
+   "wave": "W2",
+   "cx": "C2",
+   "model": "qwen3.8-flash",
+   "reasoning_effort": "medium",
+   "status": "done",
+   "deps": [],
+   "budget_min": 30,
+   "writeset": [
+    "dsm_stage/V12-M28-PRE/"
+   ],
+   "purpose": "只读取证，为 M28-1 派工 brief 提供当前 HEAD 实测锚点（防 ERRATUM-V12-01 重演），并回答关键依赖问题：矩阵码名集合与 RC-2 涉及的 6 个码有无交集→M28-1 是否必须等 RC-2；以及 M28-1『断言出现在报告中』能否只新建一个测试文件完成（防 ORCH-53/t05 式撞车重演）",
+   "ev": {
+    "min": null,
+    "commit": null,
+    "pytest": null,
+    "first_pass": null,
+    "gate_changed_since_rc": null
+   },
+   "dispatched_at_epoch": 1795615824.5557702,
+   "dispatched_at_clock": "T+1.03h",
+   "agent_id": "01a21303-3462-7242-b532-bfd203bc79bb",
+   "nickname": "Erdos",
+   "adhoc": true,
+   "created_by": "ORCH-54",
+   "orch_note": "Erdos 已交付并已关；锚点在 dsm_stage/V12-M28-PRE/out/；ORCH-56 已据其语义核对裁定 26 行 x 5 列（ERRATUM-V12-05）"
+  },
+  "REPRO-PRE": {
+   "status": "done",
+   "agent": "Halley(已关)",
+   "commit": "none(只读)",
+   "head_obs": "b157e00",
+   "min": 24,
+   "verdict": "门禁③机制 PASS；NG-V12-16 风险不成立；哈希输入面=值面（ORCH-57 依据）；gate3_command_card.md 已产出"
+  },
+  "M29-2-PRE": {
+   "status": "done",
+   "agent": "Socrates(已关)",
+   "commit": "none(只读)",
+   "head_obs": "dcb6f21(b157e00 复测 dsm 锚点仍有效)",
+   "min": 25,
+   "verdict": "M29-2 真实缺口=让 cmd_score 成功路驱动 _report_frames->_render_reports 并回填指纹；提出 audit.json 自指纹三选一（ORCH-59 已裁 i-b）；确认不存在钉「成功路恒空」的守卫，但 BLOCK 路「只写 audit_bundle」被钉死"
+  },
+  "BK3-PRE": {
+   "status": "running",
+   "agent": "Maxwell 01a21324-0f7a-7291-a27d-867545b31812",
+   "model": "qwen3.8-flash/high",
+   "writeset": "只读；产出 dsm_stage/V12-BK3-PRE/**",
+   "budget_min": 30,
+   "goal": "产出 BK-3 可直接施工作业卡：TRAILING_LF_HISTORICAL 15 项权威清单、8/7 划分、逐文件体检、破坏面扫描、git add 具名清单与 commit 文案、与 M29-2 的并行判断"
+  },
+  "GATE-PRE": {
+   "status": "running",
+   "agent": "Parfit 01a21324-d853-7943-b756-112c65e642b3",
+   "model": "qwen3.8-flash/high",
+   "writeset": "只读；产出 dsm_stage/V12-GATE-PRE/**",
+   "budget_min": 40,
+   "goal": "门禁②20 个 V 项判据+可跑命令+原始日志（不裁三态）；门禁⑥KNOWN-GAPS 13 条重计数四档；NG-V12-01..18 分类"
   }
  },
  "sync_points": {
@@ -722,26 +964,108 @@
     "10) 新增 **AUD-V12** 只读审计包（ad-hoc #3）为门禁⑦供证：逐 commit 写集合规（侦测 git add -A 事故）/ 四要素全量 / 提交信息编码全扫 / gitignore 归因 / 只读不变量**第二人复核**（含 v1.1 FROZEN 台账 ops/dag-state.json 是否被动）/ 净断言面客观证据。",
     "11) 新增 L-19（提交信息编码唯一许可做法）与 L-20（『断言计数』必须声明计数规则，否则不可比）。"
    ]
+  },
+  "ORCH-54": {
+   "at_epoch": 1795615824.5557702,
+   "at_clock": "T+1.03h",
+   "head": "dcb6f21",
+   "topic": "T05-FIX 与 RC-2 采信（门禁①红条已消）+ CEL-EQ 红态红线 + 补派 BK-5/M28-PRE/REPRO-PRE + BK-3 范围与排序修正",
+   "rulings": [
+    "1) **T05-FIX 采信**（cba7320）：主控亲验 1 file/+80−5、AST 断言 2→5、skip/try 均 0、白名单 6 个字面名无 glob、commit message 中 2 个 0x3F 经上下文亲验为 git porcelain `??` 标记的逐字引用而非 mojibake。**门禁①的唯一红条已消除**，全量两种形式均 0 failed（2335 passed）。ORCH-53 第1条『对齐立法原意而非弱化』被执行到位，且子包自跑了 11 例正向对照证明检测力不弱于原 `== []`（含原式无法表达的『已提交但非法的新增』枚举力）。",
+    "2) **RC-2 采信**（dcb6f21）：恰好 4 个授权文件、#4/#7 落地、#5/#9 确认未碰、assert 140→157 与 181→181+numstat 3/3 证明『只换码名未松动结构』。特别嘉许：子包发现『注册表无 H-1 细码』时**如实上报缺口而未自造码名**，符合 R-12。**commit message 编码干净 → L-19 生效，第三起事故被成功预防。**",
+    "3) **CEL-EQ 红线预警**：主控亲跑其未跟踪 WIP 文件 = **2 failed / 5 passed**（fieldwise 比对 12510 叶子中 1 条 input_fingerprints.design_cards.csv.sha256 不同；负向对照未穿透 attain 面）。裁决：**该文件绝不允许以红态提交**（门禁① 要求 0 failed/0 error/0 skip/0 xfail）。若无法转绿 → 删除该未跟踪 WIP 以同时保住门禁①与⑦(porcelain 空)，并将 NG-V12-04(GK-1) 如实维持未关闭、移交 v1.3。**宁可留缺口，不可凑绿、不可弱化断言。**",
+    "4) **补派 BK-5**：主控自查发现前一手对 BK-4 的派工 brief 与 RUN 契约 §3 原文定义不符——契约要求 BK-4『结掉 V-ACCEPTANCE-EVIDENCE.md 中残留的 6 处 PLACEHOLDER-TO-REFRESH（索引 #2/#3/#4/#6/#8/#10）』，而主控给 Bohr 的 brief 是『登记 V-2/V-4/V-20/V-15 实测证据 + 刷新 GK-2』。Bohr 那部分已高质量完成并采信，**契约原文要求的另一半尚未做** → 新立 BK-5 补上。此为**主控派工遗漏**，记在主控账上（见 counters.orch_self_inflicted_errata 递增）。BK-5 明令：不得改 Bohr 的 §M-1~M-4、不得改任何三态、只许『已定值+亲跑证据』或『仍缺什么+归属』两种结局。",
+    "5) **补派 M28-PRE**（只读）：M28-1 的派工前置。目的是防止本 RUN 已发生的两类事故重演——ERRATUM-V12-01（brief 转录陈旧行号）与 ORCH-53/t05（授权写集与既有守卫/并发包撞车）。M28-PRE 须实测契约 SDD L1280-L1305 的 26 行×六列（若实测非 26×6，以契约原文为准并指出 RUN 转述差异）、矩阵码名与 RC-2 六个码的交集（决定 M28-1 是否必须等 RC-2）、以及『断言出现在报告中』能否只新建一个测试文件完成（若需改 dsm/reports.py 则与 M29-2 写集冲突，必须扩派或改序）。",
+    "6) **补派 REPRO-PRE**（只读）：门禁③/④ 是本 RUN 机械风险最高且排在最后的一环（netns 隔离 + 两跑自等 + 哈希输入面）。为免收口时才发现工装坏了而无预算补救，先在 `git archive` 干净导出树上验证机理，并用四项扰动实验**实测**哈希输入面边界，回答两个排序问题：A) docs/ops 是否进输入面（决定 V12-DOC-FINAL 与哈希登记先后，并实测验证 v1.1 commit 06d1338『签核适用域论证』是否成立，不许照抄）；B) BK-3 的 8 文件中 dsm/diagnostics.py、dsm/whatif.py、tools/repro_offline.sh 是否在输入面内（决定 BK-3 必须否在哈希登记前执行）。产出主控收口命令卡。",
+    "7) **BK-3 范围与排序修正**（依 AUD-V12 实测）：范围由『9 文件、16→7』修正为『**8 文件、15→7**』，因 RC-1 已顺带修掉 dsm/triangulation.py。AUD-V12 独立复核 TRAILING_LF_HISTORICAL=15/200，且这 15 项与本 RUN 区间改动的 13 文件**交集为空** → 全属 v1.1 遗留披露，本 RUN 零责任；剩余 7 项为 docs（依 ORCH-36 ruling 11 其属主在本门禁之外，故终值为 7）。",
+    "8) **AUD-V12 采信并采纳其全部判定**：写集越界 0；四要素违规 0/14；**全区间删除断言行 = 0**，AST 级 tests/ 3757→3847 净 +90 且无任何文件净减；新增 skip/skipif/xfail = 0；提交信息编码事故**恰为 2 起、无第三起**，且**文件内容污染为零**（逐 commit blob 实测）；`git check-ignore` 证实 `.gitignore:20:dsm_stage/` 隔离有效；真垃圾 0 条；config/ 6/6 已跟踪。**门禁⑤第二人复核完成**（契约 708679e9a83d/2003/177646 逐位一致；邻库四值全符；v1.1 FROZEN 台账 ops/dag-state.json 经 `git log 09379be..HEAD` 实测 0 commit 触碰）。其标记为 UNKNOWN-PKG(DEFER) 的 `b0b26ac` 由主控确认＝**主控自己的 ORCH-53 台账同步点提交，属授权行为**（子包不越权判定他人授权范围＝纪律正确）。",
+    "9) AUD-V12 提交的 2 条『or化/区间化』候选由主控判读：① `assert 'weights_*' in excinfo.value.missing_files`（M29-3）＝断言错误对象**逐字**报告了 glob 模式串本身，是字面成员判定而非通配弱化 → **判非违规**；② `assert md.count(RC.SPEARMAN_ZERO_VARIANCE.value) >= 2`（RC-1）＝**新增**的下界计数断言（保证披露在两处出现），非改写既有断言；下界式对『披露缺失』这一目标回归有效，且 R-14 约束的是『不得弱化既有断言』 → **判可接受并留档**。V2-500 的 opt-in 机制经 AUD-V12 证实为环境变量 + settings 门而**非 skip 标记**，常规回归仍跑 25 例 → **判合规**。",
+    "10) **V12-DOC-FINAL 写集再扩展**：追加 K-SIGNOFF-REQUEST.md，仅限回填 :240 的 PLACEHOLDER-TO-REFRESH(主控/T05-FIX)；并刷新 KNOWN-GAPS.md:197 的双重陈旧引用（既引旧函数名、其『在真实仓库单测 1 passed』也只在 M29-3 之前成立）。ops/evidence/S1-T05/* 三处旧名引用**裁定不改**——它们是追加式历史 RED 证据日志，改写即篡改历史存档。",
+    "11) 新增 L-23（派工 brief 必须回溯 RUN 契约原文核对包定义，不得凭移交摘要派工）与 L-24（门禁①的红态 WIP 文件处置红线：宁可删文件留缺口，不可凑绿）。"
+   ]
+  },
+  "ORCH-55": {
+   "at_epoch": 1795616186.8204947,
+   "at_clock": "T+1.13h",
+   "head": "dcb6f21",
+   "topic": "RC-2 全面采信 + H-1 残余裁决 + 门禁③环境伪影风险预警 + M29-2-PRE 补派",
+   "rulings": [
+    "1) **RC-2 全面采信**（dcb6f21，27min，一次性完整提交未走 blocked 退路）。主控亲验：恰好 4 个授权文件；#4 细码落地（HARD_CHECK_REASON_CODES 映射表 :75-89，出码点 :701-703，`grep -n 'reasons.append' dsm/weights_combine.py` = **0 命中** → 泛码打包已消灭；H-4 由 ('AHP_CR_FAILED','ALPHA_INFEASIBLE') 收紧为 ('AHP_CR_FAILED',)；四违规夹具 4 条违规出 4 个码）；#7 换码 preflight:229 + 沿用注册表既定级别 BLOCK(reason_codes.py:153) 未自创 + 同步 RUN_BLOCKING_CODES:46/DISCLOSURE:63 + test_preflight 三条断言 numstat 3/3、assert 181→181 结构零松动；#5/#9 确认未碰（diff 清单无 attainment/golden）；R-14 净断言 140→157（+17）且 H-4 反而由成员判定收紧为精确元组；未碰 CONTRACT_DISCLOSURE_CODES 与 test_every_downgrade_path_has_a_disclosure_code；架构棘轮 COLLISION_INVENTORY_CEILING=28 未涨（dsm/ 内只用 RC.* 无裸字面量）；commit message od 实测 0x3F 计数=0、无 BOM → **L-19 生效，第三起编码事故被成功预防**。",
+    "2) **H-1 残余裁决：采信子包处置，不返工**。子包在『弱化断言』与『保留一条有据可查的残余』之间选了后者，其否决三个候选码所用的『挪用即虚报』判准与主控自己对 #9 下的判准完全一致；且补充了 H-1 生产路径不可达的事实（step4 _scale_to 已归一，仅手构夹具可触发），使残余不构成缺陷而构成**已披露的注册表缺口**。→ 登记 NG-V12-15，v1.3 增注册 H1_WEIGHTS_NOT_NORMALIZED（届时只需改映射表一行 + test_methods_combine.py:236 一处码名）。**并按 L-25 显式嘉许**：子包发现注册表无对应码时选择上报而非自造码名，这正是 R-12 要保护的行为，必须正向强化。",
+    "3) **门禁③环境伪影风险预警（NG-V12-16）**：RC-2 的隔离归因意外暴露——T05-FIX 新守卫依赖 `.git`，在无 .git 的 `git archive` 导出树中必然 rc=128 失败。若 `tools/repro_offline.sh --strict-isolation` 也在此类环境里跑 pytest，门禁③ 将因纯环境伪影失败。主控已用 **interrupt=true** 向正在调查该工装的 REPRO-PRE(Halley) 插入此情报并追加四个必答问题（隔离环境为何/是否触及 tests/有无 .git/最小非弱化修法），并明令**不得建议 skip/xfail**（R-14）。此为收口前最高优先风险项。",
+    "4) **隔离归因方法论采纳**：RC-2 用 git archive→/tmp 造 A1/B1/A2/B2 四树、diff -rq 确认改动面、比对失败集恒等来证明『零新增红』——该方法能在工作树被并发包污染时给出干净归因，采纳为后续所有代码包的标准做法。同时记录其发现的伪影处置方式（两树同红即判环境伪影）。",
+    "5) **补派 M29-2-PRE**（只读，Socrates）：M29-2 依赖 M29-1（关键路径仍在飞），故趁施工期提前实测其全部锚点（write_report_set 定义与调用点全仓定性 / output_fingerprints 为何是 {} 的因果链 / G-8 MIX_QUALITY_DEGRADED 端到端可达性 / 改 reports.py 会否撞红 RC-1 的 render_triangulation_md 断言 / 三文件写集是否充分）。**特别要求查证是否存在钉死『output_fingerprints 恒空』的既有守卫测试**——那正是 t05 事故的同类形态，必须提前发现而非落地后连环 blocked。",
+    "6) 登记 NG-V12-17（test_reason_codes.py:397-398/:427 两条注释已失效，RC-1 称『四处』实测 3 处；仅注释陈旧无门禁影响，待 REPRO-PRE 判定 tests/** 是否在哈希输入面内后再决定派微修或并入 v1.3）与 NG-V12-18（dsm/config.py:665/676 仍用 CONFIG_SEMANTIC_ERROR，故 RC-2 保留该码于两表内=正确非遗漏，登记以免后续包误判为换码不彻底而错误删除）。",
+    "7) **关键路径告警**：M29-1(Zeno, qwen3.8-max/xhigh) 自 T+0.06h 派工至今已约 1.1h，多个并发包在各自收工时均实测 `dsm/cli.py` **无工作树改动**。主控暂不 interrupt（避免摧毁 max/xhigh 的深度推理成果），设定观察线：若至 T+1.8h 仍无写树迹象，则 send_input 索取即时进度；若至 T+2.3h 仍无进展，考虑改派或降级拆分。理由：M29-2/M28-1/BK-3/V12-DOC-FINAL 四包全部串行于其后，是本 RUN 唯一单点。"
+   ]
+  },
+  "ORCH-56": {
+   "at_clock": "T+1.59h",
+   "topic": "M28-1 口径裁定",
+   "ruling": "M28-1 采「渲染层口径」：直接驱动 dsm/reports.py render()，不依赖 M29-1 的 CLI marshal；用例必须自称渲染层而非端到端。矩阵实为 26 行 x 5 列，「六列」系契约转录错误 -> ERRATUM-V12-05。26 行中仅 6 个代码名为契约字面，其余约 34 个为 M28-PRE 语义推断，不得断言为契约强制。",
+   "why": "解除 M28-1 对关键路径 M29-1 的伪依赖，回收并行度；同时避免把推断当契约（R-12）。"
+  },
+  "ORCH-57": {
+   "at_clock": "T+1.59h",
+   "topic": "门禁④「权威哈希重登记」裁定（推翻移交快照的预期）",
+   "evidence": "REPRO-PRE(Halley) 实测：reproducibility_hash 的 payload = dsm/audit.py:231-244 三项（schema / weight_version_id / score_card 30 列 / grade_ledger 5 列），纯「值面」，不含任何源码指纹或 git rev（git grep source_digest|code_digest|git_rev|commit_sha|inspect.getsource = 0 命中）；探针 LOADED 19 个模块、OPENED 8 个 fixtures/input/*.jsonl，docs/ops/config/tools 均 0。v1.1.0..b157e00 的 15 个改动文件中只有 dsm/preflight.py 在探针代码面内，而其产物只进 RunContext.preflight_findings，不进 payload。M29-1/M29-2 写集 dsm/cli.py + tests 均不在 19 个 LOADED 内。",
+   "ruling": "门禁④ 重新定义为「在最终 HEAD 上实测权威哈希并登记实测值 + 变更/未变更的机理说明」，不再预设「必变」。实测值 e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904（2026-Q2 口径）若与 v1.1 冻结值相同，则登记为「未变更」，并在 invalidation_log 追加一条：未变更的机理（值面不变）+ 4 条正对照证明探针未死（fixture 值 10000->10001 => 0e7716eb..；weight_version_id => d846ffc4..；HASH_SCHEMA => 9d5ca8ab..；PERIOD->2026-Q3 => e73e4b9b..）。",
+   "why": "这不是弱化断言（R-14），是把断言从「期望它变」纠正为「实测它是什么」。伪造一次哈希变化才是违规。",
+   "erratum": "ERRATUM-V12-06"
+  },
+  "ORCH-58": {
+   "at_clock": "T+1.59h",
+   "topic": "门禁③ 载体与收口次序裁定",
+   "ruling": [
+    "载体：一律用「主仓库原地（porcelain=0）」或「真 git clone」。严禁 git archive 导出树（archive 树跑不了工装本身：tools/repro_offline.sh:92 需 .git，:102 需 rev-parse HEAD）。",
+    "不传 --wheelhouse（默认 :98 即 dsm_stage/P3b-prep/wheelhouse，实测 wh_manifest=verified 26 entries，强于 README:499 旧写法）。",
+    "次序：M29-1 -> M29-2 -> M28-1 -> BK-3 -> V12-DOC-FINAL -> 台账 commit -> porcelain=0 -> 门禁①全量 pytest -> 门禁③阶段A(取哈希)+阶段B(--expect 复验) -> 门禁④登记值已在前一步 commit 内 -> git tag -a v1.2.0（标签消息内嵌 RESULT_COMMIT / RESULT_HASH / pytest 计数四要素）-> push origin main -> push tag。",
+    "为什么标签消息承载证据：门禁③字面要求 RESULT_COMMIT == 被 tag 的最终 HEAD，若事后再补一个「记录 RESULT_COMMIT」的 commit，HEAD 就前移、自证失效。annotated tag 不改 HEAD，故证据入标签消息 + 主控终报，不再补 commit。",
+    "NG-V12-16（T05 守卫 .git 依赖打门禁③）判定为「风险不成立」：工装只跑 tests/test_integration_spine.py 的 1 个 nodeid（:292-295），从不收集 tests/test_config_placeholder.py；且克隆口径下 config/ 6 文件被跟踪，守卫本身 PASS。"
+   ],
+   "erratum": null
+  },
+  "ORCH-59": {
+   "at_clock": "T+1.59h",
+   "topic": "M29-2 预裁决：audit.json 自指纹循环（不裁决必翻车）",
+   "problem": "契约 §3.15.1（L1356-1358）次序为 Step 9 audit（build_manifest）-> reports.render(bundle, frames, config) -> ReportSet 七件（含 audit.json）。即 bundle 先于产物文本存在；而 audit.json 的内容就是 bundle 的序列化 => audit.json 不可能包含自身终值哈希。契约 L1046「AuditBundle 内容含输出文件清单与 SHA256」在字面上自指。",
+   "ruling": "采两遍渲染变体（i-b），六键口径：\n1) bundle0 = audit.build_manifest(inputs_fp, config, run_ctx, {}) -> rs0 = reports.render(bundle0, frames, config)\n2) fps6 = 对 rs0 中 6 件非 audit.json 产物、按 write_report_set 的同一编码算出的 SHA256（落盘后必须与磁盘字节重算逐值全等）\n3) bundle1 = audit.build_manifest(inputs_fp, config, run_ctx, fps6) -> rs1 = reports.render(bundle1, frames, config)\n4) 钉不变式：rs0 与 rs1 的 6 件非 audit.json 产物逐字节相等（证明回填不自相矛盾）；若不等 => 说明某产物内嵌了 output_fingerprints，改用 (i-a) 顺序并如实披露\n5) write_report_set(rs1, out_dir) 一次写 7 件；bundle1.output_fingerprints 键集 == ARTIFACT_NAMES - {audit.json} == 6\n6) audit.json 自身 SHA256 由 write_report_set 返回值 / CLI details 通道对外披露，不进 audit.json 内部",
+   "must_pin": [
+    "outlet 测试逐值用 sha256 对落盘文件重算并与 bundle.output_fingerprints 比对全等（audit.py:257 只校验 64 位小写 hex 格式，假指纹 \"0\"*64 会被接受 —— 不得拿格式校验冒充真对账）",
+    "rs0/rs1 六件逐字节相等的不变式断言",
+    "BLOCK/失败路的 output_fingerprints=={} 与「只写 audit_bundle 一个文件」既有断言原样保留（禁弱化；tests/test_preflight.py:399/430、tests/test_integration_spine.py:523、tests/test_golden_b.py:1333）",
+    "G-8 关闭判据：CLI 实跑一条 WARN 不阻断路径，report.md ⑥ 段出现 MIX_QUALITY_DEGRADED 且退出码不因该 WARN 改变"
+   ],
+   "writeset_note": "优先不改 dsm/reports.py（RUN doc:84 虽把它列入 M29-2 写集）；若编码对齐必须借助 helper，只允许**新增函数**，严禁改既有 render* 文案与 write_report_set 行为（会撞 test_reason_codes.py:413/649 与 test_reports.py:336）。dsm/audit.py、dsm/models.py 不得改。",
+   "erratum": "ERRATUM-V12-07"
+  },
+  "ORCH-60": {
+   "at_clock": "T+1.59h",
+   "topic": "M29-1 关键路径止损（interrupt）",
+   "observed": "主控亲测 @b157e00：dsm/cli.py mtime 2026-11-25 08:58 未变；dsm_stage/V12-M29-1/ 不存在；find dsm tests -mmin -100 零命中 => Zeno 开工约 1.6h 磁盘零产出。",
+   "ruling": "在 T+1.65h 以 interrupt 下发时间盒：5 分钟内落 PLAN.md；随后立即改 dsm/cli.py 小步落盘；每 15 分钟追加 progress.log；硬盒 40 分钟（至 T+2.35h），到点二选一：(a) 九步全通 + test_cli_marshal.py 绿 + 全量 0 failed -> 一个 commit；(b) 只提交已完成且全绿的部分，未完成处保留原 raise InvariantError 门 + PLACEHOLDER-TO-REFRESH(M29-1剩余)，报 done_partial 并逐步列缺口。第三态（继续沉默）不接受；若判定 40 分钟内不可完成，立即报 blocked 由主控拆包改派。",
+   "why": "L-28 的「不要过早 interrupt」适用于深度推理期；但客观信号（磁盘零产出 + 下游 3 包串行 + 剩 4.3h）已到分级观察线的第二档。interrupt 的同时给出「可交付的最小完成定义」，避免摧毁已有推理又止住沉默。",
+   "note_vs_L28": "本次不视为违反 L-28：L-28 的 1.8h 索取进度线已到，且索取方式是「先落 PLAN.md 再继续」，不打断其技术路线。"
   }
  },
  "counters": {
-  "pkgs_total": 18,
-  "pkgs_done": 8,
-  "pkgs_running": 6,
-  "pkgs_pending": 4,
+  "pkgs_total": 24,
+  "pkgs_done": 17,
+  "pkgs_running": 4,
+  "pkgs_pending": 3,
   "w1_pkgs": 6,
   "w2_pkgs": 3,
   "w3_pkgs": 3,
   "max_pkgs": 4,
-  "flash_pkgs": 14,
+  "flash_pkgs": 18,
   "slots_limit": 6,
-  "slots_in_use": 6,
+  "slots_in_use": 4,
   "escalations": 0,
   "rework_rounds": 0,
   "budget_violations": 0,
-  "updated_at_epoch": 1795614826.5055509,
-  "adhoc_pkgs": 5,
-  "orch_self_inflicted_errata": 3
+  "updated_at_epoch": 1795617833.9263232,
+  "adhoc_pkgs": 11,
+  "orch_self_inflicted_errata": 4
  },
  "pytest_baseline": {
   "at_kickoff": {
@@ -762,8 +1086,14 @@
    "b7a46df"
   ],
   "v1_2_current_hash": null,
-  "v1_2_expected": "不等于 e5923465…（ORCH-49 第5条预声明，可证伪）",
-  "invalidation_log": []
+  "v1_2_expected": "不预设变化。实测值以最终 HEAD 上门禁③阶段A为准；截至 b157e00 五次全链恒等 = e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904（2026-Q2 口径）。机理与正对照见 ORCH-57 / ERRATUM-V12-06。",
+  "invalidation_log": [],
+  "orch_measured": {
+   "at_head": "b157e00",
+   "full_pytest": "2342 passed / 0 failed（主控亲跑，20.85s）",
+   "v2_probe": "DSM_HYPOTHESIS_EXAMPLES=500 tests/test_properties_all.py -> 16 passed in 17.99s（主控亲跑；与 BK-4@d7b8675、BK-5@dcb6f21 三方同值）",
+   "note": "最终 HEAD 上须复测两项"
+  }
  },
  "blocking_gaps_inherited": {
   "total": 13,
@@ -803,62 +1133,44 @@
   ]
  },
  "clock_now": {
-  "at_epoch": 1795614826.5055509,
-  "clock": "T+0.75h",
-  "head": "5bef1cb",
-  "phase": "W2",
-  "remaining_hours": 5.247,
-  "note": "已收 8 包（V2-500/V4-3L/V20-G/V15-PROV/M29-3/SIGN-1/RC-1/BK-4），全部经主控亲测复证。在飞 6 包：M29-1(Zeno)/CEL-EQ(Laplace)/T05-FIX(Pauli)/RC-2(Lagrange)/SIGN-2(Bernoulli)/AUD-V12(Linnaeus)。**门禁① 当前唯一红条 = t05_m04，T05-FIX 正在修**。**V-14 已预声明维持 ❌**（NG-V12-14）。两起 commit message 编码事故不可修、永久披露。"
+  "at_epoch": 1795617833.9263232,
+  "clock": "T+1.59h",
+  "head": "b157e00",
+  "phase": "W1->W2（关键路径 M29-1）",
+  "remaining_hours": 4.41,
+  "note": "门禁① 2342/0 与门禁② V-2 16 passed 已由主控在 b157e00 亲测；最终 HEAD 须复测"
  },
  "active_agents": {
   "M29-1": {
-   "agent_id": "01a212d3-8a38-7fe0-a7d1-277ddf145a5b",
-   "nickname": "Zeno",
-   "model_id": "qwen3.8-max",
-   "reasoning_effort": "xhigh",
-   "pkg": "M29-1",
-   "spawned_at_epoch": 1795612339.11821
+   "agent": "Zeno 01a212d3-8a38-7fe0-a7d1-277ddf145a5b",
+   "model": "qwen3.8-max/xhigh",
+   "state": "interrupted ORCH-60，时间盒至 T+2.35h",
+   "critical_path": true
   },
-  "CEL-EQ": {
-   "agent_id": "01a212e4-396f-7da2-8eea-2f281c9e67da",
-   "nickname": "Laplace",
-   "model_id": "qwen3.8-flash",
-   "reasoning_effort": "high",
-   "pkg": "CEL-EQ",
-   "spawned_at_epoch": 1795613864.098345
+  "M28-1": {
+   "agent": "Gibbs 01a21315-dcfa-7f20-991e-831adeda9149",
+   "model": "qwen3.8-max/high",
+   "state": "running"
   },
-  "T05-FIX": {
-   "agent_id": "01a212f2-48a6-72c2-a7c2-8c0afbbc1847",
-   "nickname": "Pauli",
-   "model_id": "qwen3.8-max",
-   "reasoning_effort": "high",
-   "pkg": "T05-FIX",
-   "spawned_at_epoch": 1795614826.5055509
+  "BK3-PRE": {
+   "agent": "Maxwell 01a21324-0f7a-7291-a27d-867545b31812",
+   "model": "qwen3.8-flash/high",
+   "state": "running",
+   "critical_path": false
   },
-  "RC-2": {
-   "agent_id": "01a212f3-1a9c-7281-9df1-6d754a8c2fc4",
-   "nickname": "Lagrange",
-   "model_id": "qwen3.8-max",
-   "reasoning_effort": "high",
-   "pkg": "RC-2",
-   "spawned_at_epoch": 1795614826.5055509
+  "GATE-PRE": {
+   "agent": "Parfit 01a21324-d853-7943-b756-112c65e642b3",
+   "model": "qwen3.8-flash/high",
+   "state": "running",
+   "critical_path": false
   },
-  "SIGN-2": {
-   "agent_id": "01a212f4-0b8c-73a1-be87-66925fbe93e7",
-   "nickname": "Bernoulli",
-   "model_id": "qwen3.8-flash",
-   "reasoning_effort": "low",
-   "pkg": "SIGN-2",
-   "spawned_at_epoch": 1795614826.5055509
-  },
-  "AUD-V12": {
-   "agent_id": "01a212f7-a05a-7932-a135-3314cb819d48",
-   "nickname": "Linnaeus",
-   "model_id": "qwen3.8-flash",
-   "reasoning_effort": "medium",
-   "pkg": "AUD-V12",
-   "spawned_at_epoch": 1795614826.5055509
-  }
+  "closed_this_window": [
+   "Erdos(M28-PRE)",
+   "Laplace(CEL-EQ)",
+   "Cicero(BK-5)",
+   "Halley(REPRO-PRE)",
+   "Socrates(M29-2-PRE)"
+  ]
  },
  "errata": [
   {
@@ -904,6 +1216,33 @@
    "impact": "若未纠，一个错误计数会硬化进验收文档 §M-2",
    "corrected_to": "authoritative = **checks 子字典 18 条**（traceA 4 / traceB 7 / traceC 7）；另 chains.q2_ok/q3_ok 2 条 + traceA/B/C closed 3 条；数据描述型布尔（has_target/capped_flag/is_redline）属观测值**不计入断言数**。主控先前另测的 44/36 'bool leaves' 因未区分断言与观测值亦作废",
    "ruling": "ORCH-53：采信 Bohr 的 18；§M-2 的更正由 V12-DOC-FINAL 追加（其写集已扩展）；再次验证 L-15 的必要性"
+  },
+  {
+   "id": "ERRATUM-V12-05",
+   "at_clock": "T+1.59h",
+   "who": "主控（RUN doc / 派工 brief 转录）",
+   "what_was_wrong": "把 M28-1 的降级矩阵写成「26 行 x 六列」",
+   "detected_by": "M28-PRE(Erdos) 语义核对 + 主控采信",
+   "impact": "若照六列写断言，会凭空造出第 6 列并逼出伪断言",
+   "corrected_to": "26 行 x 5 列；ORCH-56 已按此派工"
+  },
+  {
+   "id": "ERRATUM-V12-06",
+   "at_clock": "T+1.59h",
+   "who": "主控（v1.2 移交快照 §2）",
+   "what_was_wrong": "写「v1.2 hash EXPECTED to change（gate ④）」",
+   "detected_by": "REPRO-PRE(Halley) 输入面实测 + 主控复核 payload 定义 dsm/audit.py:231-244",
+   "impact": "若按「必变」收口，会诱发为凑变化而污染值面（真造假）或误判工装坏了",
+   "corrected_to": "哈希是值面函数；v1.2 改动不触值面 => 预期「不变」，门禁④改为登记实测值 + 机理说明（ORCH-57）"
+  },
+  {
+   "id": "ERRATUM-V12-07",
+   "at_clock": "T+1.59h",
+   "who": "契约文档 SDD L1046 / [L1051] item 10",
+   "what_was_wrong": "「AuditBundle 含输出文件清单与 SHA256」在 audit.json 自身也是产物之一时字面自指",
+   "detected_by": "M29-2-PRE(Socrates) 提出三选一，主控裁决",
+   "impact": "未裁决即施工会出现「假自指纹」或两遍写伪造",
+   "corrected_to": "六键口径 + audit.json 自身哈希走 bundle 外通道（ORCH-59）；契约文本只读，不改原件，仅在本台账与终报披露"
   }
  ],
  "orch_lessons": [
@@ -914,7 +1253,17 @@
   "L-19（ORCH-53）：中文 commit message 只有一条许可路径——用 .NET `[System.IO.File]::WriteAllText($p,$msg,(New-Object System.Text.UTF8Encoding($false)))` 写消息文件，再 `git commit -F <文件>`；提交后必须 `git cat-file commit <sha> | od -c | head` 自验无 0x3F 乱码、无 BOM(357 273 277)。两条已证实的毁损路径：`git commit -m \"中文\"` 经 PowerShell→wsl 管道会被 OEM 码页吃成字面 `?`（ae2ca02）；`Set-Content -Encoding UTF8` 会注入 BOM（877b8fb）。因 R-13 禁 amend/force，此类事故**不可事后修复**，只能在派工时预防。",
   "L-20（ORCH-53）：任何『断言条数/检查项数』都必须同时声明**计数规则**，否则不同人给出的数字不可比且会互相指控。本轮 V-4 同时出现 15（转录陈旧值）/18（checks 子字典）/44 与 36（全部布尔叶子，含 has_target、capped_flag、is_redline 等**观测值**）四个数，根因是未定义『断言』边界。裁定口径：只计 `checks` 类断言 + 链级 ok + closed 闭合标志，**数据描述型布尔不计入**。派工 brief 里要计数时，必须写明计数字段路径。",
   "L-21（ORCH-53）：当守卫测试的**字面断言**与其**docstring 所述立法原意**不一致时，正确处置是把断言对齐回原意（并保留原字面与裁决号留档），而不是删守卫、不是放宽为通配、也不是回退被授权的产品改动。判据：改造后对原意所要防的那类事故的检测力必须**不弱于**改造前，且净断言数不减。反之，若原意本身就是产品级不变量，则应回退产品改动——**读 docstring 是裁决前提**。",
-  "L-22（ORCH-53）：子包报 `STATUS=blocked` 时，主控必须先区分**「子包能力不足」与「派工契约内在缺陷」**。本轮 M29-3/SIGN-1/RC-1 三包同时报 blocked，根因全是主控自己的写集授权与既有守卫冲突、以及写集切分未覆盖差异表——三包都**拒绝越界**并附差异表，行为完全正确。此类 blocked 应改判 done 并把缺陷记在主控账上，否则会误伤子包并掩盖真正的派工问题。"
+  "L-22（ORCH-53）：子包报 `STATUS=blocked` 时，主控必须先区分**「子包能力不足」与「派工契约内在缺陷」**。本轮 M29-3/SIGN-1/RC-1 三包同时报 blocked，根因全是主控自己的写集授权与既有守卫冲突、以及写集切分未覆盖差异表——三包都**拒绝越界**并附差异表，行为完全正确。此类 blocked 应改判 done 并把缺陷记在主控账上，否则会误伤子包并掩盖真正的派工问题。",
+  "L-23（ORCH-54）：**派工 brief 必须回溯 `docs/RUN-UNATTENDED-v1.2.md` §3 的包定义原文逐字核对，不得凭上一手移交摘要派工。** 本轮主控据移交摘要把 BK-4 派成『登记 V 项实测证据』，而契约原文要求 BK-4 是『结掉 6 处 PLACEHOLDER-TO-REFRESH』——两件事都必要但不同，导致契约要求的那一半险些漏做，须补派 BK-5。移交摘要是有损压缩，**契约原文才是权威**（与 L-15『行号必须实测』同源：凡转录皆可能失真）。",
+  "L-24（ORCH-54）：门禁①要求 0 failed/0 error/0 skip/0 xfail 且门禁⑦要求 porcelain 空，二者对**红态 WIP 文件**形成合围：一个改不好的新测试文件既不能提交（染红门禁①）也不能留着不提交（染红门禁⑦）。唯一诚实解＝**删除该 WIP 文件 + 把对应缺口如实维持为未关闭并移交下一版**。严禁三条歪路：把断言改松、加 skip/xfail、或把红态文件提交后宣称『已知无关红』。宁可交付一个有披露缺口的版本，不可交付一个染绿但被弱化的版本。",
+  "L-25（ORCH-54）：子包报告里主动标注的『我上报缺口而不自造』行为（如 RC-2 发现注册表无 H-1 细码时不擅自新增码名）应当**显式嘉许并记入台账**，否则下一次子包会选择悄悄编一个看起来合理的值——那正是 R-12 要防的失效模式。正向强化与红线惩戒同样重要。",
+  "L-26（ORCH-55）：**一个包的修复可能给另一个包的门禁埋雷，且埋雷点会在第三方包的隔离手法里意外暴露。** 本轮 T05-FIX 为满足『检测 git 未跟踪遗留物』而让测试 shell 出 `git ls-files`，这在正常仓库里完全正确，但在无 `.git` 的 `git archive` 导出树里必然 rc=128 失败——而这一点是 RC-2 做隔离归因时偶然发现的，不是 T05-FIX 自己发现的（它只在 GAPS 里抽象提到『引入了对 git 的依赖』）。可执行守则：任何让**测试或工装依赖运行环境**（git 可执行文件、.git 目录、网络、netns、特定环境变量）的改动，必须在回报里明确写出『在哪些环境下会失败』，主控须立即评估它与复现工装/隔离验证手法的相容性。",
+  "L-27（ORCH-55）：当子包报告『我发现了缺口但按红线没自己补，而是如实上报』时，主控必须**显式裁决并嘉许**，而不是沉默接受。RC-2 面对『注册表无 H-1 细码』时逐一否决了三个可挪用候选码（理由均为『挪用即虚报』），宁可留一条有据可查的残余也不弱化断言、不越写集、不自造码名——这是 R-12 的模范执行。若主控不表态，下一个子包面对同类困境时会倾向选『悄悄编一个看起来合理的值』，那正是 R-12 要防的失效模式。",
+  "L-28（ORCH-55）：对关键路径上的长耗时包，**不要过早 interrupt**。max/xhigh 包在深度推理阶段可能长时间不产生工作树改动，过早打断会摧毁其已积累的推理成果。正确做法是设定**分级观察线**（如 1.1h 观察 → 1.8h 索取进度 → 2.3h 考虑改派），并把该单点风险与其下游串行包清单一并记入台账，便于到点强制止损。",
+  "L-29（ORCH-57）：门禁判据必须写成「实测值 + 机理」而不是「期望它变成什么」。把「哈希必变」当判据，等于给造假发许可证。",
+  "L-30（ORCH-59）：凡产物自指（文件内容里要写该文件自身的哈希）必须在派工前裁决，不能留给施工方临场发挥；裁决要给出可钉的不变式（本例 rs0/rs1 六件逐字节相等），否则实现方会用「两遍写 + 假自指纹」蒙混。",
+  "L-31（ORCH-60）：判断长耗时包是否真卡住，用客观磁盘信号（mtime / find -mmin / 阶段目录是否存在），不要靠猜测。止损方式 = 「先落 PLAN.md 与 progress.log 再继续」，既拿到可见性又不摧毁推理成果。",
+  "L-32：只读 PRE 包（REPRO-PRE / M29-2-PRE / M28-PRE）在关键路径被单点堵住时是最高性价比的并行工作 —— 它们把后续包的裁决题、锚点、雷区提前变成主控可以直接下发的判据，实测节省 M29-2 约一半工时。"
  ],
  "carry_gaps_v12": [
   {
@@ -1036,6 +1385,44 @@
    "ruling": "ORCH-53 提前预声明：**V-14 在 v1.2 维持 ❌**，严禁任何子包或主控在收口时为凑门禁而放宽 #5/#9 或改写判据。此为诚实的部分达成，须写进最终报告与 KNOWN-GAPS",
    "owner": "v1.3",
    "close_condition": "#5+#9 落地且 M28 26 行绿 + M29 marshal 落地 + cli.py:918 OSError 修复，四项齐备后由主控亲测上调"
+  },
+  {
+   "id": "NG-V12-15",
+   "from": "RC-2 GAPS-1",
+   "severity": "deferred-to-v1.3",
+   "orch_ruled": "ORCH-55",
+   "what": "dsm/reason_codes.py 无 H-1 专用码，导致 dsm/weights_combine.py:84 保留 ALPHA_INFEASIBLE 残余映射；三个候选码均因『挪用即虚报』被否决",
+   "impact": "生产路径不可达（step4 _scale_to 已归一），实际影响面为零；仅在手工构造夹具时可见",
+   "owner": "v1.3",
+   "close_condition": "reason_codes.py 增注册 H1_WEIGHTS_NOT_NORMALIZED + 改映射表一行 + test_methods_combine.py:236 换码名"
+  },
+  {
+   "id": "NG-V12-16",
+   "from": "RC-2 隔离归因实测 + T05-FIX GAPS-3",
+   "severity": "**threatens-gate-3**",
+   "what": "T05-FIX(cba7320) 新守卫 test_t05_m04_..._carries_only_tracked_drill_files 依赖 git 可执行文件与 .git 目录（shell 出 `git ls-files -- config` 并 assert returncode==0）。在任何**无 .git 的环境**（如 `git archive` 导出树）中必然以 rc=128 `fatal: not a git repository` 失败",
+   "impact": "若 tools/repro_offline.sh --strict-isolation 在无 .git 的隔离环境里执行 pytest，则**门禁③ 会因纯环境伪影而失败**，与哈希正确性无关",
+   "status": "REPRO-PRE(Halley) 已被主控以 interrupt=true 插入该情报，正在实测回答四点：①--strict-isolation 究竟在什么环境跑 ②是否触及 tests/** ③隔离环境有无 .git ④若风险成立的最小非弱化修法（⚠️ R-14 严禁用 skip/xfail 掩盖，故不得建议 skip）",
+   "interim_mitigation": "所有后续包若在 /tmp 导出树跑测试，必须 --ignore=tests/test_config_placeholder.py 或 --deselect 该测试并注明环境伪影（已写入 M29-2-PRE 的 brief）",
+   "owner": "主控 + REPRO-PRE",
+   "close_condition": "实测证明工装不触及 tests/** 则风险不成立；否则需主控裁决修法（倾向让隔离环境保留 .git，而非弱化守卫）"
+  },
+  {
+   "id": "NG-V12-17",
+   "from": "RC-2 GAPS-2",
+   "severity": "low-comments-only",
+   "what": "tests/test_reason_codes.py:397-398 注释称 CONFIG_SEMANTIC_ERROR 检索行『四处』，实测仅 3 处（:237/:242/:244，RC-2 已全换完，现该文件 0 命中）；:427 注释『写集外测试未同步前不换码』的前提已被 RC-2 解除 → 两条注释均已失效",
+   "impact": "仅注释陈旧，无断言影响、无门禁影响",
+   "owner": "待定（tests/test_reason_codes.py 属 RC-1 写集，RC-1 已收工）",
+   "close_condition": "若 REPRO-PRE 证明 tests/** 不在哈希输入面内，可派微修包；否则并入 v1.3"
+  },
+  {
+   "id": "NG-V12-18",
+   "from": "RC-2 GAPS-2",
+   "severity": "informative",
+   "what": "dsm/config.py:665/676 仍以 CONFIG_SEMANTIC_ERROR 作为配置层唯一码 → 这是 RC-2 必须把该码保留在 RUN_BLOCKING_CODES/DISCLOSURE 两表内的硬原因（_f:74 查不到披露位置即抛）。dcb6f21 保留该码=正确，非遗漏",
+   "owner": "无需动作",
+   "close_condition": "n/a（登记以免后续包误判为『换码不彻底』而错误删除）"
   }
  ],
  "t0_operative": {
@@ -1050,6 +1437,20 @@
    "gate_text_preserved_verbatim": "V-1~V-20 全 20 条在册；V-14 仅四项齐备才可上调，否则维持 ❌ 并逐字保留原因",
    "reason": "四项齐备条件之第3项『RC-1 六条接线』仅能落 4/6（#2/#3 已落、#4/#7 由 RC-2 承接）；#5/#9 明确延期 v1.3（NG-V12-08/09）。严禁为凑门禁放宽判据。",
    "other_three_conditions": "① M28 26 行绿 = 待 M28-1；② M29 marshal 落地 = 待 M29-1；④ cli.py:918 OSError 修复 = 待 M29-1"
-  }
+  },
+  "gate1_status": {
+   "at_clock": "T+1.03h",
+   "at_head": "cba7320",
+   "verdict": "红条已消（2335 passed/0 failed，标准+门禁双形式），但**尚未终判**：CEL-EQ WIP 若红态入库即染红；且门禁①要求在**最终 HEAD** 由主控亲测，故此为中间态而非通过"
+  },
+  "gate5_status": {
+   "at_clock": "T+1.03h",
+   "verdict": "**第二人复核完成**",
+   "evidence": "主控亲验 + AUD-V12 独立复跑，契约 708679e9a83d/2003行/177646B 逐位一致；邻库 m0-framework/0cccb76/porcelain0/rev-list154 四值全符；v1.1 FROZEN 台账 ops/dag-state.json 经 git log 09379be..HEAD 实测 0 commit 触碰"
+  },
+  "gate3_risk": "NG-V12-16 判定风险不成立（REPRO-PRE 三条独立实测：工装在 mktemp 真 clone 内跑、只 1 个 nodeid、从不收集 test_config_placeholder.py）。载体与次序见 ORCH-58。",
+  "gate4_ruling": "ORCH-57：登记实测值，不预设变化。",
+  "gate2_v2": "V-2 具备上调条件：主控亲测 16 passed @b157e00 + 三方同值；最终 HEAD 复测后由主控裁定上调，V12-DOC-FINAL 落笔。",
+  "gate6_prep": "GATE-PRE(Parfit) 只读取证中；三态裁定权仍在主控。"
  }
 }
