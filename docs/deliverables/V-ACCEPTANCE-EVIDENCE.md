@@ -462,3 +462,41 @@ RESULT=PASS HASH=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c918090
 10. **未 push、未 tag**；`git tag -l` 计数 = 0；是否打 `v1.1.0` 由主控决（R-13：子包禁 tag / 禁 push）。
 
 **本包（V1-FINAL）纪律自证**：写集**仅** `docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`、`docs/deliverables/P3b-REPRO-HARNESS.md`、`docs/deliverables/P3c-DELIVERY-PACKAGE.md`、`docs/deliverables/KNOWN-GAPS.md`、`README.md` 五份；**未写、未 add `ops/dag-state.json`**（主控并发写）；未写 `dsm/**` / `tests/**` / `tools/**` / `fixtures/**` / `docs/deliverables/ZERO-WEAKENING-DOSSIER.md`；未跑 pytest、未跑 `tools/repro_offline.sh`（终值由主控亲测钉死，本包只引用）；只显式 `git add` 本包实际改动的 docs 文件，**未 `git add -A` / `git add .`**；未 stash / checkout / restore / reset / clean / amend / 切分支；未 push、未 tag；邻仓开工 / 收工各校验一次四项一致；契约只读、`sha256[:12]` = `708679e9a83d`、2003 行。
+
+## §M v1.2 RUN 实测证据登记（BK-4 · 开工 HEAD `ae2ca02`，写入 HEAD `877b8fb`；本包零改判、只追加）
+
+**本包不改动 §A/§B/§H/§L 任何原文，不改任何 V 项三态**（V-2 / V-4 / V-20 / V-15 一律维持 ⏳，是否上调由主控裁决）。R-14 零弱化：无删、无改判、无"顺手修好"、无新增 skip/xfail、未把 ⏳/❌ 上调 ✅。R-12：凡本包未亲自跑出的数字标 `PLACEHOLDER-TO-REFRESH`。观测期间并发包（RC-1/M29-1/M29-3 及 V2-500 线）持续前移 HEAD，每条数字均在其后括注本包观测 HEAD。
+
+### M-1 · V-2（包 V2-500，已落 commit `22f8179`）
+- 本包复跑 @`d7b8675`：`DSM_HYPOTHESIS_EXAMPLES=500 /home/szf/venvs/dsm/bin/python -m pytest tests/test_properties_all.py -o addopts= -q` → **16 passed in 20.30s / RC=0**（与主控 @`22f8179` 实测 **16 passed in 25.32s / RC=0** 结论一致，仅墙钟差）。
+- commit `22f8179`：`git show --stat` 本包复核 = **1 file changed, 14 insertions(+), 3 deletions(-)**（写集 `tests/test_properties_all.py`）。
+- 默认档（不设 `DSM_HYPOTHESIS_EXAMPLES`）= **25 examples**，由 `tests/test_properties_all.py:85` `_MAXEX_N = int(os.environ.get("DSM_HYPOTHESIS_EXAMPLES", "25"))` 与 `:86` 择路；**开关常量 `MAXEX_500` 本包实测位于 `tests/test_properties_all.py:81`**（L-15 于本包观测 HEAD `877b8fb` 用 grep 复核，非沿用 v1.1 旧行号）；共 **16** 个 `@MAXEX` 测试（本包 grep 实测）。
+- 结论口径：V-2 的**新证据 = 「500 例档可复跑且 16 全绿」**；⏳→✅ 与否由主控裁决，本包不改 V-2 三态。
+
+### M-2 · V-4（包 V4-3L，只读取证、零 commit）
+- 一键复跑 `bash dsm_stage/V12-V4-3L/probe.sh` @`877b8fb`：`SUMMARY {traceA:True, traceB:True, traceC:True}`、`chain Q2 ok: True / Q3 ok: True`、`PROBE_RC=0`。
+- 子断言本包实数 = **18 条全 True**（TRACE A 4 + TRACE B 7 + TRACE C 7）；主控口径记「15 条」，两值差异如实并记，不相互覆盖（本包只背书自己跑的 18）。
+- **Q2 哈希 = `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`**（= v1.1 冻结哈希，**无漂移**，与 §H/§A V-3 一致）。
+- **Q3 哈希 = `e73e4b9b234b87a99262cdf6c4f19522f11d998bdb091e3838dca402e0ab2776`**（**新观测完整串**，逐字抄自 `dsm_stage/V12-V4-3L/out/probe_results.json` 的 `q3_reproducibility_hash`，与本包 HEAD `877b8fb` 绑定；v1.1 无此完整串，故 §H 不据此改动）。
+- 判词须附两条诚实披露：
+  - **GAP-2**：本探针在 `_run_chain` **数据模型层**闭合三链；CLI 产物面（`report.md` / CSV / `audit.json`）的三层回溯在 `_chain_gate` 抛错路径下**不可测**，归属 **M29-1**；M29-1 落地后 V-4 须重测。
+  - **GAP-3**：本取证为**抽查制**（TRACE A 载体 `S-001/v1/2026-Q2/M_AUM_MINOR`；TRACE B `S-008` BLOCK 抑制；TRACE C `S-006` 非锚定 + 8 锚定成员对照），**非全量枚举**；V-4 判词须写「抽查制」并给出上述覆盖范围，不得写成全量。
+- V-4 维持 ⏳（本包不上调）。
+
+### M-3 · V-20（包 V20-G，只读取证、零 commit）
+- 一键复跑 `bash dsm_stage/V12-V20-G/run_all.sh` @`877b8fb`：**G-01~G-15 全部 RC=0**、`golden_a_full 8 passed`、`golden_b_full 18 passed`、cel 侧套件全绿、`RUNALL_RC=0`。
+- **GK-2（本包刷新项）**：`tests/test_evidence.py -k cel` 本包实跑 = **2 passed, 19 deselected**（`run_all.sh` 与直接复跑两次同值）→ v1.1 所载「16 deselected」**已陈旧**，当前真值 **19**；**历史值「曾为 16」保留不抹**（§A V-20 行原文照留，本包未改写）。
+- **GK-3**：G-04 / G-11 的字面量 vs 注册码名不一致（`GAP-E3-01`）**维持已披露状态**，本包复跑二者仍 `passed`（G-04 1 passed / G-11 2 passed）≠ 该缺口已修。
+- **GK-1**：cel 逐字段禁用等价类缺口由并发包 **CEL-EQ**（`tests/test_cel_disabled_fieldwise.py`）承接；本包观测 HEAD `877b8fb` 上该文件**尚不存在**（`ls` 实测 No such file），CEL-EQ 结果 = `PLACEHOLDER-TO-REFRESH(主控/CEL-EQ)`，本包不编造。
+- **GK-5**：G-12 仅**同机复现**，**不等于 V-3**；第二人 / 异机复跑仍 ⏳，不因 G-12 绿而上调 V-3。
+- V-20 维持 ⏳（其括注「G-01~G-15 全过」的三态仍依赖 V-1，本包不改判）。
+
+### M-4 · V-15（包 V15-PROV，只读取证、零 commit）
+- 一键复跑 `bash dsm_stage/V12-V15-PROV/run.sh` @`877b8fb`：`V15_RC=0`；`tests/test_models_provenance.py` = **239 passed**（本包与主控两次同值）。
+- 生效 FROZEN 实例 = `WV-SYNTH-2026`，`status=FROZEN`，`provenance.kind=AHP_ONLY`。
+- **七键分类计数：合成待签认 = 7 ／ 有真实业务出处 = 0**；另 **3** 键（`entropy` / `combine` / `alpha_basis`）为 kind-conditional null（AHP_ONLY 下合法缺席，P-11 [L1435] 不判违规）。
+- **六段证据链齐备性 = 3/6**：① AHP 比较矩阵 ✅、② CR ✅、⑥ whatif run_id ✅（三者**全为合成**）；③ 标定窗口熵权 ❌、④ α+标定报告 ❌、⑤ 组合权重对照表 ❌。
+- 缺因：没有任何 FROZEN 实例走通 `AHP_ENTROPY_COMBINED` 全链；组合链仅存在于 `tests/test_methods_calibrate.py::test_p11_alpha_basis_closes_the_provenance_chain` 的单测合成载荷。
+- **本包新发现观测事实（登记为新缺口）**：spine `_run_chain` 传 `AllFrames(weight_provenance=None)`（探针 grep 于 HEAD `877b8fb` 实测 `True`），即 **provenance 未进入渲染报告帧**——"能出示完整证据链"目前只在**数据模型 / config 层**成立，**产品面（报告）取不到**；归属主控裁决，本 RUN 不改实现。
+- 另登记：合成 ahp 段 `expert_count=2` 与 K-01「专家组 ≥5」口径不符，签认时须整段重做。
+- **V-15 维持 ⏳，严禁上调**；K-01~K-20 一个签认值都不填。
