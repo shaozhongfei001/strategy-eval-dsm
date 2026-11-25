@@ -1,0 +1,32 @@
+# ============================================================================
+# M29-3 演练 config（DRILL ONLY）——合成待签认，绝不等于 G7（F-2）治理配置签认。
+# ahp_matrices.yaml：AHP 两两判断矩阵输入（[L1256]；消费点 dsm/cli.py:531-536
+# cmd_ahp_build 读 dimension_matrices（或 matrices）非空映射 + interview_dates）。
+# 它是 K-01/K-02「AHP 两两比较 + 一致性检验（CR < 0.1）」方法约束的输入载体，
+# 本身不携带 W_d 数值（W_d 在 weights_*.yaml）。
+# 出处：v1.1 代码拟定值 = fixtures/input/weight_version.jsonl 的
+# provenance.ahp.comparison_matrices / interview_dates 原样（AHP_SNAPSHOT 谱系，
+# dsm/fixtures_gen.py:92-99）。合成待签认。
+# ⚠️ K-01 方法约束「专家组 ≥ 5 人」在演练载荷上未满足（此处仅 2 位 SYNTH 专家），
+# 正式签认必须重做 ≥5 人矩阵并出 CR 报告。
+# ============================================================================
+
+dimension_matrices:
+  SYNTH-EXPERT-01:
+    SYNTH-M-001:
+      SYNTH-M-001: "1"
+      SYNTH-M-002: "3"
+    SYNTH-M-002:
+      SYNTH-M-001: "0.25"
+      SYNTH-M-002: "1"
+  SYNTH-EXPERT-02:
+    SYNTH-M-001:
+      SYNTH-M-001: "1"
+      SYNTH-M-002: "2"
+    SYNTH-M-002:
+      SYNTH-M-001: "0.5"
+      SYNTH-M-002: "1"
+
+interview_dates:
+  - "2026-01-05"
+  - "2026-01-06"

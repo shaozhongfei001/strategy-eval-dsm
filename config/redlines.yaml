@@ -1,0 +1,32 @@
+# ============================================================================
+# M29-3 演练 config（DRILL ONLY）——合成待签认，绝不等于 G7（F-2）治理配置签认。
+# 本文件是 K-04 红线阈值的签认载体（SDD L1741：「引用行内既有制度阈值 / 监管要求 /
+# 客诉管理办法，不得由模型方拟定」）。因此下列阈值全部是纯演练假定，模型侧零拟定：
+# 出处 = v1.1 代码拟定值 fixtures/input/redline.jsonl（dsm/fixtures_gen.py:356-364
+# redline_rows，阈值 4 次/30日、0.5%、8% 均无行内制度依据，签认时须替换为制度引用）。
+# load_all 语义校验只走 validate_cross_file 的 REDLINE_METRIC_EXISTS 分支，而该函数
+# 在 S1 不被 load_all 调用（dsm/config.py:495 注释 / B-029），故此处指标存在性由
+# S3 preflight 联查 metric_dict。
+# ============================================================================
+
+redlines:
+  - metric_id: M_CONTACT_FREQ_PER_30D
+    level: HARD
+    comparator: GT
+    threshold_value: 4
+    forced_grade: L4
+    reason_code: REDLINE_HARD_M_CONTACT_FREQ_PER_30D
+    waiver_allowed: true
+  - metric_id: M_COMPLAINT_RATE
+    level: HARD
+    comparator: GT
+    threshold_value: "0.005000"
+    forced_grade: L4
+    reason_code: REDLINE_HARD_M_COMPLAINT_RATE
+    waiver_allowed: true
+  - metric_id: M_OPTOUT_RATE
+    level: SOFT
+    comparator: GT
+    threshold_value: "0.080000"
+    reason_code: REDLINE_SOFT_M_OPTOUT_RATE
+    waiver_allowed: false

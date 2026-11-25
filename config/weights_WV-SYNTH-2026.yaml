@@ -1,0 +1,112 @@
+# ============================================================================
+# M29-3 演练 config（DRILL ONLY）——合成待签认，绝不等于 G7（F-2）治理配置签认。
+# 本文件是 K-01 / K-02 的签认载体（SDD L1738-L1739「结果签认并冻结」），当前
+# 全部数值为演练值；G7 未过，不得输出可用于真实资源配置的分数或等级。
+# 键位以 dsm/config.py 为准：weights_*.yaml 通配（:80 WEIGHTS_GLOB，[L1252]）、
+# 顶层 level1_weights / level2_weights（:571-572，[L1192]）、status /
+# effective_from / effective_to / provenance（:573-576，[L1190]-[L1194]）；
+# 结构须同时过 dsm/config.py 语义校验与 dsm/models.py:537 WeightVersionDoc。
+# ============================================================================
+
+# 版本标识：沿用仓库既有 SYNTH 合成命名约定（dsm/fixtures_gen.py:80）。合成待签认。
+weight_version_id: WV-SYNTH-2026
+
+# FROZEN 才可用于评分（[L880]/[L1190]/[L1280]，dsm/config.py 序 4）。演练值。
+status: FROZEN
+
+# 生效区间（[L1191]/[L1193]，闭区间判定 dsm/config.py:1123 一带 _select）。
+# 出处：v1.1 代码拟定值 = fixtures/input/weight_version.jsonl 同值。合成待签认。
+effective_from: "2026-01-01"
+effective_to: "2026-12-31"
+
+# K-01 维度权重 W_d（SDD L1738：AHP 两两比较 + CR < 0.1 + 专家组 ≥ 5 人，签认冻结）。
+# 出处：v1.1 代码拟定值 = fixtures/input/weight_version.jsonl（dsm/fixtures_gen.py
+# 生成，Σ=1：0.30+0.14+0.21+0.21+0.07+0.07，手算=1.00）。合成待签认。
+# ⚠️ 签认前置核查：本载荷的 ahp.expert_count=2，不满足 SDD L1738「专家组 ≥ 5 人」——
+# 属演练缺口，正式签认必须按 K-01 方法重做 AHP 并复验 CR。
+level1_weights:
+  CONTRIB: "0.30"
+  COST: "0.14"
+  EFFIC: "0.21"
+  EXPER: "0.21"
+  PROC: "0.07"
+  SUST: "0.07"
+
+# K-02 维度内指标权重 w_j（SDD L1739；v1.1 起与熵权按 α 组合后冻结）。
+# 出处：v1.1 代码拟定值 = fixtures/input/weight_version.jsonl（每维 Σ=1，逐维手算核对）。
+# 合成待签认。
+level2_weights:
+  CONTRIB:
+    M_AUM_MINOR: "0.10"
+    M_CUST_GAIN: "0.10"
+    M_REV_MINOR: "0.80"
+  COST:
+    M_CAMPAIGN_COST_MINOR: "0.50"
+    M_HANDLE_SEC: "0.50"
+  EFFIC:
+    M_CONV_RATE: "0.30"
+    M_COST_PER_CONV_MINOR: "0.30"
+    M_ROI: "0.40"
+  EXPER:
+    M_COMPLAINT_RATE: "0.40"
+    M_CONTACT_FREQ_PER_30D: "0.40"
+    M_SATISFY_SCORE: "0.20"
+  PROC:
+    M_OPTOUT_RATE: "0.50"
+    M_REACH_RATE: "0.50"
+  SUST:
+    M_REPEAT_USE_COUNT: "0.50"
+    M_RETENTION_RATE: "0.50"
+
+# C-01 签认二件套（[L1194]；config.py _APPROVAL_KEYS :578 只判存在与非空）。
+# 出处：v1.1 代码拟定值 = weight_version.jsonl 同值；人名 SYNTH 前缀 = 约定不写真人
+# （dsm/fixtures_gen.py:4）。合成待签认。
+approved_by: SYNTH_APPROVER
+approved_date: "2025-12-20"
+
+# provenance（[L1194]/[L1228]-[L1245]，P-11 完整链 [L1435]：FROZEN 必带
+# whatif_run_id + ahp 段（comparison_matrices 非空 + cr）+ 签认四件套）。
+# 出处：v1.1 代码拟定值 = weight_version.jsonl 的 provenance 原样（含 AHP 快照
+# dsm/fixtures_gen.py:92-99 引用的 tests/test_models_provenance.py:62-84 AHP_SNAPSHOT）。
+# kind=AHP_ONLY 属 [L1231] 枚举；演练未走 combined，故 entropy/combine/alpha_basis
+# 段不必需（config.py 序 6 仅 combined 条件必填）。合成待签认。
+provenance:
+  kind: AHP_ONLY
+  # [L880]/[L678]/[L1281]/[L1374]：FROZEN 缺 whatif_run_id 直接拒绝加载（序 5）。
+  # 沿用仓库既有 SYNTH 命名（dsm/fixtures_gen.py:87 SYNTH_WHATIF_RUN_ID）。
+  whatif_run_id: WIF-SYNTH-2026-01
+  approved_by: SYNTH_APPROVER
+  approved_date: "2025-12-20"
+  effective_from: "2026-01-01"
+  effective_to: "2026-12-31"
+  ahp:
+    cr: "0.05"
+    ci: "0.1"
+    ri: "0.2"
+    lambda_max: "2.1"
+    max_method_gap: "0.02"
+    expert_count: 2
+    interview_dates:
+      - "2026-01-05"
+      - "2026-01-06"
+    comparison_matrices:
+      SYNTH-EXPERT-01:
+        SYNTH-M-001:
+          SYNTH-M-001: "1"
+          SYNTH-M-002: "3"
+        SYNTH-M-002:
+          SYNTH-M-001: "0.25"
+          SYNTH-M-002: "1"
+      SYNTH-EXPERT-02:
+        SYNTH-M-001:
+          SYNTH-M-001: "1"
+          SYNTH-M-002: "2"
+        SYNTH-M-002:
+          SYNTH-M-001: "0.5"
+          SYNTH-M-002: "1"
+    weights_eigenvector:
+      SYNTH-M-001: "0.62"
+      SYNTH-M-002: "0.38"
+    weights_geometric:
+      SYNTH-M-001: "0.6"
+      SYNTH-M-002: "0.4"

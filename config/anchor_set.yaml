@@ -1,0 +1,28 @@
+# ============================================================================
+# M29-3 演练 config（DRILL ONLY）——合成待签认，绝不等于 G7（F-2）治理配置签认。
+# 本文件是 K-12 锚定基准策略集成员的签认载体（SDD L1749：覆盖各 biz_domain 与各
+# 历史等级、运行满一个完整周期、须书面说明选取依据）。
+# 键位：dsm/models.py:571 AnchorSetDoc（frozen + extra=forbid，[L1208]-[L1214]），
+# 消费点 dsm/cli.py:355-359 _anchor_set_doc（model_validate 原样取 app.anchor_set
+# 单文档）。strategy_ids 必须是序列而非字符串（config.py:583 / models 校验）。
+# ============================================================================
+
+# 集合标识沿用 SYNTH 约定（dsm/fixtures_gen.py:82 ANCHOR_SET_ID）。合成待签认。
+anchor_set_id: AS-SYNTH-2026
+
+# 出处：v1.1 代码拟定值 = fixtures/input/anchor_set.jsonl 同值（8 成员）。
+# ⚠️ K-12 的「书面选取依据」未随演练满足：rationale 是 SYNTH 占位说明串，正式签认
+# 须逐策略给出 biz_domain × 历史等级 × 满周期覆盖矩阵。
+strategy_ids:
+  - S-001
+  - S-002
+  - S-003
+  - S-004
+  - S-005
+  - S-007
+  - S-008
+  - S-011
+
+effective_from: "2026-01-01"
+effective_to: "2026-12-31"
+rationale: SYNTH-ANCHOR-RATIONALE

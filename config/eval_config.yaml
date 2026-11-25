@@ -1,0 +1,181 @@
+# ============================================================================
+# M29-3 演练 config（DRILL ONLY）——本文件全部治理值为「合成待签认」，绝不等于
+# G7（F-2 治理配置签认，属行方评价管理委员会；docs/RUN-UNATTENDED-v1.2.md §1
+# 明确本 RUN 不做）。用本目录只可断言「演练配置下端到端链路可跑通」，不得输出
+# 可用于真实资源配置的分数或等级（README 首屏声明一字未动）。
+# 逐值注释三件套：K 编号 ｜ 出处（契约行号 / v1.1 代码拟定值 / 纯属演练假定）。
+# ============================================================================
+
+# 机器可读的演练标记（值本身携带 SYNTH / 待签认语义；tests/test_config_dryrun.py 断言）
+config_class: SYNTH_DRILL_PENDING_SIGNOFF
+
+# K-09 评价周期（SDD L1746）。合成待签认。
+# 出处：纯属演练假定，与冻结 fixtures 的季期口径对齐（EVAL_PERIOD='2026-Q3'，
+# dsm/fixtures_gen.py:27），非行方签认的周期选择。
+evaluation_period: QUARTER
+
+# 非 K 治理值：preflight 日期基准（C-01 / C-05 / C-10；消费点 dsm/cli.py:497
+# _build_preflight_config）。出处：v1.1 代码拟定值 = dsm/fixtures_gen.py:31
+# DATA_AS_OF。合成待签认。
+period_ref_date: "2026-09-30"
+
+# 非 K 治理值：C-02「已签认」取值集合（消费点 dsm/cli.py:497 / dsm/preflight.py:119，
+# 键位拼写钉在 cli.py:497）。出处：v1.1 代码拟定值 = tests/test_integration_spine.py:79。
+signed_signoff_status:
+  - SIGNED
+
+# K-10 missing_rate_warn / missing_rate_block（SDD L1747：历史缺失率 P75 / P95 初值）。
+# 合成待签认。出处：v1.1 代码拟定值 = tests/test_preflight.py:128-129 同值夹具
+# （tests/test_integration_spine.py:72 注明）。键位消费点 dsm/cli.py:497-498。
+missing_rate_warn: "0.1"
+missing_rate_block: "0.3"
+
+# K-05 attainment_cap（SDD L1742：建议 1.5-2.0 区间选定）。合成待签认。
+# 键位钉在 dsm/attainment.py:133-136（attainment.cap / on_zero / signed_off_statuses）。
+# 出处：v1.1 代码拟定值 = tests/test_attainment.py:30,60 同值夹具
+# （tests/test_integration_spine.py:70 注明）；注意 1.2 在 SDD 建议区间 1.5-2.0 之外，
+# 属演练夹具沿用值，签认时必须按 K-05 方法重定。
+# on_zero：零分母语义（A-1）。v1.1 spine 载荷取 null（=「商本身无定义」，
+# tests/test_attainment.py:63-70），但 null 叶子在 T05 扫描中一律按未填占位处理
+# （dsm/config.py _walk 的 None 分支 / ORCH-23 ruling 6），演练 yaml 无法携带。故取
+# 数值声明语义 "1"，出处 = tests/test_attainment.py:219 同值夹具（on_zero=D('1')）；
+# 正式签认时须连同「商无定义」选项一并定。合成待签认。
+attainment:
+  cap: "1.2"
+  on_zero: "1"
+  signed_off_statuses:
+    - SIGNED
+
+# K-06 min_coverage_for_absolute_track（SDD L1743）。合成待签认。
+# 出处：v1.1 代码拟定值 = tests/test_grading.py:49,274 同值夹具
+# （tests/test_integration_spine.py:73,83 注明）。
+# 消费点：dsm/grading.py:82-83（GradeRuleSet 必填无默认；九步 marshal 的装配点在
+# M29-1，本包不建 builder，键名按 M38 载体（eval_config）与参数名钉写一次）。
+min_coverage_for_absolute_track: "0.6"
+
+# 归一化四键（键位钉在 dsm/normalize.py:99-104；min_pool_size 同时被
+# dsm/pooling.py:84-86 复用为池下限载体）。出处：v1.1 代码拟定值 =
+# tests/test_integration_spine.py:81-82 GOVERNANCE 同值夹具。合成待签认。
+normalize:
+  method: min_max
+  min_pool_size: 1
+  on_zero: "0"
+  sd_dof: 1
+
+# K-13 证据折扣表（SDD L1750：建议不启用；启用须审批并入敏感性分析）。
+# 演练取 GATE_ONLY = 不启用折扣，故无折扣表载荷。mode / significance_keywords 键位
+# 钉在 dsm/evidence.py:41-43；cel.enabled 键位 dsm/evidence.py:44-45。
+# 出处：v1.1 代码拟定值 = tests/test_integration_spine.py:81-82 GOVERNANCE。合成待签认。
+evidence:
+  mode: GATE_ONLY
+  significance_keywords:
+    - SYNTH_SUCC_CRITERIA
+cel:
+  enabled: true
+
+# diagnostics 十字件（键位钉在 dsm/diagnostics.py:35-38）。SDD §5.1 K-01~K-20 不含
+# 诊断阈值，故无 K 编号；出处：v1.1 代码拟定值 = tests/test_diagnostics.py:38-49
+# CFG 同值夹具。合成待签认。
+diagnostics:
+  inactive_threshold: "0.0001"
+  vif_max: "10"
+  corr_max: "0.9"
+  cv_min: "0.05"
+  entropy_shift: "1"
+  corr_method: pearson
+  gra_rho: "0.5"
+  gra_min: "0.4"
+  gra_k_periods: 1
+  owner_signed_off_statuses:
+    - SIGNED
+
+# 三角验证四键（键位钉在 dsm/triangulation.py:50-55；SDD 1030-1031 只给参数名未给
+# 键位，triangulation.py:47-49 注明「拼写在这里定一次」）。enabled 必须显式 bool
+# （dsm/triangulation.py:66-73 拒绝默认）。出处：enabled=true 属演练假定（开，链路全
+# 覆盖）；divergence_threshold="0.80" = v1.1 代码拟定值（tests/test_triangulation.py:73、
+# tests/test_methods_calibrate.py:69 同值夹具）；gra_norm=initial = 枚举值
+# （dsm/triangulation.py:56-58 GRA_NORM_INITIAL）；rho="0.5" = 纯属演练假定（GRA 经典
+# 分辨系数；仓库夹具两处取值不同：test_triangulation.py:73 用 '1'、
+# test_diagnostics.py CFG 用 gra_rho '0.5'，签认时须唯一定值）。合成待签认。
+triangulation:
+  enabled: true
+  rho: "0.5"
+  divergence_threshold: "0.80"
+  gra_norm: initial
+
+# K-15 ~ K-20 + 组合装配键（载体 weight_construction，SDD L1752-L1757；消费点
+# dsm/cli.py:556 与 741 / dsm/weights_calibrate.py:112-115 BUDGET_KEYS /
+# dsm/weights_combine.py:134-140 CombineOptions）。整块合成待签认。
+weight_construction:
+  # K-15 alpha_floor（SDD L1752 建议 0.50「业务判断至少占一半」；
+  # dsm/weights_combine.py:135 [L563] 同值默认）。出处：契约建议值 = 代码默认。
+  alpha_floor: "0.5"
+  # K-16 drift_budget（SDD L1753：历史各 α drift 分布 P25 初值，再委员会确认）。
+  # 出处：v1.1 代码拟定值 = tests/test_cli.py:426 CAL_BUDGET 同值；非 P25 实测。
+  drift_budget: "0.10"
+  # K-17 boundary_budget（SDD L1754）。出处：tests/test_cli.py:426 CAL_BUDGET 同值。
+  boundary_budget: "0.10"
+  # K-18 boundary_epsilon（SDD L1755：attainment_floor 量纲的 2%-5%）。
+  # 出处：tests/test_cli.py:426 CAL_BUDGET 同值（0.01 低于建议带，签认须复核）。
+  boundary_epsilon: "0.01"
+  # K-19 min_dim_weight（SDD L1756 建议 ≥0.05；[L564] 必填无默认）。
+  # 出处：契约建议值 + tests/test_cli.py:426 CAL_BUDGET 同值。
+  min_dim_weight: "0.05"
+  # K-20 max_shift_from_ahp（SDD L1757 建议 0.30；[L568] 同值默认）。
+  # 出处：契约建议值 + tests/test_cli.py:426 CAL_BUDGET 同值。
+  max_shift_from_ahp: "0.30"
+  # H-5 shift：combine 位移上限别名（消费点 dsm/cli.py:557 / 777，[L540] 技术
+  # epsilon，digest 未给值）。出处：取 K-20 同值 "0.30" 作演练载荷，签认时与 K-20 联定。
+  shift: "0.30"
+  # α 本体由标定给出（SDD L1759），本键是演练载荷。出处：纯属演练假定——取
+  # alpha_floor 下界值 "0.5"，无任何正式标定含义。
+  alpha: "0.5"
+  # alpha_grid / window：calibrate 必填入参（消费点 dsm/cli.py:742-746，无默认）。
+  # 出处：键形与三点取值纯属演练假定（grid 形态参照 tests/test_cli.py:242-274 夹具、
+  # tests/test_methods_calibrate.py:69）；window: 4 = tests/test_cli.py:326 同值
+  # （对齐 fixtures_gen.HISTORY_PERIODS 四期窗口）。
+  alpha_grid:
+    - "0.5"
+    - "0.7"
+    - "1.0"
+  window: 4
+  # [L566] entropy_min_strategies=10、[L567] inactive_threshold=1e-4：出处 = 契约明文
+  # 默认值（dsm/weights_combine.py:138-139），显式落盘防漂移。
+  entropy_min_strategies: 10
+  inactive_threshold: "0.0001"
+
+# 敏感性块（K-11 载体 = eval_config.sensitivity，SDD L1748；键位消费点
+# dsm/sensitivity.py:510-511 与 dsm/weights_calibrate.py:120-122）。合成待签认。
+# 出处：v1.1 代码拟定值 = tests/test_integration_spine.py:88-93 SENSITIVITY_CONFIG
+# （与 tests/test_sensitivity.py:33-38 同值）。stable_max "0.05" / review_max "0.15"
+# 即 SDD L1748 建议初始 5% / 15%；loo_sampling_threshold 60 为 digest 固定值
+# （dsm/sensitivity.py:46-47）。mc_samples / dirichlet_concentration /
+# loo_sample_size_per_dim / norm_swap_* 为测试夹具同值（生产规模待行方口径联定）。
+sensitivity:
+  stable_max: "0.05"
+  review_max: "0.15"
+  loo_sampling_threshold: 60
+  mc_samples: 8
+  dirichlet_concentration: "20"
+  loo_sample_size_per_dim: 1
+  norm_swap_method: z_score
+  norm_swap_min_rank_correlation: "0.9"
+  # K-22 loo_dominant_flip_rate：该配置键是否存在本身即待签认项（见
+  # docs/deliverables/K-SIGNOFF-CHECKLIST.md K-22 行，dsm/sensitivity.py:409 无默认
+  # 必填）。出处：tests/test_sensitivity.py:37 同值夹具 "0.2"。合成待签认。
+  loo_dominant_flip_rate: "0.2"
+
+# K-07 min_sample_size_for_A / 显著性水平 / 最小可检测效应（SDD L1744：「由行方统计
+# 口径或既有 AB 平台规范提供」，模型侧不得拟定；K-SIGNOFF-CHECKLIST 实测 K-07
+# 「无落点」——HEAD 09379be 的 dsm/ 无任何消费点，本包复核一致）。以下三键纯属演练
+# 假定：键名按 M38 参数名钉写一次，数值 30 / 0.05 / 0.10 为统计教科书惯用值。
+# 合成待签认。
+min_sample_size_for_A: 30
+significance_level: "0.05"
+min_detectable_effect: "0.10"
+
+# K-14 维度指标细项与口径：载体是 metric_dict.csv（SDD L1751），属 io_loaders 侧
+# 八表（dsm/io_loaders.py:334-341 从 config_dir 读 metric_dict.csv，_resolve 仅认
+# .csv/.parquet），不在 dsm/config.py:76-80 REQUIRED_CONFIG_STEMS 六类 yaml 之内，
+# 故本演练 yaml 集不含 K-14 值；数据载体由 S2 冻结 fixtures（fixtures/input/
+# metric_dict.jsonl，MD-SYNTH-2026）代用。合成待签认（K-14 = P0-5，全模型地基）。
