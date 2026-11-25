@@ -335,64 +335,22 @@
    }
   },
   "BK-3": {
-   "wave": "W3",
-   "cx": "C1",
-   "model": "qwen3.8-flash",
-   "reasoning_effort": "low",
-   "status": "pending",
-   "deps": [
-    "RC-1",
-    "M29-1",
-    "M29-2",
-    "V2-500",
-    "T05-FIX",
-    "RC-2"
-   ],
-   "budget_min": 20,
+   "status": "running",
+   "agent": "Chandrasekhar 01a2133c-5e39-7642-947b-24a02994529e",
+   "model": "qwen3.8-flash/high",
+   "budget_min": 25,
    "writeset": [
     "dsm/diagnostics.py",
-    "dsm/triangulation.py",
     "dsm/whatif.py",
+    "tools/repro_offline.sh",
     "tests/test_diagnostics.py",
     "tests/test_golden_a.py",
     "tests/test_methods_whatif.py",
     "tests/test_sensitivity.py",
-    "tests/test_triangulation.py",
-    "tools/repro_offline.sh"
+    "tests/test_triangulation.py"
    ],
-   "ev": {
-    "min": null,
-    "commit": null,
-    "pytest": null,
-    "first_pass": null,
-    "gate_changed_since_rc": null
-   },
-   "deps_note": "ORCH-53 追加 T05-FIX/RC-2：BK-3 是末尾 LF 规范化包，必须在所有代码面改动落定后执行，否则会与在飞写集撞车。RC-1 已修掉 triangulation.py 使其剩 8 个非 docs 文件",
-   "scope_corrected_by_AUD_V12": {
-    "old": "9 个非 docs 文件，披露 16→7",
-    "new": "**8 个非 docs 文件，披露 15→7**",
-    "reason": "RC-1 已顺带修掉 dsm/triangulation.py 末尾 LF，使 TRAILING_LF_HISTORICAL 由 16 降为 15；AUD-V12 独立亲跑 normalize --check 复核为 15/200，且实测这 15 项与本 RUN 区间改动的 13 个文件**交集为空** → 全属 v1.1 遗留披露，本 RUN 零责任",
-    "remaining_8": [
-     "dsm/diagnostics.py",
-     "dsm/whatif.py",
-     "tests/test_diagnostics.py",
-     "tests/test_golden_a.py",
-     "tests/test_methods_whatif.py",
-     "tests/test_sensitivity.py",
-     "tests/test_triangulation.py",
-     "tools/repro_offline.sh"
-    ],
-    "remaining_7_docs": [
-     "docs/adr/ORCH-19.md",
-     "docs/adr/RUN-A1c-fixtures-controlled-thaw.md",
-     "docs/digest/S1-T01.md",
-     "docs/digest/S1-T01b.md",
-     "docs/digest/S1-T01c.md",
-     "docs/digest/S1-T01d.md",
-     "docs/digest/S1-T01e.md"
-    ],
-    "sequencing": "⚠️ 其中 dsm/diagnostics.py、dsm/whatif.py、tools/repro_offline.sh 可能落在权威哈希输入面内 → 若 REPRO-PRE 问题B 答『是』，则 **BK-3 必须在门禁③/④ 哈希登记之前执行**"
-   }
+   "goal": "8 文件补末尾 LF，披露 15->7；在独立 clone 跑全量 pytest 取可归因证据",
+   "collision": "与 M29-1/M29-2/M28-1/CFG-1 写集零交集（BK3-PRE 实测）"
   },
   "BK-4": {
    "wave": "W3",
@@ -828,20 +786,22 @@
    "verdict": "M29-2 真实缺口=让 cmd_score 成功路驱动 _report_frames->_render_reports 并回填指纹；提出 audit.json 自指纹三选一（ORCH-59 已裁 i-b）；确认不存在钉「成功路恒空」的守卫，但 BLOCK 路「只写 audit_bundle」被钉死"
   },
   "BK3-PRE": {
-   "status": "running",
-   "agent": "Maxwell 01a21324-0f7a-7291-a27d-867545b31812",
-   "model": "qwen3.8-flash/high",
-   "writeset": "只读；产出 dsm_stage/V12-BK3-PRE/**",
-   "budget_min": 30,
-   "goal": "产出 BK-3 可直接施工作业卡：TRAILING_LF_HISTORICAL 15 项权威清单、8/7 划分、逐文件体检、破坏面扫描、git add 具名清单与 commit 文案、与 M29-2 的并行判断"
+   "status": "done",
+   "agent": "Maxwell(已关)",
+   "commit": "none(只读)",
+   "head_obs": "d4d4b95",
+   "min": 55,
+   "verdict": "4 条情报纠偏（无 TRAILING_LF_HISTORICAL 常量 / RUN doc:127 过期 / score_card 34 列 / commit 文案需改）；8-7 划分确认；破坏面为空；已在独立 clone 演练提交 acfe27f + 全量 2342 passed",
+   "orch_use": "施工卡直接交 BK-3 消费"
   },
   "GATE-PRE": {
-   "status": "running",
-   "agent": "Parfit 01a21324-d853-7943-b756-112c65e642b3",
-   "model": "qwen3.8-flash/high",
-   "writeset": "只读；产出 dsm_stage/V12-GATE-PRE/**",
-   "budget_min": 40,
-   "goal": "门禁②20 个 V 项判据+可跑命令+原始日志（不裁三态）；门禁⑥KNOWN-GAPS 13 条重计数四档；NG-V12-01..18 分类"
+   "status": "done",
+   "agent": "Parfit(已关)",
+   "commit": "none(只读)",
+   "head_obs": "b157e00->6156e4b->d4d4b95",
+   "min": 45,
+   "verdict": "门禁②20 项逐条证据+命令+BLOCKED-BY 落 out/V01-V20.log；门禁⑥机械清点 65 行=阻塞13/非阻塞52；NG-V12-01..18 分类=可闭7/移交7/外部3/免动作1；NG-V12-16 复核风险不成立",
+   "orch_use": "V-8 blocked-by M29-2；V-14 维持 ❌（4/6）；V-10 与 V-1 须主控净 HEAD 亲跑"
   },
   "CFG-1": {
    "status": "running",
@@ -1026,7 +986,8 @@
    "evidence": "REPRO-PRE(Halley) 实测：reproducibility_hash 的 payload = dsm/audit.py:231-244 三项（schema / weight_version_id / score_card 30 列 / grade_ledger 5 列），纯「值面」，不含任何源码指纹或 git rev（git grep source_digest|code_digest|git_rev|commit_sha|inspect.getsource = 0 命中）；探针 LOADED 19 个模块、OPENED 8 个 fixtures/input/*.jsonl，docs/ops/config/tools 均 0。v1.1.0..b157e00 的 15 个改动文件中只有 dsm/preflight.py 在探针代码面内，而其产物只进 RunContext.preflight_findings，不进 payload。M29-1/M29-2 写集 dsm/cli.py + tests 均不在 19 个 LOADED 内。",
    "ruling": "门禁④ 重新定义为「在最终 HEAD 上实测权威哈希并登记实测值 + 变更/未变更的机理说明」，不再预设「必变」。实测值 e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904（2026-Q2 口径）若与 v1.1 冻结值相同，则登记为「未变更」，并在 invalidation_log 追加一条：未变更的机理（值面不变）+ 4 条正对照证明探针未死（fixture 值 10000->10001 => 0e7716eb..；weight_version_id => d846ffc4..；HASH_SCHEMA => 9d5ca8ab..；PERIOD->2026-Q3 => e73e4b9b..）。",
    "why": "这不是弱化断言（R-14），是把断言从「期望它变」纠正为「实测它是什么」。伪造一次哈希变化才是违规。",
-   "erratum": "ERRATUM-V12-06"
+   "erratum": "ERRATUM-V12-06",
+   "evidence_correction": "ERRATUM-V12-08：原转录「score_card 30 列」有误；主控 import dsm.audit 亲测 SCORE_CARD_HASH_FIELDS=34 列、GRADE_LEDGER_HASH_FIELDS=5 列。值面结论不变。"
   },
   "ORCH-58": {
    "at_clock": "T+1.59h",
@@ -1074,24 +1035,41 @@
     "回报必须给出「逐字可用的访问表达式」（app 的哪个属性），这是下游 M29-1/M29-2 的接线依据"
    ],
    "m29_1_instruction": "保持 exit-3 + 点名键位不变（H-5 不许自定数）；tests/test_cli_marshal.py 必须自包含（自建 tmp 配置树），不得依赖 CFG-1 是否落地，不得 skip/xfail；端到端在仓库 config/ 上的结果如实写三态。"
+  },
+  "ORCH-62": {
+   "at_clock": "T+1.99h",
+   "topic": "E-6 阻塞性裁决（KNOWN-GAPS:78/154，闭合责任方原文=主控裁决）",
+   "gap_text": "E-6 | M00 L294 L0b 目标清单非穷尽 | 阻断 A3(标定)/A4(whatif) 转绿 | WORKAROUND: E5 ratchet/白名单暂缓",
+   "measured": "主控亲测 @b157e00 全量 pytest 2342 passed / 0 failed（含 weights_calibrate 与 whatif 全部用例）；GATE-PRE 复跑同值 @6156e4b/d4d4b95",
+   "ruling": "E-6 由「阻塞=是」改判「否」。行/事实/WORKAROUND 全部保留披露；须写明 (a) 关闭证据=最终 HEAD 全量 pytest 0 failed 覆盖 A3/A4；(b) 残留事实=M00 L294 清单仍非穷尽，属文档完备性，不阻塞合成演练版；(c) 重开条件=后续 L0b 新模块再需清单外的边须登记新缺口，不得沿用本裁定",
+   "not_weakening": "R-14 无涉：未改断言、未放宽校验；系 KNOWN-GAPS 行自身指定责任方按实测证据做的分类裁定并附重开条件",
+   "effect": "阻塞 13 -> 12"
+  },
+  "ORCH-63": {
+   "at_clock": "T+1.99h",
+   "topic": "G-15 口径张力裁决（GATE-PRE 上报 closable_by_this_run 与 ORCH-53 延期令冲突）",
+   "ruling": "G-15 维持「阻塞=是」，不得改判。ORCH-53 已将 RC-1 残项 #5/#9 延期 v1.3，V-14 六处接线实测 4/6 => 关闭判据未满足",
+   "split_disclosure": "G-15 行拆两段披露：已落地段（RC-1 @877b8fb + RC-2 @dcb6f21，逐条点名）与残留段（#5/#9 + 未接的 2 处），残留登记 NG-V12-19 移交 v1.3",
+   "ledger_correction": "closable_by_this_run 由 [G-8,G-14,G-15] 更正为 [G-8,G-14]",
+   "target_count": "目标阻塞 = 13 - E-6 - G-8 - G-14 = 10（外部 9 条 C-1~C-6/C-8/F-1/F-2 + G-15）。此为条件性目标，G-8/G-14 是否真闭以 M29-1/M29-2 落地后主控亲测为准，未闭则如实留 12"
   }
  },
  "counters": {
   "pkgs_total": 25,
-  "pkgs_done": 17,
-  "pkgs_running": 5,
-  "pkgs_pending": 3,
+  "pkgs_done": 19,
+  "pkgs_running": 4,
+  "pkgs_pending": 2,
   "w1_pkgs": 6,
   "w2_pkgs": 3,
   "w3_pkgs": 3,
   "max_pkgs": 5,
   "flash_pkgs": 18,
   "slots_limit": 6,
-  "slots_in_use": 5,
+  "slots_in_use": 4,
   "escalations": 0,
   "rework_rounds": 0,
   "budget_violations": 0,
-  "updated_at_epoch": 1795618236.9724092,
+  "updated_at_epoch": 1795619284.7943969,
   "adhoc_pkgs": 11,
   "orch_self_inflicted_errata": 4
  },
@@ -1142,12 +1120,11 @@
   ],
   "closable_by_this_run": [
    "G-8",
-   "G-14",
-   "G-15"
+   "G-14"
   ],
-  "needs_contract_ruling": [
-   "E-6"
-  ],
+  "needs_contract_ruling": {
+   "E-6": "ORCH-62 已裁：改判非阻塞，附重开条件"
+  },
   "external_only": [
    "C-1",
    "C-2",
@@ -1158,37 +1135,27 @@
    "C-8",
    "F-1",
    "F-2"
-  ]
+  ],
+  "partially_closed_deferred": {
+   "G-15": "ORCH-63：已落地段有 commit 证据，残项 #5/#9 与六处接线中未接的 2 处移交 v1.3（NG-V12-19）"
+  }
  },
  "clock_now": {
-  "at_epoch": 1795618236.9724092,
-  "clock": "T+1.70h",
-  "head": "6156e4b(台账)+M29-1 工作树脏",
-  "phase": "W2 关键路径",
-  "remaining_hours": 4.3,
-  "note": "槽位 5/6，留 1 槽给 M29-2"
+  "at_epoch": 1795619284.7943969,
+  "clock": "T+1.99h",
+  "head": "d4d4b95",
+  "phase": "W2",
+  "remaining_hours": 4.01,
+  "note": "槽位 4/6；关键路径 M29-1(盒至 T+2.35h) -> M29-2 -> DOC-FINAL"
  },
  "active_agents": {
   "M29-1": {
    "agent": "Zeno 01a212d3-8a38-7fe0-a7d1-277ddf145a5b",
-   "model": "qwen3.8-max/xhigh",
-   "state": "ORCH-60 已生效，cli.py +732/-19，eta 自报 30min",
+   "state": "running",
    "critical_path": true
   },
   "M28-1": {
    "agent": "Gibbs 01a21315-dcfa-7f20-991e-831adeda9149",
-   "model": "qwen3.8-max/high",
-   "state": "running"
-  },
-  "BK3-PRE": {
-   "agent": "Maxwell 01a21324-0f7a-7291-a27d-867545b31812",
-   "model": "qwen3.8-flash/high",
-   "state": "running",
-   "critical_path": false
-  },
-  "GATE-PRE": {
-   "agent": "Parfit 01a21324-d853-7943-b756-112c65e642b3",
-   "model": "qwen3.8-flash/high",
    "state": "running",
    "critical_path": false
   },
@@ -1201,9 +1168,13 @@
   ],
   "CFG-1": {
    "agent": "Galileo 01a2132f-056d-7962-a4d5-9e790bcb59e8",
-   "model": "qwen3.8-max/high",
    "state": "running",
    "critical_path": true
+  },
+  "BK-3": {
+   "agent": "Chandrasekhar 01a2133c-5e39-7642-947b-24a02994529e",
+   "state": "running",
+   "critical_path": false
   }
  },
  "errata": [
@@ -1277,6 +1248,15 @@
    "detected_by": "M29-2-PRE(Socrates) 提出三选一，主控裁决",
    "impact": "未裁决即施工会出现「假自指纹」或两遍写伪造",
    "corrected_to": "六键口径 + audit.json 自身哈希走 bundle 外通道（ORCH-59）；契约文本只读，不改原件，仅在本台账与终报披露"
+  },
+  {
+   "id": "ERRATUM-V12-08",
+   "at_clock": "T+1.99h",
+   "who": "主控 ORCH-57 证据段（转录自 REPRO-PRE）",
+   "what_was_wrong": "写 score_card 30 列",
+   "detected_by": "BK3-PRE 独立实测报 34 -> 主控 import 亲测裁定",
+   "impact": "列数会进最终验收文档与 BK-3 commit 文案，错值属 R-12",
+   "corrected_to": "SCORE_CARD_HASH_FIELDS=34 列 / GRADE_LEDGER_HASH_FIELDS=5 列（主控亲测）"
   }
  ],
  "orch_lessons": [
@@ -1457,6 +1437,22 @@
    "what": "dsm/config.py:665/676 仍以 CONFIG_SEMANTIC_ERROR 作为配置层唯一码 → 这是 RC-2 必须把该码保留在 RUN_BLOCKING_CODES/DISCLOSURE 两表内的硬原因（_f:74 查不到披露位置即抛）。dcb6f21 保留该码=正确，非遗漏",
    "owner": "无需动作",
    "close_condition": "n/a（登记以免后续包误判为『换码不彻底』而错误删除）"
+  },
+  {
+   "id": "NG-V12-19",
+   "from": "ORCH-63 / RC-1 残项 #5、#9",
+   "severity": "blocking-carry",
+   "what": "G-15 reason_code 接线未齐（六处中 4 处已接，#5/#9 延期），V-14 因此维持 ❌",
+   "owner": "v1.3 RUN",
+   "close_condition": "v1.3 落地 #5/#9 两处接线并使 V-14 四项齐备条件成立，再由主控亲测上调"
+  },
+  {
+   "id": "NG-V12-20",
+   "from": "ORCH-59 / ERRATUM-V12-07",
+   "severity": "informative",
+   "what": "契约 L1046「AuditBundle 含输出文件清单与 SHA256」在 audit.json 自身亦为七件产物之一时字面自指；实现采六键口径，audit.json 自身 SHA256 走 write_report_set 返回值 / CLI details 外部通道披露",
+   "owner": "M29-2 实现 + DOC-FINAL 披露",
+   "close_condition": "n/a（契约只读不改原件；须在终报与验收文档显式披露，不得静默）"
   }
  ],
  "t0_operative": {
