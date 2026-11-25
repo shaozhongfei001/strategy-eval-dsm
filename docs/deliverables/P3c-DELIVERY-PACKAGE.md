@@ -3,11 +3,11 @@
 > **P3c-pre2 事实校正（必读：本节覆盖下文所有陈旧数字）**　观测 HEAD `f27334d`（A1d），`git tag -l` 实测 **0** 条。
 > ① **KNOWN-GAPS 阻塞数已由 24 改为 16**（D-DOC-01 已修）：合计 **64 条**（A10/B10/C8/D7/E8/F2/**G19**）、**阻塞 16 / 非阻塞 48**，汇总节与正文逐条列举**已回读自证相等**；旧的「19 条」与「24 条」两个数字**都不要再引用**。
 > ② **K 清单已扩到 K-01~K-35**（35 个编号 / 39 个签认动作，K-21 拆 5 子项），全部仍为 PLACEHOLDER；`config/` 实测 **0 文件**，真跑以 `EXIT_CONFIG=3` 拒绝（**设计如此，非缺陷**）。
-> ③ **`reproducibility_hash` 现值 = `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`**（@`42d5346`），台账 `8083efc9…` → `4de4b8cb…` → `e5fa8ae0…` → `e5923465…` → **终值 `PLACEHOLDER-TO-REFRESH(P2-wire-B)`**，旧值一律保留、**严禁修回**。**P3b 判据 = 最终 HEAD 上全新 clone + `unshare -rn` 真断网 + 同 seed 两连跑精确自等，不是与任何旧值相等。**
+> ③ **`reproducibility_hash` 现值 = `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`**（@`42d5346`），**台账定稿（ORCH-44）**：`8083efc9…` → `4de4b8cb…`(`superseded_by_A1c`) → `e5fa8ae0…`(@A1c) → **`e5923465…`（权威值，@`42d5346`；复测同值于 `0d8afeb`／`31eb1b2`／`93abfee`／`da4d0a9`）**，旧值一律保留、**严禁修回**；ROB-1 上报的 `f437c0ea…` 定性为 **non-canonical（测试内自测值）**，**不入台账**（见 `K-SIGNOFF-CHECKLIST.md` K-36）。**P3b 判据 = 最终 HEAD 上全新 clone + `unshare -rn` 真断网 + 同 seed 两连跑精确自等，不是与任何旧值相等。**
 > ④ **CLI 仍无 console script**（`D-CLI-01`，本 RUN 裁定不补）：唯一入口 `/home/szf/venvs/dsm/bin/python -m dsm.cli`，8 条叶子命令 + 公共 6 参数 + `--schemes`，退出码 0/2/3/4/5/6/7。**且 M29 九步 marshal（[L1330]-[L1358]）本体未落地**：`cli.py:_chain_gate` 在模块齐全时仍 `raise InvariantError`（退出码 5），P2-wire-A 落的两个 seam 目前**没有生产调用点、只由测试驱动** → **不得写成「CLI 已可用」**（`KNOWN-GAPS G-14` / `K-34`）。
 > ⑤ **缺陷 27 条、勘误 11 条（ERRATUM-01~11）、教训 L-01~L-12**；P2 已拆两次：**P2 → P2-cli + P2-wire → P2-wire-A + P2-wire-B**（ORCH-36 第5条 / ORCH-39 第6.4条）。`reason_code` 注册数 **91**（R15B2 的 90 + CODES-2 @`32cafd0` 的 `EV_OUT_OF_EVAL_PERIOD`）。
 > ⑥ **LOO-1 新增契约产出物 `SensitivityReport.loo_impact`**（L748/L1409/L1450 要求的「每指标 LOO 影响力排名」），实测 `loo_impact_max = M_REV_MINOR 0.120000000000` 与手算逐位相符；**MD 报告面出口已由 P2-wire-A @`53ed80c` 闭环**（`report.md` ⑦ 段），**CSV 面本 RUN 不做**（ORCH-42 第4条，扩列属契约变更），**CLI 摘要面**被 ④ 的 marshal 缺位挡住 → 在 ④ 落地前**不得声称该产出物在 CLI 面对用户可见**。
-> ⑦ 最终全量 pytest 数字（当前已入账权威基线只到 `after_MODELS1` = 11 failed / 2190 passed / 2201 collected @`cc18a38`，其 11 红拆分本身也是 PLACEHOLDER）、最终哈希、最终 `git rev-list --count origin/main..HEAD` 一律 `PLACEHOLDER-TO-REFRESH`（A1d／E2b／E3b／P2-wire-A 并发施工，此刻测到的都不是终值；P3C-draft 当时实测的 ahead=34 **不得沿用**）。
+> ⑦ **最终数字（P3c-final 实测 @`da4d0a9`）**：全量 pytest = **1 failed／2301 passed／2302 collected**（0 error／0 skip／0 xfail；原 11 红已**全部闭合**，唯一红是 A1c @`6299245` 的 D-A1-03 引入之新红，已派 **CMB-1** → 「0 failed」终值 = `PLACEHOLDER-TO-REFRESH(CMB-1)`）；权威 `reproducibility_hash` = **`e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`**（本包 `repro_offline.sh --strict-isolation` 实测 PASS／L3-strong）；`git rev-list --count origin/main..HEAD` = **54**（P3C-draft 的 34 **作废**）；`git tag -l` = **0**。
 
 - **包号**：`P3C-draft`（交付包与 README **前移件**）
 - **性质**：`docs/RUN-UNATTENDED-v3.0-PARALLEL.md` §3.2 第 239 行 **P3c** 交付物中「README + 交付包」部分的**前移完成件**。**本包不打 tag、不 push**（tag 必须在 P2 全量转绿之后）。
@@ -231,7 +231,7 @@ git push origin :refs/tags/v1.1.0       # 已 push 后删除远端 tag（破坏�
 
 | # | 路径 | 本包重核状态 | 归属 |
 |---|---|---|---|
-| 1 | `README.md` | **本包定稿**（新增 §12 事实校正 + 首屏校正横幅）；仅余最终数字 `PLACEHOLDER-TO-REFRESH` | P3c-pre2（本包）|
+| 1 | `README.md` | **P3c-final 定稿**：§12 事实校正 + 首屏校正横幅 + 最终数字按 `da4d0a9` 实测刷新；仅余 64 位 `output_fingerprints` 台账与「0 failed」两处 PLACEHOLDER | P3c-final（本包）|
 | 2 | `docs/deliverables/P3c-DELIVERY-PACKAGE.md` | **本包定稿**（本节）| P3c-pre2 |
 | 3 | `docs/deliverables/V-ACCEPTANCE-EVIDENCE.md` | **未定稿**：归并发的 **P3a-pre2**，本包**未写**（写集边界）| P3a-pre2 |
 | 4 | `docs/deliverables/K-SIGNOFF-CHECKLIST.md` | **本包定稿**：K-01~**K-35**（35 编号／39 签认动作，K-21 拆 5 子项；K-23 撞号已按 L-12 改记 K-29）| P3c-pre2 |
@@ -249,24 +249,30 @@ git push origin :refs/tags/v1.1.0       # 已 push 后删除远端 tag（破坏�
 | 16 | `docs/RUN-UNATTENDED-v3.0-PARALLEL.md` | 定稿（宪章只读）| — |
 | 17 | `ops/dag-state.json` | **主控独占写**，本包只读：`decisions` ORCH-01~**ORCH-42**、`defects` **27**、`errata` **11**、`contract_gaps_pending` **49**（含 K-22~K-29）、`orch_lessons` **12**（L-01~L-12）| 主控 |
 | 18 | `tools/gen_golden.py`、`tools/normalize.py` | **未定稿**：`gen_golden.py` 的 G-09 载体硬编码（`:179-187`）修正归 **E2b**（A1c 裁定，严禁手改 golden_map）；`normalize.py` 的门禁作用域收窄归 **P2-wire-B**（`D-TOOLS-01`）| E2b／P2-wire-B |
-| 19 | `reports/` | **不入库**（gitignore）；P2-wire-A 已改 `report.md` ②⑥⑦⑧ 段 → `output_fingerprints` 必变 | P2-wire-B（台账）|
+| 19 | `reports/` | **不入库**（gitignore）；**`output_fingerprints` 实测为「spine 面不可观测」（ORCH-44 第4条，不得写「已变更」）**：`bundle.output_fingerprints = {}`，七件产物指纹的真实出口 `reports.write_report_set` **无生产调用点**（M29 marshal 未落地）。P2-wire-B 已实算七件 sha256[:16]：`report_md 102d2d973c949ef2`／`score_card_csv bf583dc0da2da0a6`／`grade_ledger_csv 7afe10893ff2d366`／`sensitivity_report_csv 219b0880ff44d67f`／`triangulation_md ec8733e1f1b15ded`／`audit_json b81016fbd1eea897`／`entropy_diagnostic_csv 98207523a05e569f`；64 位生产台账 → `PLACEHOLDER-TO-REFRESH(主控)` | P2-wire-B（已给 sha256[:16]）+ 主控（64 位台账）|
 | 20 | `dsm_stage/` | **不入库**（gitignore）：含 `R15B2/CONSUMPTION-TODO.md`（9 条）、`G14FIX/K-21-PROPOSAL.md`、`LOO-1/NEED-WIRING.md`、`P2-wire-A/NEED-WIRING.md`（13 项）等被裁决引用的证据 → 交付归档时须**主控决定**是否随包留存 | 主控 |
 
-### 6.2 tag 前置 ①~⑦ 重核（本包实测口径）
+### 6.2 tag 前置 ①~⑦ 重核（**P3c-final 逐条真跑命令核验**，观测 HEAD `da4d0a9`）
 
-| 项 | 判据 | 本包重核状态 |
-|---|---|---|
-| ① 全量转绿 | 0 failed／0 error／0 新增 skip／0 xfail | **未满足**：权威基线 `after_MODELS1` = 11 failed／2190 passed／2201 collected @`cc18a38`；A1d 报 spine 7 红→1 红、P2-wire-A 报定向 260 passed／0 failed（均未跑全量）→ 终值 `PLACEHOLDER-TO-REFRESH(P2-wire-B)` |
-| ② P3a 证据表定稿 | V-1~V-20 合计 20 条且 ❌=0；D-1~D-12 全在册；ERRATUM 全披露 | **未满足**：归 **P3a-pre2**（并发在飞，本包无权写 `V-ACCEPTANCE-EVIDENCE.md`）；ERRATUM 已由 3 条增至 **11 条** |
-| ③ P3b 断网两连跑自等 | `tools/repro_offline.sh --strict-isolation` → exit=0 + PASS + L3-strong + 两次 64 位逐字符相等 | **未满足**：仅前置实测（@`d228edd`），正式签核与**异机第二人复跑**仍是 PLACEHOLDER |
-| ④ 哈希重测并登记 | `invalidation_log` 的 `at` 不再 pending、`hash_after` 为实测 64 位 | **部分满足**：seq1／seq3／seq4 的 `hash_after` **已补齐实测 64 位**（`4de4b8cb…`／`e5fa8ae0…`／`e5923465…`），`current_hash` = `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`；**seq5（A1d／LOO-1／P2-wire-A）仍 PLACEHOLDER** → 归 P2-wire-B |
-| ⑤ 邻仓基线未变 | `m0-framework`／`0cccb76`／porcelain 0／rev-list 154 | **满足**：本包开工与收尾各实测一次，四项全部一致，未写该仓任何文件 |
-| ⑥ KNOWN-GAPS 计数自洽 | 汇总数 == 正文逐条列举数 | **已由本包满足**：机械清点表行 **64**、flag「是」**16**，与汇总节逐字相等（D-DOC-01 修复的验收条件）|
-| ⑦ 工作树干净 | `git status --porcelain` 为空 | **未满足（预期内）**：本包施工期间 E2b／E3b／P2-wire-B 等在飞改动 `dsm/**`、`tests/**`、`ops/dag-state.json`；本包只 `git add` 自己写集的 4 个文件，**未 stash／未 checkout／未提交他包写集** |
+> 纪律重申（本文件 §2 原文）：**必须逐条跑命令核验，不得凭记忆或凭 lane 自述打勾；任一项不满足 → 不得打 tag。** 下表「实测」列全部是本包亲自跑出的命令输出摘要（完整对照见 `KNOWN-GAPS.md` §H-13）。
 
-### 6.3 发布数字（一律待刷新）
+| 项 | 判据（§2 原文口径） | **P3c-final 实测命令 → 输出摘要** | 结论 |
+|---|---|---|---|
+| ① P2 全量转绿 | 0 failed／0 error／0 skip／0 xfail | `pytest -o addopts= -q -p no:cacheprovider --tb=no -rfE` → **`1 failed, 2301 passed in 15.48s`**（collected 2302；0 error／0 skip／0 xfail）。唯一红 `tests/test_methods_combine.py::test_build_draft_on_the_frozen_a1_fixtures`（`:502 assert 8 == 9`）；`git archive` 二分实测引入点 = **A1c @`6299245`**（`cc18a38`／`dce1ac5` 绿，`6299245` 起红） | **未满足（硬门禁）** → **不得打 tag**；终值 `PLACEHOLDER-TO-REFRESH(CMB-1)` |
+| ② P3a 证据表定稿 | **原文**：V-1~V-20 合计 20 条且 **❌ = 0** | `grep -c ERRATUM-0[123] docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`／`V-ACCEPTANCE-EVIDENCE.md` 的 ✅❌⏳ 汇总行 → **本包无权写该文件**（P3a-final 在飞，唯一脏文件），故只能转录：V-14 实测为 ❌，❌ ≠ 0 | **原文判据未满足，此事实不得抹去**。**主控 ORCH-44 重述**（逐字）：「V-1~V-20 全 20 条在册；每条 ❌／⏳ 均有归属包 + K 缺口编号 + 下一版完成条件；且有 AUD-FINAL 的零弱化卷宗佐证 C4（真弱化）= 0」。按重述判定：**部分满足** —— V-14 的三项登记已齐（缺口 = M28 26 行降级矩阵逐条遍历断言零断言 + M29 九步 marshal 未落地，归属包 = 主控／下一版，K 编号 = **K-34**，完成条件 = marshal 落地后 CLI 按九步跑通并产出 [L1062] 七件产物）；**V-1 是否随全量转绿尚未成立**（见 ①）；AUD-FINAL 卷宗**在飞未入账** |
+| ③ P3b 全新 clone + 断网 + 同 seed 两连跑哈希精确相等 | exit 0 + PASS + **L3-strong** + 两次 64 位逐字符相等 | `bash tools/repro_offline.sh --wheelhouse /home/szf/dsm-wheelhouse --runs 2 --keep --strict-isolation` → **exit 0**、`RESULT=PASS HASH=`+H+` COMMIT=da4d0a9 ELAPSED=15s ISOLATION=L3-strong DIRTY=1 HEAD_STABLE=yes ASSERTION=pytest`；`netns_probe = offline-confirmed`；`clone_head` == `src_head`（commit-exact） | **满足（限本次签核的 HEAD）**。**适用范围限定（P3b-FIX 自述 + ORCH-44）**：B1／B7 已修好 → L3-strong 自述现在可信；但**若 CMB-1 或任何后续包使 HEAD 前移，须按 §8 在最终 HEAD 复跑签核后再打 tag**（由主控在 push/tag 前执行）。**诚实边界四条保留**：第二人／异机复跑仍 PLACEHOLDER（同机同 Python 3.12.3）→ **V-3／V-10 维持 ⏳**；wheelhouse 不入库且 cp312-manylinux-x86_64 绑定；`config/` 实测 0 文件 → `dsm score` 端到端不可跑（`EXIT_CONFIG=3` **属设计非缺陷**）；权威哈希出自探针内合成的 GOVERNANCE 配置 |
+| ④ 哈希重测并登记 | `invalidation_log` 的 `at` 不再 pending、`hash_after` 为实测 64 位 | 转录 + 本包复测：seq1／seq3／seq4 的 `hash_after` 已是实测 64 位；`current_hash` = **`e5923465…80904`**，本包在 `da4d0a9` 复测**同值**（③ 那条命令） | **部分满足** —— 哈希侧已闭合；**`ops/dag-state.json` 侧仍不满足**：`current_hash_asof` 仍写 `358b4ea`、`invalidation_log` 有**两个 `seq = 3`**、`defects` 状态滞后 3 处、`D-A4-02` 撞号 → **属主控写集，本包只披露不修改**（见 §5 与 `KNOWN-GAPS.md` §H-11） |
+| ⑤ 邻仓基线未变 | `m0-framework`／`0cccb76`／porcelain 0／rev-list 154 | 开工 09:04 与收工各跑一次 `cd /home/szf/dev/CampaignLab && git branch --show-current; git rev-parse --short HEAD; git status --porcelain \| wc -l; git rev-list --count HEAD` → 四次输出全部为 `m0-framework`／`0cccb76`／**0**／**154**；契约文件 sha256[:12] = **`708679e9a83d`**、行数 **2003** | **满足**（本包未写邻仓任何文件） |
+| ⑥ KNOWN-GAPS 计数自洽 | 汇总数 == 正文逐条列举数 | `grep -cE "^\\| [A-G]-[0-9]+ " docs/deliverables/KNOWN-GAPS.md` = **65**；同前缀再筛 flag「是」= **14** | **满足**（P3c-final 重算后仍自洽：阻塞 **14**／非阻塞 **51**／合计 **65**；上一版 16／48／64 已随 E-8／G-2／G-3 闭合与 G-20 新增而作废） |
+| ⑦ 工作树干净 | `git status --porcelain` 为空 | 本包实测 ` M docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`（P3a-final 在飞）。**该条判据与命令照抄 §2，核验时刻须为打 tag 当下** | **待主控在 push 前实测**（本包施工期不可能满足；本包只 `git add` 自己写集的 4 个文件，未 stash／checkout／reset／clean） |
+
+**tag 结论（本包）**：**TAG_READY = no**，缺 **①**（硬门禁，唯一红归 A1c @`6299245`，已派 **CMB-1**）与 **②**（原文 ❌=0 未满足；按 ORCH-44 重述亦待 V-1 转绿 + AUD-FINAL 卷宗入账）；④ 的台账侧与 ⑦ 待主控。**③／⑤／⑥ 本包实测满足**（③ 限本次 HEAD，HEAD 前移须复跑）。
+
+**G5／G7 与 tag 的关系（保持不变）**：宪章 §3.2 第 239 行未要求 G7 先过才能打 tag，**tag 可以打在「合成数据演练版」上**；但 README 首屏与本文件均须写明「**G5／G7 未过，不得输出可用于真实资源配置的分数或等级**」。该声明的守护测试本包**实测确认仍 PASS**：`pytest -o addopts= -q "tests/test_reports.py::test_gate_not_passed_puts_statement_on_first_screen"` → **`1 passed in 0.58s`**（只跑该文件，未跑全量）。
+
+### 6.3 发布数字（P3c-final 刷新）
 
 - `git tag -l` 实测 **0** 条；`v1.1.0` **不存在**，由主控在 P2-wire-B 全量转绿后统一执行（R-13：子包禁 tag／禁 push）。
-- `git rev-list --count origin/main..HEAD` = `PLACEHOLDER-TO-REFRESH(主控 push 前重测)`（P3C-draft 当时实测 34，其后 HEAD 已多次前进，**不得沿用旧数**）。
+- `git rev-list --count origin/main..HEAD` = **54**（实测 @`da4d0a9`；P3C-draft 的 34 **作废**；CMB-1／P3a-final／AUD-FINAL 落地后 push 前**必须重测**）。
 - 契约核验（本包第一步实测）：sha256[:12] = `708679e9a83d`、行数 = **2003**，与派工单一致。
 - **G5／G7 与 tag 的关系**：宪章 §3.2 第239行未要求 G7 先通过才能打 tag；但 tag **不代表可上线版本**，只代表「合成数据演练版」——G7 未过时按 M39 L45 仅允许合成数据全流程／演示报告／whatif 预演，**不得**输出可用于真实资源配置的分数或等级。

@@ -4,14 +4,14 @@
 
 > **读者须知（首屏声明）**：本仓库当前 **G5（D6 证据复核）与 G7（治理配置签认）两道门禁均未通过**，`config/` 目录实测 **0 文件**、K-01~K-35 全部为 `PLACEHOLDER`。因此本仓库**只能用于合成数据的全流程演练**，**不得输出任何可用于真实资源配置的分数或等级**（判据见 `docs/digest/M39-risks-gates.md` L45，即 SDD L1797）。详见下文[第 8 节「当前状态」](#8-当前状态诚实节)。
 
-> **P3c-pre2 事实校正（必读：本节覆盖下文所有陈旧数字）**　观测 HEAD `f27334d`（A1d），`git tag -l` 实测 **0** 条。
-> ① **KNOWN-GAPS 阻塞数已由 24 改为 16**（D-DOC-01 已修）：合计 **64 条**（A10/B10/C8/D7/E8/F2/**G19**）、**阻塞 16 / 非阻塞 48**，汇总节与正文逐条列举**已回读自证相等**；旧的「19 条」与「24 条」两个数字**都不要再引用**。
-> ② **K 清单已扩到 K-01~K-35**（35 个编号 / 39 个签认动作，K-21 拆 5 子项），全部仍为 PLACEHOLDER；`config/` 实测 **0 文件**，真跑以 `EXIT_CONFIG=3` 拒绝（**设计如此，非缺陷**）。
-> ③ **`reproducibility_hash` 现值 = `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`**（@`42d5346`），台账 `8083efc9…` → `4de4b8cb…` → `e5fa8ae0…` → `e5923465…` → **终值 `PLACEHOLDER-TO-REFRESH(P2-wire-B)`**，旧值一律保留、**严禁修回**。**P3b 判据 = 最终 HEAD 上全新 clone + `unshare -rn` 真断网 + 同 seed 两连跑精确自等，不是与任何旧值相等。**
+> **P3c-final 事实校正（必读：本节覆盖下文所有陈旧数字）**　观测 HEAD `da4d0a9`（P3b-FIX），`git tag -l` 实测 **0** 条。P3c-pre2 的校正节保留为上一版本。
+> ① **KNOWN-GAPS 计数（P3c-final 重算）：合计 65 条、阻塞 14 / 非阻塞 51**（A10/B10/C8/D7/E8/F2/**G20**）；E-8／G-2／G-3 已 CLOSED（`111570a`／`31eb1b2`／`0d8afeb`），新登 **G-20**（全量唯一残留红）。旧数字 **19／24／16／48／64 一律不再引用**；D-DOC-01 验收条件（汇总数 == 正文逐条数）**已复核仍成立**。
+> ② **K 清单已扩到 K-01~K-39**（39 个编号 / 43 个签认动作，K-21 拆 5 子项；新增 **K-36 权威哈希口径／K-37 G-10 hand 判据陈旧／K-38 G-14 hand 三口径留痕／K-39 P3b 工装 B1~B9 + `dsm_stage/` 归档风险**，编号由主控 ORCH-44 单点分配），全部仍为 PLACEHOLDER；`config/` 实测 **0 文件**，真跑以 `EXIT_CONFIG=3` 拒绝（**设计如此，非缺陷**）。
+> ③ **`reproducibility_hash` 现值 = `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`**（@`42d5346`），**台账定稿（ORCH-44）**：`8083efc9…` → `4de4b8cb…`(`superseded_by_A1c`) → `e5fa8ae0…`(@A1c) → **`e5923465…`（权威值，@`42d5346`，复测同值于 `0d8afeb`／`31eb1b2`／`93abfee`／`da4d0a9`）**，旧值一律保留、**严禁修回**；ROB-1 的 `f437c0ea…` 是 **non-canonical 测试内自测值，不入台账**（→ K-36）。**P3b 判据 = 最终 HEAD 上全新 clone + `unshare -rn` 真断网 + 同 seed 两连跑精确自等，不是与任何旧值相等。**
 > ④ **CLI 仍无 console script**（`D-CLI-01`，本 RUN 裁定不补）：唯一入口 `/home/szf/venvs/dsm/bin/python -m dsm.cli`，8 条叶子命令 + 公共 6 参数 + `--schemes`，退出码 0/2/3/4/5/6/7。**且 M29 九步 marshal（[L1330]-[L1358]）本体未落地**：`cli.py:_chain_gate` 在模块齐全时仍 `raise InvariantError`（退出码 5），P2-wire-A 落的两个 seam 目前**没有生产调用点、只由测试驱动** → **不得写成「CLI 已可用」**（`KNOWN-GAPS G-14` / `K-34`）。
 > ⑤ **缺陷 27 条、勘误 11 条（ERRATUM-01~11）、教训 L-01~L-12**；P2 已拆两次：**P2 → P2-cli + P2-wire → P2-wire-A + P2-wire-B**（ORCH-36 第5条 / ORCH-39 第6.4条）。`reason_code` 注册数 **91**（R15B2 的 90 + CODES-2 @`32cafd0` 的 `EV_OUT_OF_EVAL_PERIOD`）。
 > ⑥ **LOO-1 新增契约产出物 `SensitivityReport.loo_impact`**（L748/L1409/L1450 要求的「每指标 LOO 影响力排名」），实测 `loo_impact_max = M_REV_MINOR 0.120000000000` 与手算逐位相符；**MD 报告面出口已由 P2-wire-A @`53ed80c` 闭环**（`report.md` ⑦ 段），**CSV 面本 RUN 不做**（ORCH-42 第4条，扩列属契约变更），**CLI 摘要面**被 ④ 的 marshal 缺位挡住 → 在 ④ 落地前**不得声称该产出物在 CLI 面对用户可见**。
-> ⑦ 最终全量 pytest 数字（当前已入账权威基线只到 `after_MODELS1` = 11 failed / 2190 passed / 2201 collected @`cc18a38`，其 11 红拆分本身也是 PLACEHOLDER）、最终哈希、最终 `git rev-list --count origin/main..HEAD` 一律 `PLACEHOLDER-TO-REFRESH`（A1d／E2b／E3b／P2-wire-A 并发施工，此刻测到的都不是终值；P3C-draft 当时实测的 ahead=34 **不得沿用**）。
+> ⑦ **最终数字（P3c-final 实测 @`da4d0a9`）**：全量 pytest = **1 failed／2301 passed／2302 collected**（0 error／0 skip／0 xfail；原 11 红**全部闭合**，唯一红由 A1c @`6299245` 的 D-A1-03 引入，已派 **CMB-1** → 「0 failed」= `PLACEHOLDER-TO-REFRESH(CMB-1)`）；权威 `reproducibility_hash` = **`e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`**（本包 `repro_offline.sh --strict-isolation` 实测 **PASS／L3-strong**）；`git rev-list --count origin/main..HEAD` = **54**（34 **作废**）；`git tag -l` = **0**。
 
 - **唯一权威设计文档（SDD）**：`开发设计文档-策略评价可辩护评分模型DSM-v1.1.md`，共 **2003 行**（本包实测 `wc -l`），sha256 前 12 位 **`708679e9a83d`**（本包实测）。
 - **本 README 的事实纪律**：下文每一个数字要么是本包亲自实测（标注「实测」），要么注明来源文件与 commit（标注「来源」）。查不到的一律写 `PLACEHOLDER`，**不猜、不编**（本 RUN 铁律 R-12）。
@@ -466,7 +466,7 @@ ORCH-35 的**决定性理由**（ADR §2 逐字）：L901 同一句之内既规�
 | 2 | `4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7` | `82d5a6a`（台账 seq1 的 hash_after，因 SEAM-1 @`8f2eca3` 锚定参考尺改动而变）| **superseded_by_A1c** |
 | 3 | `e5fa8ae01476ffd08c5812ea221988a97f06729481a072d94bf753e00275fd9d` | `6299245`（A1c 受控解冻 fixtures；连跑两次精确相等）| **superseded_by_G14FIX** |
 | 4 | `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904` | `42d5346`（G14FIX：`reject_reason` 新增 `PRIMARY_POOL_REJECTED_GRADE` 经 `grade_ledger.l1_gate_reasons` 进入哈希面）| **当前实测值**（两跑相等）|
-| 5 | `PLACEHOLDER-TO-REFRESH(P2-wire-B)` | 最终 HEAD（A1d @`f27334d` 已实测 hash **UNCHANGED**，因其评价期事实表完整不触发 IMPUTE 分支；P2-wire-A @`53ed80c` 结论亦为 unchanged，但 `report.md` ②⑥⑦⑧ 段文本变了 → `output_fingerprints` **必变**）| **终值待 P2-wire-B 重测登记** |
+| 5 | **`e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`**（本包在 `da4d0a9` 用修好后的工装实测：exit 0／PASS／L3-strong／两跑同值） | 最终 HEAD 复测（A1d @`f27334d` 起四次落地均同值，因 spine 评价期 2026-Q2 事实表完整 180=12×15、`IMPUTE_MEDIAN` 不触发；`audit.py:242` 只吃 score_card／grade_ledger／weight_version_id） | **已定稿**；ROB-1 的 `f437c0ea…` 属 non-canonical 测试内自测值，**不入台账**（K-36） |
 
 - **P3b 判据（`reproducibility_evidence.p3b_criterion` 逐字）**：「最终 HEAD 上全新 clone + `unshare -rn` 真断网 + 同 seed 两连跑精确自等；**不是**与任何旧值相等」。工装 = `tools/repro_offline.sh`（@`d228edd`）+ `docs/deliverables/P3b-REPRO-HARNESS.md`，隔离级别 **L3-strong**。
 
@@ -497,11 +497,11 @@ ORCH-35 的**决定性理由**（ADR §2 逐字）：L901 同一句之内既规�
 
 | 项 | 现值 | 终值 |
 |---|---|---|
-| 全量 pytest（failed／passed／collected）| 已入账权威基线 `after_MODELS1` = **11／2190／2201** @`cc18a38`（11 红拆分本身是 PLACEHOLDER）；此后 A1d @`f27334d` 报 spine **7 红 → 1 红**、P2-wire-A 报定向 8 文件 **260 passed／0 failed**（**均未跑全量**）| `PLACEHOLDER-TO-REFRESH(P2-wire-B)` |
-| `reproducibility_hash` | `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904` @`42d5346`（A1d 与 P2-wire-A 均实测 unchanged）| `PLACEHOLDER-TO-REFRESH(P2-wire-B)` |
-| `output_fingerprints` | P2-wire-A 改了 `report.md` ②⑥⑦⑧ 段 → **必变** | `PLACEHOLDER-TO-REFRESH(P2-wire-B)` |
-| `git rev-list --count origin/main..HEAD` | P3C-draft 当时实测 34（**不得沿用**）；`git tag -l` 实测 **0** | `PLACEHOLDER-TO-REFRESH(主控 push 前重测)` |
-| ratchet（架构碰撞白名单）| 32 对（其中 4 对已失效）| 收缩到 **28** 归 `P2-wire-B`（ORCH-34 第3条：须在 A1c 之后、只许缩短）|
+| 全量 pytest（failed／passed／collected）| **1／2301／2302** @`da4d0a9`（0 error／0 skip／0 xfail，15.48s；原 11 红全部闭合，逐条名单见 `KNOWN-GAPS.md` §H-1）| **「0 failed」= `PLACEHOLDER-TO-REFRESH(CMB-1)`**；唯一红 = `test_methods_combine.py::test_build_draft_on_the_frozen_a1_fixtures`（`:502 assert 8 == 9`），二分实测归因 **A1c @`6299245` 的 D-A1-03**，最小修法 = `:502` 9→8 + `:483` docstring 同步 + 附 D-A1-03 引文（**禁** `>=`／删断言／skip／xfail） |
+| `reproducibility_hash` | **`e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`** @`42d5346`，复测同值于 `0d8afeb`／`31eb1b2`／`93abfee`／`da4d0a9` | **定稿**（本包 `repro_offline.sh --strict-isolation` 两跑 64 位逐字自等） |
+| `output_fingerprints` | **spine 面不可观测**：`bundle.output_fingerprints = {}`（真实出口 `reports.write_report_set` 无生产调用点，M29 marshal 未落地）→ **不得写「已变更」** | 64 位生产台账 `PLACEHOLDER-TO-REFRESH(主控)`；P2-wire-B 已实算七件 sha256[:16]：`report_md 102d2d973c949ef2`／`score_card_csv bf583dc0da2da0a6`／`grade_ledger_csv 7afe10893ff2d366`／`sensitivity_report_csv 219b0880ff44d67f`／`triangulation_md ec8733e1f1b15ded`／`audit_json b81016fbd1eea897`／`entropy_diagnostic_csv 98207523a05e569f` |
+| `git rev-list --count origin/main..HEAD` | **54**（实测 @`da4d0a9`；P3C-draft 的 34 **作废**）；`git tag -l` 实测 **0** | 主控 push 前重测 |
+| ratchet（架构碰撞白名单）| **32 → 28 已落地**（P2-wire-B @`93abfee`；本包复跑 `tests/test_architecture.py` = **11 passed／0 failed**）| **已收口**：fresh **0**、stale **4 → 0**；失效四对全在 `dsm/fixtures_gen.py`（`MONEY_NON_INTEGER`／`REDLINE_HARD_M_COMPLAINT_RATE`／`REDLINE_HARD_M_CONTACT_FREQ_PER_30D`／`REDLINE_SOFT_M_OPTOUT_RATE`，归因 A1b @`0547190` 换成注册表符号）；新增 `COLLISION_INVENTORY_CEILING = 28` + `pairs <= CEILING` 断言**封死增长**（收紧非弱化） |
 | `defects`／`errata`／`orch_lessons` | **27／11／12**（L-01~L-12）| 主控 push 前再核 |
 
 - **邻仓只读校验（本包实测）**：`/home/szf/dev/CampaignLab` = `m0-framework`／`0cccb76`／porcelain **0**／rev-list **154**，与本包开工前一致，**未触碰**。契约文件 `开发设计文档-策略评价可辩护评分模型DSM-v1.1.md` 的 sha256[:12] = `708679e9a83d`、行数 **2003**，核验通过。
