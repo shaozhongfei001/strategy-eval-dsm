@@ -40,7 +40,10 @@ RUN_BLOCKING_CODES = frozenset((
     RC.MONEY_NON_INTEGER.value, RC.DIMENSION_EMPTIED.value,
     # RC-1 / CONSUMPTION-TODO 第 2 条：设计卡重复键拒绝静默取后一行，显式拒绝
     # （M18 [L1102] T4 粒度 = 策略 × 版本；M22 [L917] BLOCK 只写 audit_bundle + 退出码 2）。
-    RC.DESIGN_CARD_DUPLICATE_KEY.value))
+    RC.DESIGN_CARD_DUPLICATE_KEY.value,
+    # RC-2 / CONSUMPTION-TODO 第 7 条：C-03 权重与指标字典对齐改用专用码（M22 [L902] 逐字
+    # BLOCK）。阻断级别沿用注册表既定值（BLOCK / blocks_run=True），不自创。
+    RC.WEIGHT_DICT_MISALIGNED.value))
 # [L1278] 披露位置列，按 reason_code 查表；查不到就抛，不给默认值（V-14）。
 DISCLOSURE = {
     RC.WEIGHT_VERSION_INVALID.value: AUDIT_ONLY, RC.WEIGHT_VERSION_DRAFT.value: AUDIT_ONLY,
@@ -53,7 +56,11 @@ DISCLOSURE = {
     RC.FIRST_PERIOD.value: 'preflight findings', RC.DATA_QUALITY_SUSPECT.value: 'score_card flag',
     RC.EVIDENCE_CARD_PARTIAL.value: 'evidence_reason', RC.MISSING_RATE_BLOCK.value: LEDGER,
     RC.NOT_ASSESSED.value: LEDGER, RC.EVIDENCE_CARD_MISSING.value: LEDGER,
-    RC.DESIGN_CARD_DUPLICATE_KEY.value: AUDIT_ONLY}
+    RC.DESIGN_CARD_DUPLICATE_KEY.value: AUDIT_ONLY,
+    # RC-2 / 第 7 条：M22 [L917] BLOCK 行为＝只写 audit_bundle + 退出码 2 → AUDIT_ONLY，与
+    # 注册表 basis 的披露通道一致。CONFIG_SEMANTIC_ERROR 仍留在本表与 RUN_BLOCKING_CODES：
+    # dsm/config.py 的配置层错误照旧用它，_f 查不到披露位置就抛（V-14），删了会误伤该路径。
+    RC.WEIGHT_DICT_MISALIGNED.value: AUDIT_ONLY}
 CONFIG_FIELDS = ('period', 'period_ref_date', 'weight_version', 'anchor_set',
                  'signed_signoff_status', 'missing_rate_warn', 'missing_rate_block')
 # audit_bundle 注入键（H-8：run_id / run_at 不由本模块读时钟；reproducibility_hash
@@ -216,9 +223,10 @@ class _Checks:
 
     def c03(self):
         # [L902] 签认指标有权重项、无孤儿权重项、两级各自归一（1e-12），全部 BLOCK。
-        # 注册表无 C-03 专用码，沿用 CONFIG_SEMANTIC_ERROR（message 已含「权重未归一
-        # …引用了不存在的指标」），缺口已登记。
-        wv, sem = self.config.weight_version, RC.CONFIG_SEMANTIC_ERROR
+        # G-15 第 7 条（RC-2）：换用 C-03 的专用码 WEIGHT_DICT_MISALIGNED（注册表 message
+        # 逐字覆盖「签认指标缺权重项、存在孤儿权重项或两级权重未各自归一」三种失守），不再用
+        # 泛码 CONFIG_SEMANTIC_ERROR 承载可细分的粒度；已同步 RUN_BLOCKING_CODES / DISCLOSURE。
+        wv, sem = self.config.weight_version, RC.WEIGHT_DICT_MISALIGNED
         l1, l2 = wv.level1_weights, wv.level2_weights
         dims = {r.dim_code for r in self.metrics.values()}
         scope, one = 'weight_version:' + wv.weight_version_id, _sum(l1.values())

@@ -72,6 +72,21 @@ STEP5 = 'STEP5_HARD_CHECKS'
 STEP6 = 'STEP6_DRAFT'
 STEP_IDS = (STEP1, STEP2, STEP3, STEP4, STEP5, STEP6)  # [L570]-[L600]: the order is the spec
 HARD_CHECK_IDS = ('H-1', 'H-2', 'H-3', 'H-4', 'H-5')   # [L594]-[L598]
+# G-15 第 4 条（ORCH-53 / RC-2）：每条硬校验各自的 reason_code。泛码 ALPHA_INFEASIBLE 不再把
+# violations 打包成一条——消费方必须能区分是哪一类违规。ALPHA_INFEASIBLE 的注册语义是「全部候选
+# alpha 均违反稳定性约束，无法标定」＝可行集为空 [L631]，该情形由 weights_calibrate.py 抛
+# AlphaInfeasibleError 承担（:749-761），不由本表逐 α 出码。
+# H-1（两级权重各自归一）在注册表里**没有**专用细码：step4 的 _scale_to 已把和归一到 1，H-1 失守
+# 只可能是内部不变量被破坏；候选码 INVARIANT_VIOLATION 的注册语义是「属程序缺陷，本次不产出任何
+# 结果」，挪用即虚报（其余 alpha 照常出数），故 H-1 沿用 ALPHA_INFEASIBLE 作为唯一残余，缺口已
+# 上报主控裁决（RC-2 GAPS：需 v1.3 在 reason_codes.py 增注册 H-1 专用码，该文件在本包写集外）。
+HARD_CHECK_REASON_CODES = {
+    'H-1': RC.ALPHA_INFEASIBLE,                 # 残余：注册表无 H-1 细码（见上，已上报）
+    'H-2': RC.H2_DIM_WEIGHT_BELOW_FLOOR,        # [L595]
+    'H-3': RC.H3_METRIC_WEIGHT_BELOW_FLOOR,     # [L596]
+    'H-4': RC.AHP_CR_FAILED,                    # [L597] 同层专用码，同类同判
+    'H-5': RC.H5_SHIFT_FROM_AHP_EXCEEDED,       # [L598]-[L599]
+}
 KIND_COMBINED = 'AHP_ENTROPY_COMBINED'                 # [L1231]
 KIND_AHP_ONLY = 'AHP_ONLY'                             # [L1231], the [L577] degrade
 SUSPECT = 'SUSPECT'                                    # [L1151] C-06, dropped by the caller
@@ -683,11 +698,9 @@ def step5_hard_checks(mixed: MixedWeights, layer: AhpLayer, opts) -> HardCheckRe
     results = {'H-1': bool(h1), 'H-2': bool(h2), 'H-3': bool(h3), 'H-4': bool(h4),
                'H-5': bool(h5)}
     violations = tuple(cid for cid in HARD_CHECK_IDS if not results[cid])
-    reasons = []
-    if not h4:
-        reasons.append(RC.AHP_CR_FAILED.value)
-    if violations:
-        reasons.append(RC.ALPHA_INFEASIBLE.value)
+    # G-15 第 4 条：按 violations 逐条出码，一条违规一个码；顺序即 HARD_CHECK_IDS 顺序，
+    # 可复现。H-4 的 AHP_CR_FAILED 同由本表给出，不再额外 append 泛码 ALPHA_INFEASIBLE。
+    reasons = [HARD_CHECK_REASON_CODES[cid].value for cid in violations]
     return HardCheckReport(results=results, violations=violations, reasons=tuple(reasons),
                            l1_shift_from_ahp=l1_shift, min_dim_observed=q12(min_dim),
                            min_metric_observed=q12(min_metric), cr_max=q12(D(layer.cr_max)),

@@ -246,6 +246,9 @@ def test_h2_min_dim_weight_is_a_hard_floor():
     assert bad.hard_checks.violations == ('H-2',)
     assert bad.feasible is False
     assert bad.hard_checks.min_dim_observed < D('0.45')
+    # RC-2 / G-15 第 4 条：H-2 出自己的细码，泛码 ALPHA_INFEASIBLE 不再打包
+    assert bad.hard_checks.reasons == (RC.H2_DIM_WEIGHT_BELOW_FLOOR.value,)
+    assert RC.ALPHA_INFEASIBLE.value not in bad.hard_checks.reasons
 
 
 def test_h3_min_metric_weight_only_when_configured():
@@ -257,6 +260,9 @@ def test_h3_min_metric_weight_only_when_configured():
     assert bad.hard_checks.results['H-3'] is False
     assert 'H-3' in bad.hard_checks.violations
     assert bad.hard_checks.min_metric_observed < D('0.60')
+    # RC-2 / G-15 第 4 条：H-3 出自己的细码，泛码 ALPHA_INFEASIBLE 不再打包
+    assert bad.hard_checks.reasons == (RC.H3_METRIC_WEIGHT_BELOW_FLOOR.value,)
+    assert RC.ALPHA_INFEASIBLE.value not in bad.hard_checks.reasons
 
 
 def test_h4_cr_gate_rejects_instead_of_warning():
@@ -269,7 +275,9 @@ def test_h4_cr_gate_rejects_instead_of_warning():
     mixed = wc.step4_combine_normalize(layer, window(), {}, opts(), D('0.5'))
     report = wc.step5_hard_checks(mixed, poisoned, opts())
     assert report.results['H-4'] is False
-    assert 'H-4' in report.violations and RC.AHP_CR_FAILED.value in report.reasons
+    # RC-2 / G-15 第 4 条：H-4 只出自己的专用码，不再额外附带泛码 ALPHA_INFEASIBLE
+    assert 'H-4' in report.violations and report.reasons == (RC.AHP_CR_FAILED.value,)
+    assert RC.ALPHA_INFEASIBLE.value not in report.reasons
 
 
 def test_h5_t_cmb_07_max_shift_from_ahp():
@@ -282,9 +290,43 @@ def test_h5_t_cmb_07_max_shift_from_ahp():
     assert tight.hard_checks.violations == ('H-5',)
     assert tight.hard_checks.l1_shift_from_ahp > D('0.001')
     assert tight.feasible is False
+    # RC-2 / G-15 第 4 条：H-5 出自己的细码，泛码 ALPHA_INFEASIBLE 不再打包
+    assert tight.hard_checks.reasons == (RC.H5_SHIFT_FROM_AHP_EXCEEDED.value,)
+    assert RC.ALPHA_INFEASIBLE.value not in tight.hard_checks.reasons
     pure = run(options=opts(alpha=ONE, max_shift_from_ahp=ZERO))
     assert pure.hard_checks.results['H-5'] is True        # alpha = 1 does not move at all
     assert eq_tol(pure.hard_checks.l1_shift_from_ahp, ZERO, TOL)
+
+
+def test_g15_4_each_hard_check_carries_its_own_reason_code():
+    '''G-15 第 4 条（RC-2）：五条硬校验逐条映射到各自的 reason_code，泛码不再把 violations
+    打包成一条，消费方能区分是哪一类违规。ALPHA_INFEASIBLE 的注册语义是「全部候选 alpha 均
+    违反稳定性约束，无法标定」＝可行集为空 [L631]，由 weights_calibrate 抛
+    AlphaInfeasibleError 承担；此处只保留 H-1 一条残余（注册表无 H-1 专用细码，已上报）。'''
+    assert set(wc.HARD_CHECK_REASON_CODES) == set(wc.HARD_CHECK_IDS)
+    assert wc.HARD_CHECK_REASON_CODES['H-2'] is RC.H2_DIM_WEIGHT_BELOW_FLOOR
+    assert wc.HARD_CHECK_REASON_CODES['H-3'] is RC.H3_METRIC_WEIGHT_BELOW_FLOOR
+    assert wc.HARD_CHECK_REASON_CODES['H-4'] is RC.AHP_CR_FAILED
+    assert wc.HARD_CHECK_REASON_CODES['H-5'] is RC.H5_SHIFT_FROM_AHP_EXCEEDED
+    # R-14：可细分的三条严禁再落回泛码
+    for cid in ('H-2', 'H-3', 'H-5'):
+        assert wc.HARD_CHECK_REASON_CODES[cid] is not RC.ALPHA_INFEASIBLE
+    # 逐条出码：dim 和 = 0.9（H-1）、min_dim 0.4 < 0.45（H-2）、M1 = 0.01 < 0.30（H-3）、
+    # L1 距离 0.435 > 0.30（H-5）-> 四条违规四个码，顺序即 HARD_CHECK_IDS 顺序。
+    broken = wc.MixedWeights(alpha_used=D('0.5'), dim_weights={'D1': D('0.5'), 'D2': D('0.4')},
+                             dim_entropy_weight={}, dim_raw_weight={},
+                             metric_weights={'D1': {'M1': D('0.01'), 'M2': D('0.4')},
+                                             'D2': {'M3': D('0.9')}},
+                             metric_trace={}, comparison_by_metric={})
+    multi = wc.step5_hard_checks(broken, wc.step1_ahp_gate(hierarchy()),
+                                 opts(min_dim_weight=D('0.45'), min_metric_weight=D('0.30')))
+    assert multi.violations == ('H-1', 'H-2', 'H-3', 'H-5')
+    assert multi.reasons == (RC.ALPHA_INFEASIBLE.value, RC.H2_DIM_WEIGHT_BELOW_FLOOR.value,
+                             RC.H3_METRIC_WEIGHT_BELOW_FLOOR.value,
+                             RC.H5_SHIFT_FROM_AHP_EXCEEDED.value)
+    # 一条违规一个码：不再压成单条泛码，也不重复出码
+    assert len(multi.reasons) == len(multi.violations)
+    assert len(set(multi.reasons)) == len(multi.reasons)
 
 
 # --- T-CMB-03 / T-CMB-04 / T-CMB-05 ----------------------------------------

@@ -234,14 +234,14 @@ def test_c03_weight_dict_misalignment_blocks():
     unnormalized = _weights(level1_weights={'D1': Decimal('0.5'), 'D2': Decimal('0.4')})
     for weights in (no_entry, orphan, unnormalized):
         result = preflight.run(*_world(weight_version=weights))
-        found = _find(result, 'CONFIG_SEMANTIC_ERROR')
+        found = _find(result, 'WEIGHT_DICT_MISALIGNED')
         assert found and result.status == preflight.STATUS_BLOCK
         assert result.exit_code == 2
         assert all(f.code == 'C-03' and f.blocks_run for f in found)
     assert 'M2' in _find(preflight.run(*_world(weight_version=no_entry)),
-                         'CONFIG_SEMANTIC_ERROR')[0].scope
+                         'WEIGHT_DICT_MISALIGNED')[0].scope
     assert 'M9' in _find(preflight.run(*_world(weight_version=orphan)),
-                         'CONFIG_SEMANTIC_ERROR')[0].scope
+                         'WEIGHT_DICT_MISALIGNED')[0].scope
 
 
 def test_c04_missing_rate_warn_and_block_thresholds():
