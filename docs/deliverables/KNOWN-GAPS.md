@@ -89,7 +89,7 @@
 ## G. 本轮新增登记（ORCH-39 ~ ORCH-42 期间产生／闭合的缺陷与缺口 · P3c-pre2 建表）
 
 - 本节由 **P3c-pre2** 依派工单「新增的缺口也要登记（不要只删不增）」+ ORCH-42 补充事实建立；每行的关闭依据均为**本包亲自实测或主控裁决原文**（`ops/dag-state.json` 的 `decisions.ORCH-39~ORCH-42`／`defects`（27 条）／`errata`（11 条）+ 各 lane 的 `dsm_stage/*/NEED-WIRING.md`），未实测的一律写 PLACEHOLDER-TO-REFRESH。
-- 观测 HEAD = `da4d0a9`（P3b-FIX）；P3c-pre2 施工期间 HEAD 依次为 `858ebc8`（LOO-1）→ `53ed80c`（P2-wire-A）→ `f4aaa6b`（ORCH-40+41 入账）→ `f27334d`（A1d）。`git tag -l` 实测 **0** 条；`git rev-list --count origin/main..HEAD` = **54**（实测 @`da4d0a9`，2026-11-25 09:10）。
+- 观测 HEAD = `da4d0a9`（P3b-FIX）；P3c-pre2 施工期间 HEAD 依次为 `858ebc8`（LOO-1）→ `53ed80c`（P2-wire-A）→ `f4aaa6b`（ORCH-40+41 入账）→ `f27334d`（A1d）。`git tag -l` 实测 **0** 条；`git rev-list --count origin/main..HEAD` = **57**（实测 @`66481b1`/AUD-FINAL 落地后；本包提交前另测 54 @`da4d0a9`），2026-11-25 09:10）。
 - G-14／G-15／G-17 三行在 `dag-state` 的 `defects` 里**尚无缺陷号**；本包按 **L-12** 纪律不自占编号（编号单点分配权在主控），只描述事实与归属。
 
 | # | 条件 | 缺什么 | 当前 WORKAROUND | 闭合责任方 | 阻塞交付 | 备注（实测） |
@@ -236,7 +236,7 @@
 
 ### H-6 发布数字与计数自证（刷新 ⑥）
 
-- `git rev-list --count origin/main..HEAD` = **54**（实测 @`da4d0a9`；P3C-draft 的 **34 作废**；本包提交后须由主控再重测）。
+- `git rev-list --count origin/main..HEAD` = **57**（实测 @`66481b1`/AUD-FINAL 落地后；本包提交前另测 54 @`da4d0a9`）；P3C-draft 的 **34 作废**；本包提交后须由主控再重测）。
 - `git tag -l` = **0 条**；`v1.1.0` 不存在，由主控执行（R-13）。
 - 计数自证与本包实测输出：正文表格行 **65**、flag「是」**14** → 与「最终权威计数」节逐字相等（**D-DOC-01 验收条件在 P3c-final 复核下仍成立**）。
 - `ops/dag-state.json → defects`／`errata`／`orch_lessons` = **27／11／12**（转录；`ops/**` 属本包禁写面，状态翻转归主控）。
