@@ -29,6 +29,8 @@ from typing import Mapping
 from pydantic import BaseModel, ConfigDict
 
 from dsm import audit, numeric, pooling, sensitivity
+# 范围披露位的载体类型（EVID-1）：直接取类名，避免与 AllFrames.evidence 字段名撞车。
+from dsm.evidence import EvidenceScope
 from dsm.models import (
     AuditBundle, AttainmentFrame, EntropyDiagnosticRow, EvidenceFrame,
     GradeLedgerRow, PoolFrame, PoolStats, RedlineFrame,
@@ -42,6 +44,12 @@ NULL = 'null'
 NO_DATA = '本段无数据'
 NO_DATA_REASON = RC.NOT_ASSESSED
 PLACEHOLDER = 'PLACEHOLDER'
+# [L1063] ②：事实行为空时本期范围无从界定（dsm/evidence.py:182-184 的同名标志）。
+SCOPE_UNESTABLISHED = '本期无法界定'
+# [L748]：loo_impact 为空元组 = 本轮未执行 LOO，显式披露而非静默略过该段（V-14）。
+LOO_NOT_RUN = '本轮未执行 LOO'
+# [L1409] / G-07 逐字要求的警示文案（契约原文，不是业务码；业务码走 RC.DOMINANT_METRIC）。
+DOMINANT_WARNING = '存在单一指标过度影响'
 CEL0 = '本期末接入增量估计'
 LEDGER_COMPLETE = '完整'
 GATE_STATEMENT = (
@@ -97,6 +105,11 @@ class AllFrames(_Frozen):
 
     attainment: AttainmentFrame | None = None
     evidence: EvidenceFrame | None = None
+    # EVID-1 / ORCH-37 第 9 条：[L1063] ②「本期评价范围与覆盖率」的范围过滤披露位。
+    # 范围口径的唯一实现是 dsm/evidence.py:204 的 evaluation_scope（调用方注入），本层
+    # 只渲染不重算（R-7 / INV-2）。未注入时 ②⑥ 显式披露「本段无数据 + 原因码」，
+    # period_established=False 时显式披露「本期无法界定」，两者都不静默省略（V-14）。
+    evaluation_scope: EvidenceScope | None = None
     redline: RedlineFrame | None = None
     score: ScoreFrame | None = None
     pool: PoolFrame | None = None
@@ -272,6 +285,104 @@ def _grade_counts(rows) -> dict:
 
 
 # --------------------------------------------------------------------------- report.md 十段
+def _code_value(code) -> str:
+    '''注册码的字符串口径：RC.<NAME> 走 .value，裸串原样（P-8：禁裸写字面量）。'''
+    return str(getattr(code, 'value', code))
+
+
+def _code_line(code, tail='') -> str:
+    '''一条「码 + 注册表 message + severity + blocks_run」的披露行。severity 与 blocks_run 一律
+    查注册表，本层不改写（V-14：BLOCK 码不可能被渲染成 WARN）。'''
+    sev = reason_codes.severity(code)
+    return ('- 原因码 ' + _code_value(code) + '：' + reason_codes.message(code)
+            + '（severity ' + str(getattr(sev, 'value', sev)) + '，blocks_run='
+            + fmt_bool(reason_codes.blocks_run(code)) + '）' + tail)
+
+
+def _scope_lines(scope) -> list:
+    '''[L1063] ②「本期评价范围与覆盖率」的范围过滤披露（EVID-1 / ORCH-37 第 9 条）。
+    范围只由 dsm/evidence.py:204 的 evaluation_scope 算，本层不重算（R-7）；被过滤的设计卡
+    不删除、不隐藏（G-08 的版本断裂判定还要用它，[L1117]），只是不进本期评价范围统计。
+    scope 未注入 -> 「本段无数据 + 原因码」；period_established=False -> 明写「本期无法界定」
+    并说明一张卡都没被过滤（V-14：既不静默收窄口径，也不把全部卡静默丢掉）。'''
+    if scope is None:
+        return _no_data('evaluation_scope（本期评价范围过滤披露，调用方未注入）')
+    out = ['- 本期评价范围（in_period 的 strategy_id × version_id 对）：'
+           + fmt_int(len(scope.in_period)) + ' 个；period_established='
+           + fmt_bool(scope.period_established) + '（判据唯一实现 dsm/evidence.py:204）']
+    if not scope.period_established:
+        out.append('- ' + SCOPE_UNESTABLISHED + '：传入事实行为空，任何设计卡都判不出「不在本期'
+                   '评价范围内」，故本期一张卡都未被过滤；该 0 不得读作「全部在范围内」的结论，'
+                   '也不得静默丢卡（V-14）')
+    if not scope.excluded:
+        out.append('- 被范围过滤掉的设计卡：0 张' + ('（period_established=false，此 0 不可用，见上一行）'
+                                              if not scope.period_established else ''))
+        return out
+    out.append('- 被范围过滤掉的设计卡：' + fmt_int(len(scope.excluded)) + ' 张，过滤依据 '
+               + scope.excluded[0].basis + '；卡本身保留供 Step6 版本断裂判定（G-08 / [L1117]）')
+    out.append(_code_line(scope.excluded[0].reason_code, '；明细如下')[2:])
+    out += _table(('strategy_id', 'version_id', 'basis', 'reason_code'),
+                  [(e.strategy_id, e.version_id, e.basis, str(e.reason_code))
+                   for e in sorted(scope.excluded,
+                                   key=lambda x: (x.strategy_id, x.version_id))])
+    return out
+
+
+def _scope_summary(scope) -> list:
+    '''[L1063] ⑥ 段的同口径回指：A/B/C/D 计数只覆盖本期评价范围内的策略版本，被范围过滤掉的
+    设计卡不计入（明细在②）。范围不在此重算，只披露计数口径与出处（V-14 不静默省略）。'''
+    if scope is None:
+        return ['- 范围过滤披露：本段未注入 evaluation_scope，A/B/C/D 计数覆盖的策略版本范围'
+                + SCOPE_UNESTABLISHED + '（同名「本段无数据」行见②；V-14，不静默省略）']
+    if not scope.period_established:
+        return ['- 范围过滤披露：' + SCOPE_UNESTABLISHED + '（事实行为空，一张卡都未被过滤）；'
+                'A/B/C/D 计数覆盖 ' + fmt_int(len(scope.in_period)) + ' 个策略版本']
+    return ['- 范围过滤披露：A/B/C/D 计数覆盖本期评价范围内 ' + fmt_int(len(scope.in_period))
+            + ' 个策略版本；被范围过滤掉 ' + fmt_int(len(scope.excluded)) + ' 张设计卡（'
+            + (_code_value(scope.excluded[0].reason_code) if scope.excluded else '本期无')
+            + '）未计入上表计数，明细见②']
+
+
+def _flagged(rep, code) -> bool:
+    return any(str(getattr(f, 'value', f)) == _code_value(code)
+               for f in tuple(getattr(rep, 'flags', ()) or ()))
+
+
+def _loo_impact_lines(rep) -> list:
+    '''[L748]「每指标的 LOO 影响力排名（主导指标清单）」+ [L1409]「loo_impact 最大者为该指标；
+    报告输出「存在单一指标过度影响」警示」+ [L1858]「是否存在某一指标过度影响综合得分 →
+    sensitivity_report」的渲染出口（LOO-1 NEED-WIRING 第 1/2/3 条）。
+
+    只渲染不重算不重排：loo_impact 由 dsm/sensitivity.py 排好降序交来，本层保持原序（再排一次
+    就是第二套口径）。ORCH-40 第 7 条：loo_impact 与 loo_dominant_metrics 是两个不同字段，
+    不得合并、不得互相替代，故两者各自成行。数值走 fmt_ratio（numeric.q12，Decimal 原样，
+    不经 float、不四舍五入到少于 q12，V-9）。空元组 = 本轮未执行 LOO -> 显式披露（V-14）。
+    LOO_SAMPLED（[L1020] 抽样降级）与排名同区块披露：抽样时排名只覆盖被抽中的指标。'''
+    impact = tuple(getattr(rep, 'loo_impact', ()) or ())
+    if not impact:
+        return ['- LOO 影响力排名（[L748] 输出列）：' + LOO_NOT_RUN + '（loo_impact = 空元组）；'
+                '本段保留不静默省略，故「' + DOMINANT_WARNING + '」本轮无据可判（V-14）']
+    out = ['- LOO 影响力排名（[L748] 输出列；降序由 dsm/sensitivity.py 排定，本层不重排）：']
+    out += _table(('排名', 'metric_id', 'loo_impact'),
+                  [(fmt_int(i + 1), str(metric), fmt_ratio(value))
+                   for i, (metric, value) in enumerate(impact)])
+    head, head_value = impact[0]
+    out.append('- loo_impact 最大者（[L1409] 逐字）：' + str(head) + '，loo_impact='
+               + fmt_ratio(head_value))
+    if _flagged(rep, RC.LOO_SAMPLED):
+        out.append('- ' + _code_value(RC.LOO_SAMPLED) + '（' + reason_codes.message(RC.LOO_SAMPLED)
+                   + '）：上述排名只覆盖被抽中的指标，本排名不完整（[L1020]，V-14 不得静默降级）')
+    if _flagged(rep, RC.DOMINANT_METRIC):
+        out.append('- 警示：' + DOMINANT_WARNING + '（[L1409] / G-07 逐字文案）')
+        out.append(_code_line(RC.DOMINANT_METRIC, '；判据是 flip_rate 超阈（[L748]），'
+                              '与上面的影响力排名是两个字段，不互相替代（ORCH-40 第 7 条）'))
+    else:
+        out.append('- 本期未触发 ' + _code_value(RC.DOMINANT_METRIC) + '：flip_rate 判据（[L748]）'
+                   '未超阈，故不输出「' + DOMINANT_WARNING + '」警示；影响力排名照常披露'
+                   '（两字段独立，ORCH-40 第 7 条）')
+    return out
+
+
 def _section_1(bundle, frames) -> list:
     gate = frames.gate_status
     signed = gate.g5_dispute_source_review_signed and gate.g7_governance_config_signed
@@ -297,8 +408,11 @@ def _section_1(bundle, frames) -> list:
 
 def _section_2(frames) -> list:
     rows = tuple(sorted(_rows(frames.score), key=_locator))
+    # EVID-1 / ORCH-37 第 9 条：范围过滤披露位。score 缺行也照披露（V-14：两个「无数据」
+    # 各说各的，谁也不吞掉谁）。
+    scope = _scope_lines(frames.evaluation_scope)
     if not rows:
-        return _no_data('score（本期评价范围与覆盖率）')
+        return _no_data('score（本期评价范围与覆盖率）') + scope
     out = _table(('strategy_id', 'version_id', 'period', 'coverage', 'weight_version_id'),
                  [(r.strategy_id, r.version_id, r.period, fmt_ratio(r.coverage), r.weight_version_id) for r in rows])
     values = [r.coverage for r in rows]
@@ -308,7 +422,7 @@ def _section_2(frames) -> list:
         out.append('- 无目标值的指标行数：' + fmt_int(sum(1 for r in att if not r.has_target)) + ' / ' + fmt_int(len(att)) + '（coverage 低即该维度评得不全，见⑨字典工单）')
     else:
         out += _no_data('attainment（目标值覆盖明细）')
-    return out
+    return out + scope
 
 
 def _section_3(frames) -> list:
@@ -414,6 +528,12 @@ def _section_6(frames) -> list:
         out.append('- NOT_ASSESSED 明细（原因码 → 条数）：' + ('；'.join(
             str(code) + ' ' + fmt_int(n) for code, n in sorted((stats.not_assessed_reasons or {}).items()))
             or '本期无记录'))
+        # [L1004] / ORCH-37 第 3、6 条：证据结构占比的分母（已分类合计）与 G-14 判据量的
+        # 分母（assessed_denominator，剔 NOT_ASSESSED）是两个口径，报告里分开写明，严禁混用。
+        out.append('- 计数口径：上表占比分母 = A/B/C/D 已分类合计 ' + fmt_int(total)
+                   + '；G-14 判据量分母 = 已参评数（Σevidence_structure - not_assessed_count，'
+                   '[L1004] 剔 NA，pooling.assessed_denominator）。两个分母口径不同，不得混用')
+        out += _scope_summary(frames.evaluation_scope)
         # GAP-06 / ORCH-36 第 4 条：G-14 判据必须出现在报告里（本段就是 [L1063] 的
         # ⑥「证据结构（A/B/C/D 计数与 NOT_ASSESSED 明细）」，与 C 类占比同段披露）。
         out += _mix_quality_lines(stats, frames.previous_pool_stats)
@@ -449,6 +569,9 @@ def _section_7(frames, config) -> list:
     else:
         out += _no_data('sensitivity.by_strategy（稳定性标签分布）')
     out.append('- LOO 主导指标：' + ('、'.join(rep.loo_dominant_metrics) or '本期无记录'))
+    # ORCH-40 第 7 条：loo_dominant_metrics（[L1018] flip_rate 判据）与 loo_impact
+    # （[L748] 影响力排名）是两个字段，各自独立呈现，不合并、不互相替代。
+    out += _loo_impact_lines(rep)
     out.append('- NORM_SWAP 秩相关：' + fmt_ratio(rep.norm_swap_rank_correlation))
     out.append('- 稳健性标记：' + ('、'.join(str(f) for f in rep.flags) or '无'))
     if verdict.vetoed:
@@ -465,6 +588,18 @@ def _section_8(frames) -> list:
            + '，rho_topsis_gra=' + fmt_ratio(tri.rho_topsis_gra) + '，mean_rho=' + fmt_ratio(tri.mean_rho),
            '- 三角标记：' + ('、'.join(str(f) for f in tri.flags) or '无'),
            '- GRA 关联系数（metric_id → 均值）：' + ('；'.join(k + '=' + fmt_ratio(v) for k, v in sorted(tri.gra_by_metric.items())) or '本期无记录')]
+    # CONSUMPTION-TODO 第 3 条的披露位：dsm/triangulation.py:380-388 / :420-426 把零方差的
+    # 那一对 rho 与 agreement 置 None 而不带码，渲染层不得让 null 静默出报告（V-14）。
+    undefined = tuple(name for name, value in (('rho_main_topsis', tri.rho_main_topsis),
+                                              ('rho_main_gra', tri.rho_main_gra),
+                                              ('rho_topsis_gra', tri.rho_topsis_gra),
+                                              ('mean_rho', tri.mean_rho)) if value is None)
+    if undefined or not tri.agreement:
+        out.append('- Spearman 相关无定义：' + ('、'.join(undefined) if undefined else '四个 rho 均有值')
+                   + '；agreement=' + (str(tri.agreement) if tri.agreement else NULL)
+                   + '（本期不给一致性结论，[L1022] 不入分）—— 「无定义」不得读作 0 相关，'
+                   + '也不得静默省略（V-14）')
+        out.append(_code_line(RC.SPEARMAN_ZERO_VARIANCE))
     out += _table(('strategy_id', 'version_id', 'topsis_rank', 'gra_rank', '名次差'),
                   [(r.strategy_id, r.version_id, fmt_int(r.topsis_rank), fmt_int(r.gra_rank),
                     fmt_int(r.topsis_rank - r.gra_rank)) for r in sorted(tri.rows, key=_locator)]) if tri.rows else _no_data('triangulation.rows（逐策略名次）')

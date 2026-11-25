@@ -240,7 +240,8 @@ class Run:
     def tool_dir(self, group):
         return self._new_dir(group)
 
-    def audit_context(self, loaded, app=None):
+    def audit_context(self, loaded, app=None, *, weight_version_id=None,
+                      score_card=(), grade_ledger=()):
         '''[L1051] item 8: config_snapshot_sha256 is a REQUIRED audit_bundle column. A
         failure to compute it is raised with the code its own exception type maps to,
         never folded into PLACEHOLDER -- PLACEHOLDER spells "unsigned value" ([L878]),
@@ -259,11 +260,32 @@ class Run:
             raise CliError(_snapshot_failure(self, exc), EXIT_CONFIG) from exc
         except Exception as exc:  # noqa: BLE001 - re-raised with its own mapped code
             raise CliError(_snapshot_failure(self, exc), exit_code_for(exc)) from exc
+        # [L1051] item 15 的 PLACEHOLDER 消除（P2-cli 上报第 11 条⑦）：真源是
+        # dsm/audit.py:242 的 reproducibility_hash(score_card, grade_ledger,
+        # weight_version_id)，本 shell 只调用不重算（R-7）。preflight 的 BLOCK 路径没有
+        # score_card / grade_ledger（[L917] 连空文件都不产），故按 [L1054]「失败的运行也是
+        # 一次普通输入」用本次真实的（空）产物 + 签认的 weight_version_id 算出该次运行的哈希；
+        # weight_version_id 拿不到 -> [L1080] 退出码 3，绝不用 PLACEHOLDER 字面量冒充
+        # （PLACEHOLDER 的意思是「未签认的业务值」[L878]，不是「shell 算不出」，V-14）。
+        wvid = weight_version_id
+        if wvid is None:
+            wvid = _signed_weight_version_id(app if app is not None else self.args.config)
+        if wvid is None:
+            raise CliError('reproducibility_hash ([L1051] item 15 / [L1052]) needs the signed '
+                           'weight_version_id: the caller passed none and --config '
+                           + repr(self.args.config) + ' does not hold exactly one weights_*.yaml '
+                           'to take it from; the CLI invents no version id (R-12) and writes no '
+                           'PLACEHOLDER into a computable digest column (V-14)', EXIT_CONFIG)
+        digest = _attr(audit, 'reproducibility_hash', 'audit_context')
         return {'run_id': self.run_id, 'run_at': self.run_at,
                 'dsm_version': dsm.__version__, 'design_version': dsm.DESIGN_DOC_VERSION,
+                # cel_contract_version 保持 PLACEHOLDER：SDD [L1897] 明文「首版固定为占位版本」，
+                # 而 [L1795] G8 的「DSM 设计版本 + CEL 契约版本 + fixtures/golden 版本号」三者
+                # 绑定尚未发布 -> 契约原文没有可取的版本串，编一个即违 R-12。
                 'cel_contract_version': PLACEHOLDER, 'config_snapshot_sha256': snapshot,
                 'seed': self.args.seed, 'input_fingerprints': dict(loaded.fingerprints),
-                'sensitivity_schemes': (), 'reproducibility_hash': PLACEHOLDER}
+                'sensitivity_schemes': (),
+                'reproducibility_hash': digest(tuple(score_card), tuple(grade_ledger), wvid)}
 
 def _snapshot_failure(run, exc):
     '''The diagnosable text of a refused [L1051] item 8: which audit_bundle column,
@@ -312,13 +334,127 @@ def _chain_gate(run, app, loaded):
                          'M29 is a P2 integration deliverable; the shell refuses to '
                          'reimplement it (INV-2)')
 
+def _signed_weight_version_id(app):
+    '''[L1052] 的 weight_version_id 只从签认配置树里取：恰好一份 weights 文档时取它的
+    weight_version_id；0 份或多份一律 None，由调用方按 [L1080] 退出码 3 拒绝。shell 不挑一份、
+    不编一个（R-12 / V-14）。'''
+    weights = dict(getattr(app, 'weights', None) or {})
+    if len(weights) != 1:
+        return None
+    doc = weights[sorted(weights)[0]] or {}
+    value = (doc.get('weight_version_id') if isinstance(doc, dict)
+             else getattr(doc, 'weight_version_id', None))
+    return None if value in (None, '') else str(value)
+
+
+def _context_weight_version_id(preflight_config):
+    '''cmd_preflight 已经把签认的 WeightVersionDoc 解析进 PreflightConfig（[L900] C-01 的
+    载体），audit_context 的 [L1052] 哈希就从这里取同一个 id，不另开一个来源（口径唯一）。'''
+    doc = getattr(preflight_config, 'weight_version', None)
+    value = getattr(doc, 'weight_version_id', None)
+    return None if value in (None, '') else str(value)
+
+
+def _evaluation_scope(loaded):
+    '''EVID-1 / ORCH-37 第 9 条的范围披露接线（[L1063] ②「本期评价范围与覆盖率」与 ⑥
+    「证据结构」）：范围口径的唯一实现是 dsm/evidence.py:204 的 evaluation_scope，本 shell 只把
+    T4 设计卡与 T3 事实行两个 [L891] 载体交给它，绝不自己重算一遍范围（INV-2 / R-7，也正是
+    evidence.classify docstring 要求的「调用侧要披露时请调 evaluation_scope」）。
+    载体缺列 -> [L1080] 退出码 4（M21 L892），不塞空元组冒充「本期无卡」（V-14）。'''
+    ev = _require('dsm.evidence')
+    inputs = getattr(loaded, 'inputs', None)
+    cards = getattr(inputs, 'design_cards', None)
+    facts = getattr(inputs, 'metric_facts', None)
+    absent = [n for n, v in (('design_cards', cards), ('metric_facts', facts)) if v is None]
+    if absent:
+        raise CliError('evaluation_scope ([L1063] ②) needs the T4 design_cards and the T3 '
+                       'metric_facts carriers of [L891]; io_loaders returned no '
+                       + ', '.join(absent) + ' and no empty tuple is substituted for them, '
+                       'because an empty scope would read as "nothing was filtered out" '
+                       'instead of "the period could not be established" (V-14)', EXIT_DATA)
+    return _attr(ev, 'evaluation_scope', 'score')(tuple(cards), tuple(facts))
+
+
+def _previous_pool_stats(loaded):
+    '''G-14 的上期基线（dsm_stage/G14FIX/HANDOFF-P2.md §2）：只有两个合法来源 —— 上期同链路
+    重算，或上期 audit_bundle 的 pool_stats。九步 marshal（M29 L1330-1358）未落地前第一个来源
+    不存在，[L1051] 的 audit_bundle 十六列里也没有 pool_stats 列，故第二个来源同样不存在 ->
+    返回 None，由 reports._mix_quality_lines 显式披露「本期不可比」。
+    绝不在 shell 侧造假基线，也绝不另写一套 C 占比比较：判据唯一性是
+    pooling.mix_quality_verdict（ORCH-36 第 2/4 条），MIX_QUALITY_DEGRADED 是 WARN /
+    blocks_run=False，不改退出码、不中断九步。'''
+    inputs = getattr(loaded, 'inputs', None)
+    carried = getattr(inputs, 'previous_pool_stats', None)
+    return None if carried is None else carried
+
+
+def _report_frames(loaded, **products):
+    '''M29 L1330-1358 九步 marshal 的**唯一** reports 形参构造口（HANDOFF-P2 §2）：Step1-8 的
+    产物由调用方按名注入，本函数只负责把两个披露载体接上 —— previous_pool_stats（G-14 基线，
+    reports.py:419 的 _mix_quality_lines 消费）与 evaluation_scope（[L1063] ②/⑥ 的范围过滤
+    披露，reports._section_2 / _section_6 消费）。gate_status 必填（G5/G7 未签认 -> 首屏声明），
+    shell 不猜签认状态（R-12）。已注入的同名产物一律不被覆盖（调用方口径优先）。'''
+    reports = _require('dsm.reports')
+    kwargs = dict(products)
+    if kwargs.get('previous_pool_stats', None) is None:
+        kwargs['previous_pool_stats'] = _previous_pool_stats(loaded)
+    if kwargs.get('evaluation_scope', None) is None:
+        kwargs['evaluation_scope'] = _evaluation_scope(loaded)
+    return _attr(reports, 'AllFrames', 'score')(**kwargs)
+
+
+def _render_reports(run, bundle, frames, config):
+    '''S6 产物的渲染与写盘：reports.render -> reports.write_report_set（R-7：canonical 序列化、
+    产出指纹与 reproducibility_hash 全归 audit.py，shell 一个字节也不重算）。返回
+    (fingerprints, details)；details 把两个 V-14 载体的接线结果逐条说出来 —— G-14 基线有无、
+    范围过滤几张卡 —— 不静默（[L1051] item 14 降级动作全量 / V-14）。'''
+    reports = _require('dsm.reports')
+    if run.dir is None:
+        run.prod_dir()
+    report_set = _attr(reports, 'render', 'score')(bundle, frames, config)
+    fingerprints = _attr(reports, 'write_report_set', 'score')(report_set, run.dir)
+    details = ['report set written to ' + str(run.dir) + ': '
+               + ', '.join(sorted(fingerprints))]
+    scope = getattr(frames, 'evaluation_scope', None)
+    if scope is None:
+        details.append('evaluation_scope: 未注入 -> report.md ②/⑥ 显式披露「本段无数据」'
+                       '（V-14，不静默省略）')
+    elif not scope.period_established:
+        details.append('evaluation_scope: 本期无法界定（事实行为空，一张卡都未被过滤）')
+    else:
+        details.append('evaluation_scope: in_period=%d，被范围过滤 %d 张设计卡（%s，'
+                       'INFO / blocks_run=false，卡本身保留供 G-08）'
+                       % (len(scope.in_period), len(scope.excluded),
+                          _attr(_require('dsm.reason_codes'), 'RC', 'score')
+                          .EV_OUT_OF_EVAL_PERIOD.value))
+    previous = getattr(frames, 'previous_pool_stats', None)
+    if previous is None:
+        details.append('G-14: 无上期 pool_stats 基线 -> report.md ⑥ 显式披露「本期不可比」，'
+                       '不得当作「没上升」（V-14；判据唯一性归 pooling.mix_quality_verdict）')
+    elif getattr(frames, 'pool_stats', None) is None:
+        details.append('G-14: 当期 pool_stats 缺失 -> 判据无从计算，report.md ⑥ 走「本段无数据」'
+                       '披露（V-14），shell 不另算一套 C 占比')
+    else:
+        pooling = _require('dsm.pooling')
+        verdict = _attr(pooling, 'mix_quality_verdict', 'score')(frames.pool_stats, previous)
+        details.append('G-14: ' + ('C 类占比未上升，无 MIX_QUALITY_DEGRADED 警示'
+                                   if verdict is None else
+                                   str(getattr(verdict, 'value', verdict))
+                                   + '（WARN / blocks_run=false，只披露，不改退出码、'
+                                     '不中断九步）'))
+    return fingerprints, details
+
+
 def cmd_preflight(run):
     app = _load_config(run)
     loaded = _load_inputs(run)
     pfc = _build_preflight_config(app, run.args.period)
     run_dir = run.prod_dir()
     code, result, _paths = _require('dsm.preflight').execute(
-        loaded.inputs, pfc, str(run_dir), run.audit_context(loaded, app))
+        loaded.inputs, pfc, str(run_dir),
+        # [L1052] 的 weight_version_id 与 C-01 校验用的是同一份签认文档（口径唯一）。
+        run.audit_context(loaded, app,
+                          weight_version_id=_context_weight_version_id(pfc)))
     details = ['preflight status=' + str(getattr(result, 'status', 'PASS'))]
     findings = tuple(getattr(result, 'findings', ()) or ())
     if findings:

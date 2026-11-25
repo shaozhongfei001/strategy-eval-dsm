@@ -174,7 +174,12 @@ def test_preflight_block_exit2_pass_exit0(tmp_path, monkeypatch, capsys):
     '''exit 2 BLOCK audit-only ([L1541]); exit 0 PASS writes nothing ([L917]);
     mapping proven through the lazy seam (real BLOCK fixtures are C2-owned).'''
     _stub_io(monkeypatch)
-    monkeypatch.setattr(cli, '_build_preflight_config', lambda app, period: object())
+    # P2-wire-A（⑤ [L1052] 哈希接线）精确化：audit_context 现在要签认的 weight_version_id 才能
+    # 调 dsm/audit.py:242 算 reproducibility_hash，故 stub 的 config 视图带上与真实
+    # _build_preflight_config 同形的 weight_version 载体。退出码与产物断言一字未改（R-14）。
+    monkeypatch.setattr(cli, '_build_preflight_config', lambda app, period:
+                        types.SimpleNamespace(weight_version=types.SimpleNamespace(
+                            weight_version_id='WV-STUB')))
 
     def block_execute(inputs, cfg, out_dir, ctx):
         path = Path(out_dir) / 'audit.json'
@@ -838,7 +843,12 @@ def test_directory_hash_refuses_a_missing_root(tmp_path):
 # ------------------------------------------------- #3 no silent pass
 def _stub_preflight(monkeypatch):
     _stub_io(monkeypatch)
-    monkeypatch.setattr(cli, '_build_preflight_config', lambda app, period: object())
+    # P2-wire-A（⑤ [L1052] 哈希接线）精确化：audit_context 现在要签认的 weight_version_id 才能
+    # 调 dsm/audit.py:242 算 reproducibility_hash，故 stub 的 config 视图带上与真实
+    # _build_preflight_config 同形的 weight_version 载体。退出码与产物断言一字未改（R-14）。
+    monkeypatch.setattr(cli, '_build_preflight_config', lambda app, period:
+                        types.SimpleNamespace(weight_version=types.SimpleNamespace(
+                            weight_version_id='WV-STUB')))
     monkeypatch.setitem(sys.modules, 'dsm.preflight', _fake_module(
         'dsm.preflight',
         execute=lambda i, c, d, x: (0, types.SimpleNamespace(status='PASS',
@@ -850,10 +860,22 @@ def test_audit_context_carries_a_real_digest_never_a_placeholder(monkeypatch):
     "except (...): pass" left PLACEHOLDER in the column whenever anything at all went
     wrong, which reads as "unsigned value" ([L878]) and hides the failure (V-14).'''
     run = cli.Run(cli.build_parser().parse_args(['preflight', '--period', '2026-10']))
-    ctx = run.audit_context(types.SimpleNamespace(fingerprints={}), _app())
+    ctx = run.audit_context(types.SimpleNamespace(fingerprints={}), _app(),
+                            weight_version_id='WV-1')
     digest = ctx['config_snapshot_sha256']
     assert digest != cli.PLACEHOLDER and len(digest) == 64
     assert int(digest, 16) >= 0, 'a sha256 hex digest'
+    # P2-wire-A ⑤（P2-cli 上报第 11 条⑦）：item 15 也必须是真算出来的摘要，真源是
+    # dsm/audit.py:242 的 reproducibility_hash(score_card, grade_ledger, weight_version_id)，
+    # shell 只调用不重算（R-7）；preflight 的 BLOCK 路径没有 score_card / grade_ledger
+    # （[L917]），故按 [L1054] 用本次真实的空产物入哈希，绝不写 PLACEHOLDER 字面量。
+    from dsm import audit as audit_mod
+    assert ctx['reproducibility_hash'] == audit_mod.reproducibility_hash((), (), 'WV-1')
+    assert len(ctx['reproducibility_hash']) == 64
+    assert ctx['reproducibility_hash'] != cli.PLACEHOLDER
+    # cel_contract_version 仍是 PLACEHOLDER：[L1897]「首版固定为占位版本」+ [L1795] G8 未发布
+    # -> 契约原文没有可取的版本串，编值即违 R-12。
+    assert ctx['cel_contract_version'] == cli.PLACEHOLDER
 
 
 def test_audit_context_raises_with_the_mapped_code(tmp_path, monkeypatch, capsys):
@@ -898,3 +920,77 @@ def test_audit_context_raises_with_the_mapped_code(tmp_path, monkeypatch, capsys
     assert cli.main(['preflight', '--period', '2026-10', '--out', str(out3)]) == 5
     printed = capsys.readouterr().out
     assert 'dsm.audit' in printed and 'Traceback' not in printed
+
+
+# ===========================================================================
+# P2-wire-A ②（G14FIX HANDOFF-P2 §2 的 cli 侧接线）：reports 形参的唯一构造口 +
+# G-14 上期基线解析 + EVID-1 范围载体注入。九步 marshal（M29 L1330-1358）未落地前，
+# cli 全文没有 reports.render 调用点，故这里锁死 seam 的三条纪律：判据唯一性（不另算
+# C 占比）、拿不到基线就传 None（不造假基线）、范围只调 evidence.evaluation_scope。
+# ===========================================================================
+def test_previous_pool_stats_is_none_until_a_legal_source_exists():
+    '''② HANDOFF-P2 §2：两个合法来源（上期同链路重算 / 上期 audit_bundle 的 pool_stats）
+    在 marshal 落地前都不存在 -> None，由 reports 显式披露「本期不可比」；载体出现即原样透传。'''
+    assert cli._previous_pool_stats(types.SimpleNamespace(inputs=types.SimpleNamespace())) is None
+    carried = object()
+    loaded = types.SimpleNamespace(inputs=types.SimpleNamespace(previous_pool_stats=carried))
+    assert cli._previous_pool_stats(loaded) is carried
+
+
+def test_evaluation_scope_refuses_missing_carriers_with_exit_4():
+    '''③ T4 设计卡 / T3 事实行缺载体 -> [L1080] 退出码 4（M21 L892），不塞空元组冒充
+    「本期无卡」（空范围会被读成「一张都没过滤」，正是 V-14 禁止的静默降级）。'''
+    with pytest.raises(cli.CliError) as info:
+        cli._evaluation_scope(types.SimpleNamespace(inputs=types.SimpleNamespace()))
+    assert info.value.exit_code == 4
+    assert 'design_cards' in str(info.value) and 'metric_facts' in str(info.value)
+
+
+def test_report_frames_is_the_single_injection_point_for_both_carriers(monkeypatch):
+    '''②③ 构造口只此一处：两个披露载体被接上，调用方已注入的同名产物不被覆盖。'''
+    seen = {}
+
+    class FakeFrames:
+        def __init__(self, **kwargs):
+            seen.update(kwargs)
+
+    monkeypatch.setitem(sys.modules, 'dsm.reports',
+                        _fake_module('dsm.reports', AllFrames=FakeFrames))
+    monkeypatch.setattr(cli, '_evaluation_scope', lambda loaded: 'SCOPE')
+    monkeypatch.setattr(cli, '_previous_pool_stats', lambda loaded: None)
+    cli._report_frames(object(), pool_stats='PS', gate_status='GATE')
+    assert seen['evaluation_scope'] == 'SCOPE'
+    assert seen['previous_pool_stats'] is None, '拿不到基线就传 None，reports 负责披露不可比'
+    assert seen['pool_stats'] == 'PS' and seen['gate_status'] == 'GATE'
+    seen.clear()
+    cli._report_frames(object(), evaluation_scope='GIVEN', previous_pool_stats='PREV')
+    assert seen['evaluation_scope'] == 'GIVEN' and seen['previous_pool_stats'] == 'PREV'
+
+
+def test_cli_never_reimplements_the_g14_criterion():
+    '''② 判据唯一性（ORCH-36 第 2/4 条）：C 类占比与其比较只在 pooling 里，cli 侧只调
+    mix_quality_verdict 一次，绝不另写第二套口径。'''
+    src = Path(cli.__file__).read_text(encoding='utf-8')
+    assert 'c_class_share' not in src, 'C 类占比的计算归 pooling（[L1416] 分子口径唯一）'
+    assert src.count("_attr(pooling, 'mix_quality_verdict'") == 1, \
+        '判据只调 pooling.mix_quality_verdict 一次（其余出现处是注释里的口径说明）'
+    assert 'assessed_denominator' not in src, '分母口径同样不在 shell 侧重算'
+
+
+def test_audit_context_refuses_an_unresolvable_weight_version_id():
+    '''⑤ [L1052] 需要签认的 weight_version_id：拿不到就 [L1080] 退出码 3，绝不用
+    PLACEHOLDER 冒充一个可计算的摘要列（V-14 / R-12）。'''
+    run = cli.Run(cli.build_parser().parse_args(['preflight', '--period', '2026-10']))
+    with pytest.raises(cli.CliError) as info:
+        run.audit_context(types.SimpleNamespace(fingerprints={}), _app())
+    assert info.value.exit_code == 3
+    assert 'reproducibility_hash' in str(info.value) and 'weight_version_id' in str(info.value)
+
+
+def test_signed_weight_version_id_needs_exactly_one_weights_document():
+    '''⑤ 只从签认配置树取：0 份或多份都回 None（shell 不挑一份，R-12）。'''
+    assert cli._signed_weight_version_id(_app()) is None
+    assert cli._signed_weight_version_id(_app(weights={'a': {}, 'b': {}})) is None
+    one = _app(weights={'w1': {'weight_version_id': 'WV-9', 'status': 'FROZEN'}})
+    assert cli._signed_weight_version_id(one) == 'WV-9'
+    assert cli._signed_weight_version_id(_app(weights={'w1': {}})) is None

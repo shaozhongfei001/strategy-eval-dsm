@@ -90,7 +90,11 @@ _DEFS = (
     ('POOL_TOO_SMALL', 'WARN', '分池样本过小，池内排名仅供参考', '评价管理部门'),
     ('PRIMARY_POOL_REJECTED_EVIDENCE', 'WARN', '证据等级不满足一级库门禁', '策略设计者'),
     ('PRIMARY_POOL_REJECTED_ROBUST', 'WARN', '稳健性不满足一级库门禁', '评价管理部门'),
-    ('MIX_QUALITY_DEGRADED', 'WARN', '一级库中低证据等级占比上升，池质量退化', '评价管理委员会'),
+    # ORCH-37 第 7 条 / ERRATUM-07：分子口径以 SDD [L1416] 唯一明文「C 类占比」为准，原措辞
+    # 「低证据等级占比上升」是 C+D 口径（已被 ORCH-36 第 1 条驳回，且度量 C+D 会使守护点对
+    # D->C 搬运完全失效，违 V-14）。只改 message 文本：severity / blocks_run / _BASIS 不动
+    # （severity 是签认属性）。
+    ('MIX_QUALITY_DEGRADED', 'WARN', '一级库中 C 类证据占比上升，池质量退化', '评价管理委员会'),
 
     # ---- robustness and method triangulation ------------------------------
     ('STABLE', 'INFO', '等级在全部扰动方案下稳定', '评价管理部门'),

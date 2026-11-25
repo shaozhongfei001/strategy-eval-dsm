@@ -365,3 +365,123 @@ def test_grade_distribution_and_evidence_structure_are_double_reported():
     for class_ in ('A', 'B', 'C', 'D'):
         assert '| ' + class_ + ' |' in sixth
     assert 'NOT_ASSESSED 计数（单独计数' in sixth and 'EV_D_NOT_ASSESSED' in sixth
+
+
+# ===========================================================================
+# P2-wire-A ③（EVID-1 范围过滤披露，[L1063] ②/⑥）+ ⑧（LOO-1 的 [L748]/[L1409]/[L1858]
+# 影响力排名出口）+ ①第 3 条（Spearman 无定义不得静默出 null）。全部只断言渲染层的披露，
+# 范围与排名口径的唯一实现分别归 dsm/evidence.py:204 与 dsm/sensitivity.py，本层不重算。
+# ===========================================================================
+from dsm.evidence import EvidenceScope, ScopeExclusion
+from dsm.reason_codes import RC
+from dsm.reports import DOMINANT_WARNING, LOO_NOT_RUN, SCOPE_UNESTABLISHED
+
+
+def _md_of(**over):
+    frames = _frames(**over)
+    return render(_bundle(frames), frames).report_md
+
+
+def _scope(excluded=(ScopeExclusion(
+        strategy_id='S-005', version_id='v1', basis='NO_FACT_ROW_IN_EVAL_PERIOD',
+        reason_code=RC.EV_OUT_OF_EVAL_PERIOD.value),), established=True):
+    return EvidenceScope(in_period=(('S-001', 'V-1'),), excluded=tuple(excluded),
+                         period_established=established)
+
+
+def test_section2_discloses_the_eval_period_scope_filter():
+    '''③ [L1063] ②：被评价期过滤掉的设计卡必须逐条披露（码 + 依据 + severity +
+    blocks_run），卡本身不删除不隐藏（G-08 还要用，[L1117]）；V-14 不静默收窄。'''
+    second = split_sections(_md_of(evaluation_scope=_scope()))[REPORT_SECTIONS[1]]
+    assert '本期评价范围' in second and 'period_established=true' in second
+    assert '被范围过滤掉的设计卡：1 张' in second
+    assert 'S-005' in second and 'NO_FACT_ROW_IN_EVAL_PERIOD' in second
+    assert RC.EV_OUT_OF_EVAL_PERIOD.value in second
+    assert 'INFO' in second and 'blocks_run=false' in second
+
+
+def test_section6_states_which_scope_the_evidence_counts_cover():
+    '''③ [L1063] ⑥：A/B/C/D 计数覆盖哪个范围要说清；两个分母口径（已分类合计 vs
+    assessed_denominator）分开写明，严禁混用（ORCH-37 第 3/6 条）。'''
+    sixth = split_sections(_md_of(evaluation_scope=_scope()))[REPORT_SECTIONS[5]]
+    assert '范围过滤披露' in sixth and '未计入' in sixth
+    assert '计数口径' in sixth and 'assessed_denominator' in sixth and '不得混用' in sixth
+
+
+def test_unestablished_period_is_disclosed_never_omitted():
+    '''③ V-14：事实行为空 -> period_established=False -> 明写「本期无法界定」，且说明
+    一张卡都没被过滤（不得读作「全部在范围内」，也不得静默丢卡）。'''
+    blocks = split_sections(_md_of(evaluation_scope=_scope(excluded=(), established=False)))
+    assert SCOPE_UNESTABLISHED in blocks[REPORT_SECTIONS[1]]
+    assert '一张卡都未被过滤' in blocks[REPORT_SECTIONS[1]]
+    assert SCOPE_UNESTABLISHED in blocks[REPORT_SECTIONS[5]]
+
+
+def test_uninjected_scope_is_disclosed_as_no_data_in_both_sections():
+    '''③ V-14：调用方没注入 evaluation_scope 时，②走「本段无数据 + 原因码」、⑥明写范围
+    无法界定；两处都不静默省略。'''
+    blocks = split_sections(_md_of(evaluation_scope=None))
+    assert NO_DATA in blocks[REPORT_SECTIONS[1]]
+    assert 'evaluation_scope' in blocks[REPORT_SECTIONS[1]]
+    assert SCOPE_UNESTABLISHED in blocks[REPORT_SECTIONS[5]]
+
+
+def _loo(impact=(), flags=()):
+    return _sensitivity().model_copy(update={'loo_impact': tuple(impact),
+                                             'flags': tuple(flags)})
+
+
+def test_loo_impact_ranking_reaches_the_report_in_its_own_order():
+    '''⑧ [L748]「每指标的 LOO 影响力排名」+ [L1409]「loo_impact 最大者」：降序由
+    sensitivity 排定，渲染层保持原序不重排；数值 Decimal 原样（V-9，不经 float）。'''
+    rep = _loo((('M-9', Decimal('0.5')), ('M-1', Decimal('0.250000000005'))))
+    seventh = split_sections(_md_of(sensitivity=rep))[REPORT_SECTIONS[6]]
+    assert 'LOO 影响力排名' in seventh
+    assert seventh.index('| 1 | M-9 |') < seventh.index('| 2 | M-1 |')
+    assert '0.250000000005' in seventh, 'q12 原样输出，不截断、不经 float（V-9）'
+    assert 'loo_impact 最大者（[L1409] 逐字）：M-9' in seventh
+    assert 'LOO 主导指标：M-1' in seventh, \
+        'ORCH-40 第 7 条：loo_impact 与 loo_dominant_metrics 各自独立呈现'
+
+
+def test_dominant_metric_warning_uses_the_verbatim_sentence_and_the_registered_code():
+    '''⑧ [L1409]/[L1858] G-07：触发条件 = RC.DOMINANT_METRIC 在 flags 里，文案是契约逐字的
+    「存在单一指标过度影响」，业务码走注册表 message，不在渲染层自造措辞（P-8）。'''
+    seventh = split_sections(_md_of(sensitivity=_loo((('M-9', Decimal('0.5')),),
+                                                     ('DOMINANT_METRIC',))))[REPORT_SECTIONS[6]]
+    assert DOMINANT_WARNING in seventh
+    assert RC.DOMINANT_METRIC.value in seventh
+    assert '单一指标对综合分影响过大' in seventh and 'blocks_run=' in seventh
+
+
+def test_unflagged_loo_says_the_warning_was_not_raised():
+    '''⑧ V-14：没触发就说没触发，不用沉默代替结论；排名照常披露。'''
+    seventh = split_sections(_md_of(sensitivity=_loo((('M-9', Decimal('0.5')),))))[REPORT_SECTIONS[6]]
+    assert '本期未触发 ' + RC.DOMINANT_METRIC.value in seventh
+    assert '| 1 | M-9 |' in seventh
+
+
+def test_empty_loo_impact_discloses_that_loo_did_not_run():
+    '''⑧ 主控第 3 点：loo_impact = 空元组 -> 显式披露「本轮未执行 LOO」，段落保留；
+    loo_dominant_metrics 不受影响（两字段独立，ORCH-40 第 7 条）。'''
+    seventh = split_sections(_md_of(sensitivity=_loo()))[REPORT_SECTIONS[6]]
+    assert LOO_NOT_RUN in seventh and 'loo_impact = 空元组' in seventh
+    assert 'LOO 主导指标：M-1' in seventh
+
+
+def test_loo_sampled_marks_the_ranking_incomplete():
+    '''⑧ NEED-WIRING 第 3 条：[L1020] 抽样降级必须与排名同区块披露「本排名不完整」。'''
+    seventh = split_sections(_md_of(sensitivity=_loo((('M-9', Decimal('0.5')),),
+                                                     ('LOO_SAMPLED',))))[REPORT_SECTIONS[6]]
+    assert RC.LOO_SAMPLED.value in seventh and '本排名不完整' in seventh
+
+
+def test_section8_discloses_an_undefined_spearman_instead_of_a_bare_null():
+    '''①第 3 条（CONSUMPTION-TODO）：triangulation 把零方差的一对 rho 与 agreement 置 None
+    而不带码，渲染层不得让 null 静默出报告 —— RC.SPEARMAN_ZERO_VARIANCE 在此披露。'''
+    tri = _triangulation().model_copy(update={'rho_topsis_gra': None, 'mean_rho': None,
+                                              'agreement': None})
+    eighth = split_sections(_md_of(triangulation=tri))[REPORT_SECTIONS[7]]
+    assert 'Spearman 相关无定义' in eighth and 'rho_topsis_gra' in eighth
+    assert RC.SPEARMAN_ZERO_VARIANCE.value in eighth and 'blocks_run=' in eighth
+    assert '不得读作 0 相关' in eighth
