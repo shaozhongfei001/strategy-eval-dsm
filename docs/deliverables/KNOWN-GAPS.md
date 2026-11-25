@@ -3,9 +3,10 @@
 - 性质：§3.2 第 239 行 P3c 交付物中「**已知缺口**」部分的建表与填满（README / `git tag v1.1.0` 由 P3c 在 P2 收口后执行，本包未打 tag、未改 README.md）。配套文件：`docs/deliverables/K-SIGNOFF-CHECKLIST.md`。
 - 事实来源与核实方式：`ops/dag-state.json`（contract_gaps_pending 41 条 / gap_adjudications_SP1 / gap_adjudications_SP2 / r15_batch_2 / defects / orch_lessons）、`docs/adr/RUN-ORCH-25..30`、各 lane 缺口档案（`dsm_stage/{E5,A4,C2b,B1b,SEAM-1,EFIX-1,A1b}/`），以及**本包对代码的 grep 实测**（观测 HEAD `da4d0a9`，2026-11-25，P3c-final 复核）。lane 自述与代码实测不符处以**实测为准**并写进「备注」列。
 - **P3c-final 修订（本版本 · 定稿）**：① 六类 `PLACEHOLDER-TO-REFRESH` 已刷新 5 类，剩余 1 类（`output_fingerprints` 的逐文件 sha256 台账）见 §H。② 计数口径改写：**阻塞 16 → 14 条／非阻塞 48 → 51 条／合计 64 → 65 条**（E-8／G-2／G-3 转 CLOSED，新登 G-20）。③ 哈希台账按 **ORCH-44** 定稿：权威值仍是 `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`，`f437c0ea…` 定性为 **non-canonical（测试内自测值）**、**不入台账**（见 §H 与 K-SIGNOFF **K-36**）。④ K-35 的「历史缺末尾 LF = 22 个」**被本包实测证伪**，权威数 **18 个**，且**并非**全在 `docs/**`＋`README.md`（详见 §H-4）。⑤ 新增 **K-36~K-39**（ORCH-44 分配）。
+- **DOC-FINAL 修订（本轮 · 全量 0 failed 终值落地；观测 HEAD `037b862`／CMB-1）**：① **G-20 转 CLOSED** —— 唯一红条 `tests/test_methods_combine.py::test_build_draft_on_the_frozen_a1_fixtures`（`:502 assert 8 == 9`）由 **CMB-1 @`037b862`** 精确化收口（`:502` 期望 `9→8`、`:482` docstring「keeps only 9」→「only 8」、断言上方加 5 行依据注释；删除 2 行、净断言 +0、无 skip／xfail／or 化／区间断言、未碰任何实现文件）。② 全量 pytest 终值 = **0 failed／2302 passed／2302 collected**（0 error／0 skip／0 xfail）→ **tag 前置 ① 改判「满足」**；曾未满足的历史（`1 failed／2301 passed／2302 collected` @`93abfee`／`da4d0a9`）**保留为追记**（§H-14），不抹去。③ 计数按同一 grep 口径重测：**阻塞 14 → 13／非阻塞 51 → 52／合计 65 不变**（CLOSED 行仍留账内计非阻塞）。④ `ahead` 重测 **59** @`037b862`（本包提交后 60）、`git tag -l` 仍 **0**。⑤ K 编号合计 **39**／签认动作 **43** 不变。⑥ `V-ACCEPTANCE-EVIDENCE.md` 开工时仍为 ` M`（P3a-final 在飞）→ 本包**未触碰**该文件，故 V-1 的三态上调由该包自行落地；本包只提供其上调所需的实测依据。
 - **P3c-pre2 修订（上一版本）**：① 修 **D-DOC-01**——原汇总节自称「阻塞 19 条」而同文件逐条列举与逐行 grep（含 F-1／F-2 加粗「是」）均为 **24 条**（ORCH-39 第2条裁 24 为**当时**权威值）；本包不照抄 24，而是从当前正文重新逐条清点、按 ORCH-40／ORCH-41／ORCH-42 已关闭项扣减、并登记新增缺口，得**新的权威计数：阻塞 16 条／非阻塞 48 条／合计 64 条**，汇总节与正文逐条列举**由同一份数据生成并已回读自证相等**。② 新增 **G 节 19 行**（含 P2-wire-A @`53ed80c` 上报的「M29 九步 marshal 本体未落地」等阻塞级缺口）。③ A~F 各行「阻塞交付」列按实测关闭依据改写，关闭依据一律带 commit 号。
 - 本包写集 = 本文件 + `K-SIGNOFF-CHECKLIST.md` + `P3c-DELIVERY-PACKAGE.md` + `README.md`；**未写** `V-ACCEPTANCE-EVIDENCE.md`（归并发的 P3a-pre2）、`P3b-REPRO-HARNESS.md`（归 P3b）、`dsm/**`、`tests/**`、`fixtures/**`、`tools/**`、`config/**`、`ops/dag-state.json`、`docs/adr/**`、`pyproject.toml`。未 tag、未 push（R-13）。
-- **R-12 声明**：最终全量 pytest 数字、最终 `reproducibility_hash`／`output_fingerprints`、最终 `git rev-list --count origin/main..HEAD` 一律写 `PLACEHOLDER-TO-REFRESH(<负责人>)`——本包（P3c-final）已把可实测者全部换成实测终值（§H）；仍缺的按 R-12 保留 PLACEHOLDER 并写明缺什么。
+- **R-12 声明**：最终全量 pytest 数字、最终 `reproducibility_hash`／`output_fingerprints`、最终 `git rev-list --count origin/main..HEAD` 一律写 `PLACEHOLDER-TO-REFRESH(<负责人>)`——本包（P3c-final）已把可实测者全部换成实测终值（§H）；仍缺的按 R-12 保留 PLACEHOLDER 并写明缺什么。**DOC-FINAL 本轮**：`最终全量 pytest` 已实测闭合（0 failed／2302 passed／2302 collected @CMB-1 `037b862`）故其 PLACEHOLDER 撤销；`ahead` 已重测 59 @`037b862`；仍剩 `output_fingerprints` 的 64 位生产台账（主控）与**最终 HEAD 上的 `repro_offline.sh` 复跑**（主控，见 §H-14 对 ③ 的追记）——本包不代跑（派工单明令）。
 - **边界声明（诚实性红线，原文照录不软化）**：K-01~K-35 一律 PLACEHOLDER；`config/` 实测 **0 文件**，真实运行被 `EXIT_CONFIG=3` 拒绝（**设计如此，非 bug**）；无 console script、**无前端界面**；本 RUN 未接入真实用户／行内授权／生产对账／因果增量；`CEL` 增量层契约在 v1 保留未接入（`CEL_NOT_CONNECTED`）。
 - 判据基线：M38（K 参数）、M39（G0~G8 门禁，`docs/digest/M39-risks-gates.md` L35-L43 = SDD L1787-L1795）。
 - 「是否阻塞交付」口径：**是** = 阻塞 G7/真实运行/P3c 正式出分；**否** = 已有排定修复包或仅文档勘误，不阻塞合成数据演练（M39 L45「门禁失败时的合法动作」仍允许）。
@@ -62,7 +63,7 @@
 | D-3 | D-A1-02 | 冻结 fixtures 4 条 DID+CONCURRENT_CONTROL 卡缺 alt_method_note/interpretation_limit → 实测证据分布 A3B0C4D6 ≠ manifest 声明 A3B3C4D2；G-04/G-08 subject 落 NOT_ASSESSED | fixtures 现状使用（G-04/G-08 仍 RED） | A1c → E2b（等 P2a 落地） | 否 | SEAM-1 档案确认 G-04/G-08 仍 RED 归因于此　**已闭合**：D-A1-02 由 A1c @`6299245` 补 [L1171] `alt_method_note`（四张 DID 卡；只补 note 不补 interpretation_limit，ORCH-37 第4条）；证据分布主体级 A3B3C4D2／行级 A3B4C4D2 双口径入册 |
 | D-4 | D-A1-03 | fixtures（事实表）缺陷 | 未修 | A1c | 否 | OPEN　**已闭合**：D-A1-03 由 A1c @`6299245` 依 ORCH-37 第1条追认落地（BLOCK 缺格载体由 M_COMPLAINT_RATE 迁至 M_SATISFY_SCORE 并同维对调 missing_rule，解 `dsm/redline.py:330` 死锁，g09 实测仍绿） |
 | D-5 | D-A1-04 | fixtures（权重文档）缺陷 | 未修 | A1c | 否 | OPEN　**已闭合（主流程唯一真阻塞解除）**：D-A1-04 由 A1c @`6299245` 补 provenance 七键（kind=AHP_ONLY + ahp 段 + whatif_run_id=WIF-SYNTH-2026-01 + 签认四件套，全部合成待业务签认）；spine step2 由红转绿、走到 [L1322] 右支（A1d 实测 WARN／findings 5 条） |
-| D-6 | D-A1-05 | fixtures 或 io_loaders 格式归属二选一（按 M21/M18 原文） | 未定 | A1c 或 C1c | 否 | OPEN　**已闭合**：D-A1-05 由 A1d @`f27334d` 按 ORCH-41 第1条 R2 的**列级口径**落地（`io_loaders.py` 新增 `_required_text_columns()` 与常量 `TEXT_AS_IS_COLUMNS`，必填 str 列的空单元格读回空串；NULL_LITERALS／后缀白名单／models.py／evidence.py 逐字节未动，fixtures 零改动）。A1d 实测 spine 7 红 → 1 红，剩余 1 红归因归 G14FIX 写集；全量实测现状 1 failed／2301 passed／2302 collected @`da4d0a9`（P3c-final 亲测，15.48s），**未转绿**，归因 A1c @`6299245` 的 D-A1-03；最终值 `PLACEHOLDER-TO-REFRESH(CMB-1)` |
+| D-6 | D-A1-05 | fixtures 或 io_loaders 格式归属二选一（按 M21/M18 原文） | 未定 | A1c 或 C1c | 否 | OPEN　**已闭合**：D-A1-05 由 A1d @`f27334d` 按 ORCH-41 第1条 R2 的**列级口径**落地（`io_loaders.py` 新增 `_required_text_columns()` 与常量 `TEXT_AS_IS_COLUMNS`，必填 str 列的空单元格读回空串；NULL_LITERALS／后缀白名单／models.py／evidence.py 逐字节未动，fixtures 零改动）。A1d 实测 spine 7 红 → 1 红，剩余 1 红归因归 G14FIX 写集；追记：P3c-final 亲测 1 failed／2301 passed／2302 collected @`da4d0a9`（15.48s），**当时未转绿**，归因 A1c @`6299245` 的 D-A1-03；**DOC-FINAL 终值 = 0 failed／2302 passed／2302 collected（CMB-1 @`037b862`）**，`PLACEHOLDER-TO-REFRESH(CMB-1)` 撤销 |
 | D-7 | D-C2-01 | —（上报被撤回） | CLOSED_AS_MISREPORTED：ORCH-30 实测三期唯一 blocks_run=True 为 C-01；preflight PROD=0，仅补 4 条负向测试 | 无（记录保留） | 否 | 状态字符串非 CLOSED，按任务口径列入本表 |
 
 ## E. 文档矛盾类
@@ -89,7 +90,7 @@
 ## G. 本轮新增登记（ORCH-39 ~ ORCH-42 期间产生／闭合的缺陷与缺口 · P3c-pre2 建表）
 
 - 本节由 **P3c-pre2** 依派工单「新增的缺口也要登记（不要只删不增）」+ ORCH-42 补充事实建立；每行的关闭依据均为**本包亲自实测或主控裁决原文**（`ops/dag-state.json` 的 `decisions.ORCH-39~ORCH-42`／`defects`（27 条）／`errata`（11 条）+ 各 lane 的 `dsm_stage/*/NEED-WIRING.md`），未实测的一律写 PLACEHOLDER-TO-REFRESH。
-- 观测 HEAD = `da4d0a9`（P3b-FIX）；P3c-pre2 施工期间 HEAD 依次为 `858ebc8`（LOO-1）→ `53ed80c`（P2-wire-A）→ `f4aaa6b`（ORCH-40+41 入账）→ `f27334d`（A1d）。`git tag -l` 实测 **0** 条；`git rev-list --count origin/main..HEAD` = **57**（实测 @`66481b1`/AUD-FINAL 落地后；本包提交前另测 54 @`da4d0a9`），2026-11-25 09:10）。
+- 观测 HEAD = `da4d0a9`（P3b-FIX）；P3c-pre2 施工期间 HEAD 依次为 `858ebc8`（LOO-1）→ `53ed80c`（P2-wire-A）→ `f4aaa6b`（ORCH-40+41 入账）→ `f27334d`（A1d）。`git tag -l` 实测 **0** 条；`git rev-list --count origin/main..HEAD` = **59**（DOC-FINAL 亲测 @`037b862`，`origin/main` = `3616f9722213f6da2cb0b4ff6fcf55cd947ed648` 已实测为 HEAD 祖先 → push 为 fast-forward；追记 54 @`da4d0a9` → 57 @`66481b1`；本包提交后为 60，push 前由主控重测），2026-11-25 09:10）。
 - G-14／G-15／G-17 三行在 `dag-state` 的 `defects` 里**尚无缺陷号**；本包按 **L-12** 纪律不自占编号（编号单点分配权在主控），只描述事实与归属。
 
 | # | 条件 | 缺什么 | 当前 WORKAROUND | 闭合责任方 | 阻塞交付 | 备注（实测） |
@@ -113,7 +114,7 @@
 | G-17 | G-14 的**上期 PoolStats 载体缺位**（本包新登记） | `Inputs`（[L891]）无 `previous_pool_stats` 列、`AuditBundle`（[L1051] 十六列）无 `pool_stats` 列，而 `models.py` 属 MODELS-1／LOO-1 独占写集 | `_previous_pool_stats()` 现阶段只能返回 None，报告**显式披露「本期不可比」**（符合 V-14：不造假基线） | 主控裁（契约级变更）；本 RUN **不做**（ORCH-42 第5条） | 否 | 见 `dsm_stage/G14FIX/NEED-CONTRACT.md` 与 `dsm_stage/P2-wire-A/NEED-WIRING.md` 第 10 条；登记为 **K-33** 待签认 |
 | G-18 | `loo_impact` 未补进 ORCH-22 契约表（K-25） | `docs/adr/ORCH-22.md` 裁决 25 的 `SensitivityReport` 字段表与 `docs/adr/ORCH-22-review-S1-T04.md:136` 对账表均无该字段 | P2-wire-A 已按主控指令**沿用 `loo_impact` 原名**、未自创别名；`docs/**` 属禁写面，本包亦无权改 | 主控（后续 ORCH 补录） | 否 | R-15 授权 + ORCH-22 契约表同步要求（LOO-1 NEED-WIRING 第 5 条） |
 | G-19 | whatif 的 GEOMETRIC 近似归因本 RUN 不做（⚠️ **编号撞号**） | 派工单要求登记为 `D-A4-02`，但 `ops/dag-state.json → defects` **已存在** `D-A4-02`（`dsm/whatif.py:571` 裸字面量，status=CLOSED，fix_commit `9078201`）——两者不是同一件事 | 现状：`dsm/whatif.py` 非 LINEAR 一律抛 `WhatifOperatorError(CONFIG_SEMANTIC_ERROR)`，**不出近似归因**（G-A4-1）；`APPROXIMATE_ATTRIBUTION` 码已注册备用（见 B-7） | 下一版本；**编号请主控改号**（同 L-12：编号单点分配权在主控，本包不自占 `D-A4-02`） | 否 | 本包按派工单登记内容但不复用已 CLOSED 的同号缺陷，避免台账混淆 |
-| G-20 | **全量 pytest 唯一残留红（本包新登，P2-wire-B/P3b-FIX 均未跑全量故未发现）** `tests/test_methods_combine.py::test_build_draft_on_the_frozen_a1_fixtures`（`:502 assert 8 == 9`） | 2026-Q3 完整策略数期望常量与实际分布不符，**tag 前置 ①「0 failed」硬门禁不破** | 二分实测引入点 = A1c @`6299245` 的 D-A1-03（`M_COMPLAINT_RATE`→`M_SATISFY_SCORE` 载体迁移 + 同维对调 `missing_rule`，Q3 9→8），期望常量未同步；`cc18a38`／`dce1ac5` 绿、`6299245` 起红 | 已派 **CMB-1**（写集仅 `tests/test_methods_combine.py`）；最小修法 = `:502` 9→8 + `:483` docstring 同步 + 附 D-A1-03 引文，**禁** `>=`／区间／删断言／skip／xfail | **是** | 本包实测 1 failed／2301 passed／2302 collected @`da4d0a9`（§H-1）|
+| G-20 | **CLOSED @CMB-1 `037b862`（DOC-FINAL 改判；原为全量 pytest 唯一残留红，P2-wire-B／P3b-FIX 均未跑全量故未发现）** `tests/test_methods_combine.py::test_build_draft_on_the_frozen_a1_fixtures`（`:502 assert 8 == 9`） | 2026-Q3 完整策略数期望常量陈旧（曾使 **tag 前置 ①「0 failed」硬门禁不破**）→ 现 **① 满足**：全量 **0 failed／2302 passed／2302 collected**；独立推导链 **12 − 4 = 8** 见 §H-14 | 二分实测引入点 = A1c @`6299245` 的 D-A1-03（`M_COMPLAINT_RATE`→`M_SATISFY_SCORE` 载体迁移 + 同维对调 `missing_rule`，Q3 9→8），期望常量未同步；`cc18a38`／`dce1ac5` 绿、`6299245` 起红 | **CMB-1 @`037b862` 已落地**（写集仅 `tests/test_methods_combine.py`；`:502` 期望 `9→8` + `:482` docstring「only 9」→「only 8」+ 断言上方 5 行依据注释；删除 2 行、净断言 +0）；最小修法 = `:502` 9→8 + `:483` docstring 同步 + 附 D-A1-03 引文)；修法守 **禁** `>=`／区间／删断言／skip／xfail，未碰任何实现文件 | **否** | 追记（CLOSED @`037b862`）：P3c-final 实测 1 failed／2301 passed／2302 collected @`da4d0a9`（§H-1）；**终值：0 failed／2302 passed／2302 collected**（CMB-1 @`037b862`，观测工作树 `a396e0a`）；本包亲跑定向复核 `tests/test_methods_combine.py` = **22 passed in 0.67s**；闭合证据链 §H-14 |
 
 ## 汇总计数（**P3c-pre2 重算：与正文逐条列举同源生成，已回读自证相等**）
 
@@ -172,9 +173,11 @@
 
 **P3c-final 权威计数 = 10（原 24 中保持）+ 4（G 节仍阻塞：G-8／G-14／G-15／G-20）= 阻塞 14 条；非阻塞 51 条；合计 65 条。**
 
+**DOC-FINAL 权威计数 = 10（原 24 中保持）+ 3（G 节仍阻塞：G-8／G-14／G-15）= 阻塞 13 条；非阻塞 52 条；合计 65 条。**（G-20 已 CLOSED @CMB-1 `037b862`，按「CLOSED 行仍留在总账内计为非阻塞」的既有口径从阻塞转入非阻塞，故合计不变；上一版 14／51 **保留为追记**，不改写。）
+
 - **计数口径（本轮沿用并在正文注明）**：阻塞 = `blocks_run=True` **或** 触碰 V-9／V-14／V-6／G-02 红线；非阻塞 = 已有排定修复包、已 CLOSED、或仅文档／签认待办。CLOSED 行**仍留在总账内**计为非阻塞（与 P3c-pre2 同口径），故合计由 64 → **65** 只反映 G-20 一条新增，不因闭环而减少。
 - **变化分解**：阻塞 16 → **14**（−E-8 −G-2 −G-3 +G-20）；非阻塞 48 → **51**；合计 64 → **65**。
-- **机械自证**（§H-6 命令）：正文表格行 **65**、flag「是」**14**，与本节逐字相等（D-DOC-01 的验收条件在 P3c-final 复核下仍成立）。
+- **机械自证**（§H-6 命令）：追记 P3c-final 实测 正文表格行 **65**、flag「是」**14**；**DOC-FINAL 亲跑同一口径实测 = 正文表格行 65／flag「是」13／flag「否」52**，与本节「DOC-FINAL 权威计数」逐字相等（D-DOC-01 的验收条件在 DOC-FINAL 复核下仍成立）。
 
 - SP-1 台账 21 条中 BLOCKING 7 条、SP-2 wave 新增缺口 70 条（计数实测于 dag-state）：本表收录其**未闭合且有裁决记录**的部分；各包 GAPS 全文按 SP2 note 只存在于 lane 会话／上报行，状态文件不重复存。
 ## H. P3c-final 定稿节（最终数字实测 + 台账定稿 + 计数自证）
@@ -236,7 +239,7 @@
 
 ### H-6 发布数字与计数自证（刷新 ⑥）
 
-- `git rev-list --count origin/main..HEAD` = **57**（实测 @`66481b1`/AUD-FINAL 落地后；本包提交前另测 54 @`da4d0a9`）；P3C-draft 的 **34 作废**；本包提交后须由主控再重测）。
+- `git rev-list --count origin/main..HEAD` = **59**（DOC-FINAL 亲测 @`037b862`，`origin/main` = `3616f9722213f6da2cb0b4ff6fcf55cd947ed648` 已实测为 HEAD 祖先 → push 为 fast-forward；追记 54 @`da4d0a9` → 57 @`66481b1`；本包提交后为 60，push 前由主控重测）；P3C-draft 的 **34 作废**；本包提交后须由主控再重测）。
 - `git tag -l` = **0 条**；`v1.1.0` 不存在，由主控执行（R-13）。
 - 计数自证与本包实测输出：正文表格行 **65**、flag「是」**14** → 与「最终权威计数」节逐字相等（**D-DOC-01 验收条件在 P3c-final 复核下仍成立**）。
 - `ops/dag-state.json → defects`／`errata`／`orch_lessons` = **27／11／12**（转录；`ops/**` 属本包禁写面，状态翻转归主控）。
@@ -264,7 +267,7 @@
 
 ### H-10 本文件仍保留的 PLACEHOLDER-TO-REFRESH（R-12）
 
-① `output_fingerprints` 的 **64 位生产台账** → `PLACEHOLDER-TO-REFRESH(主控：marshal 落地后用签认配置跑 dsm score 并登记进 ops/dag-state.json)`（spine 面实测 `bundle.output_fingerprints = {}`；七件 sha256[:16] 已有 P2-wire-B 实算值，见 §H-2，**不得写「output_fingerprints 已变更」**）；⑦ 最终全量 pytest 的 **0-failed 结果本身** → `PLACEHOLDER-TO-REFRESH(CMB-1)`（实测现状已定稿为 1／2301／2302 @`da4d0a9`，缺的是「转绿」而非数字）；② K-07 的 `min_sample_size_for_A`／显著性水平／MDE 无代码落点；③ G5／G7 签认产物；④ 异机第二人复跑（V-3／V-10 维持 ⏳）；⑤ `cel_contract_version`（[L1897] 首版固定为占位版本 + [L1795] G8 未发布 → K-31）；⑥ `docs/adr/` 份数（`docs/adr/**` 属禁写面，本包未实测）。
+① `output_fingerprints` 的 **64 位生产台账** → `PLACEHOLDER-TO-REFRESH(主控：marshal 落地后用签认配置跑 dsm score 并登记进 ops/dag-state.json)`（spine 面实测 `bundle.output_fingerprints = {}`；七件 sha256[:16] 已有 P2-wire-B 实算值，见 §H-2，**不得写「output_fingerprints 已变更」**）；⑦ 最终全量 pytest 的 **0-failed 结果本身** → **DOC-FINAL 已闭合**：实测 **0 failed／2302 passed／2302 collected**（① 原文命令统计行 `2302 passed in 10.98s`；观测工作树 `a396e0a`／提交后 HEAD `037b862`）；追记：该项在 P3c-final 为 `PLACEHOLDER-TO-REFRESH(CMB-1)`，实测 1／2301／2302 @`da4d0a9`，缺的是「转绿」而非数字，**现已转绿**；② K-07 的 `min_sample_size_for_A`／显著性水平／MDE 无代码落点；③ G5／G7 签认产物；④ 异机第二人复跑（V-3／V-10 维持 ⏳）；⑤ `cel_contract_version`（[L1897] 首版固定为占位版本 + [L1795] G8 未发布 → K-31）；⑥ `docs/adr/` 份数（`docs/adr/**` 属禁写面，本包未实测）。
 
 ### H-11 属 `ops/dag-state.json` 的台账矛盾 —— **只披露、本包不改**（主控写集，主控正在修）
 
@@ -290,3 +293,25 @@
 | 10 | `cd /home/szf/dev/CampaignLab && git branch --show-current; git rev-parse --short HEAD; git status --porcelain \| wc -l; git rev-list --count HEAD` | `m0-framework`／`0cccb76`／**0**／**154**（开工 09:04 与收工各一次，两次一致） | ⑤（邻仓） |
 | 11 | `sha256sum` + `wc -l` on 契约文件 | `708679e9a83d`／**2003 行** | 契约只读核验 |
 | 12 | `grep -cE "^\\| [A-G]-[0-9]+ " docs/deliverables/KNOWN-GAPS.md` 与同前缀再筛「是」 | **65** 行／「是」**14**（见 §H-6，与本包更新后的汇总节逐字相等） | ⑥ |
+
+
+### H-14 DOC-FINAL：全量 0 failed 终值、G-20 闭合证据链、tag 前置 ①~⑦ 重判（观测 HEAD `037b862`）
+
+- **终值（转录 CMB-1 实测，本包不重跑全量）**：**0 failed／2302 passed／2302 collected**，0 error／0 skip／0 xfail。
+  | 形式 | 命令 | 统计行原文 |
+  |---|---|---|
+  | 标准形式 | `/home/szf/venvs/dsm/bin/python -m pytest -ra --tb=short --continue-on-collection-errors` | **`2302 passed in 12.50s`** |
+  | **tag 前置 ① 原文命令形式** | `/home/szf/venvs/dsm/bin/python -m pytest --continue-on-collection-errors -o addopts= -q 2>&1 \| tail -3` | **`2302 passed in 10.98s`** |
+  判据满足理由：统计行形如 `N passed in Xs`，**无** `failed`／`error`／`skipped`／`xfailed` 字样。
+- **观测 HEAD 如实注明**：全量跑在 **`a396e0a` 的工作树**上执行（CMB-1 提交前）；CMB-1 提交后 HEAD = **`037b862`**。docs-only 变更不参与测试收集，故终值对 `037b862` 及其后的文档提交仍有效。
+- **本包亲跑的复核（非转录）**：`/home/szf/venvs/dsm/bin/python -m pytest -o addopts= -q tests/test_methods_combine.py` → **`22 passed in 0.67s`**；只读探针 `dsm_stage/CMB-1/probe_q3_count.py`（纯 stdlib、不 import dsm）在 `037b862` 复跑 → **`DERIVED_Q3_COUNT = 8`**，其余四期 **12**。
+- **G-20 闭合的独立推导链（可复核）**：口径依契约 [L575]／[L1140]／[L1145] —— `n_t` = 当期同时携带全部 **entropy 指标**（`metric_dict` 中 `is_redline=false` 的 **12** 个；红线 **3** 个 `M_COMPLAINT_RATE`／`M_CONTACT_FREQ_PER_30D`／`M_OPTOUT_RATE` 不入 entropy）的策略数；缺行 = 缺格；`SUSPECT` 剔除（实测 **0**）。实测 `metric_fact` **896 行／15 指标／12 策略／5 期**，行数分布 **180×4 + 176（Q3）**；Q3 的 **4 个缺格** = `S-005×M_CAMPAIGN_COST_MINOR`、`S-006×M_CUST_GAIN`、`S-008×M_SATISFY_SCORE`、`S-011×M_ROI`，分属 **4 个不同策略** → **12 − 4 = 8**；其余四期各 12。归因佐证：`git show 6299245` 显示 `metric_fact` 唯一一行变更 = 删 `Q3/S-008/M_SATISFY_SCORE`、增 `Q3/S-008/M_COMPLAINT_RATE`，即 **A1c 的 D-A1-03 载体迁移**使缺格开始吃掉 entropy 完整策略数（9→8）→ 属**期望常量陈旧，非实现回归**。收口由 **CMB-1 @`037b862`** 完成（`:502` 期望 `9→8`、`:482` docstring 同步、断言上方 5 行依据注释；删除 2 行、净断言 +0、无 skip／xfail／or 化／区间断言、未碰任何实现文件）。
+- **tag 前置逐条重判（DOC-FINAL）**：
+  - **① 满足**（改判）。**追记（历史事实，不得抹去）**：本 RUN 内 ① **曾未满足** —— `1 failed／2301 passed／2302 collected` 实测于 `93abfee`／`da4d0a9`（15.48s），更早 `13 failed／2182 passed／collected 2195` @`358b4ea`、`11 failed／2190 passed` @`cc18a38`；现因唯一红条闭合而满足。
+  - **② 满足（按 ORCH-44 重述判据）**：重述判据 = 「V-1~V-20 全 20 条在册；每条 ❌／⏳ 均有归属包 + K 缺口编号 + 下一版完成条件；且有 AUD-FINAL 零弱化卷宗佐证 C4（真弱化）= 0」。三子句现均成立（20 条在册；AUD-FINAL @`66481b1` 区间 `cc18a38..da4d0a9`：21 commits／12 触及 `tests/`／228 删除行，C1=20／C2=127／C3=81／**C4=0**、净增断言 **+332**、现存 skip／xfail **0**；V-14 的三项登记齐备）。**且逐字保留以下事实：原文 ❌=0 判据未被满足**，因 V-14 仍为 ❌ 且本 RUN 无法闭环（M28 降级矩阵 26 行逐条遍历断言至今零断言 + M29 九步 marshal 本体未落地，后者已裁为本 RUN 范围外）；在诚实性规则 R-12／R-14／V-14 与「凑 ❌=0」冲突时诚实性优先，故重述判据而非上调 V-14。**V-14 维持 ❌，本包不上调。**
+  - **③ 满足（限 `93abfee`／`da4d0a9` 本次签核）**；CMB-1（`037b862`）与本轮文档提交使 HEAD 前移，**主控将在最终 HEAD 复跑 `bash tools/repro_offline.sh --wheelhouse /home/szf/dsm-wheelhouse --runs 2 --strict-isolation`，结果记入 `ops/dag-state.json` 与最终报告**；复跑前 ③ 的最终态标注 = **`PLACEHOLDER-TO-REFRESH(主控最终签核)`**。V-3／V-10 维持 ⏳（第二人／异机复跑仍 PLACEHOLDER）。本包按派工单**未跑**该工装。
+  - **④ 部分满足**：哈希侧闭合（`e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`，多 HEAD 复测同值；`f437c0ea…` 按 ORCH-44／K-36 定性 **non-canonical**、不入台账）；台账侧（`current_hash_asof=358b4ea`、两个 `seq=3`、`defects` 状态滞后 3 处、`D-A4-02` 撞号）**属主控写集，本包只披露不改**，**主控正在本轮修复**（§H-11）。
+  - **⑤ 满足**：本包亲跑 `cd /home/szf/dev/CampaignLab && git branch --show-current; git rev-parse --short HEAD; git status --porcelain \| wc -l; git rev-list --count HEAD` → **`m0-framework`／`0cccb76`／`0`／`154`**；契约 sha256[:12] = **`708679e9a83d`**、**2003 行**；邻仓只读、未触碰（收工复测一次）。
+  - **⑥ 满足（本包重测）**：`grep -cE "^\| [A-G]-[0-9]+ " docs/deliverables/KNOWN-GAPS.md` = **65**；同前缀再筛 flag「是」= **13**（列级解析，转义竖线不计为分隔符）→ 阻塞 **13**／非阻塞 **52**／合计 **65**，与 §G「DOC-FINAL 权威计数」逐字相等（G-20 CLOSED 后自洽）。
+  - **⑦ 待主控在 push 前实测（工作树须为空）**：判据与命令照抄 §2，核验时刻须为打 tag 当下。本包开工时 `git status --porcelain` = ` M docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`（P3a-final 在飞）→ **本包跳过该文件**，只显式 `git add` 实际改动的文档；未 stash／checkout／restore／reset／clean；未 push、未 tag（R-13）。
+- **发布数字（本包亲测 @`037b862`）**：`git rev-list --count origin/main..HEAD` = **59**（`origin/main` = `3616f9722213f6da2cb0b4ff6fcf55cd947ed648`；`git merge-base --is-ancestor origin/main HEAD` 实测为真 → push 是 fast-forward）；`git tag -l | wc -l` = **0**；本包提交后 ahead = 60，push 前由主控重测。
