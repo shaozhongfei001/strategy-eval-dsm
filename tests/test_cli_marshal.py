@@ -293,8 +293,12 @@ def test_score_end_to_end_writes_ten_sections_five_tables_and_audit_json(monkeyp
     assert got_rows == expected_rows, \
         '[L888] row_count 必须等于冻结 fixtures 的行数（缺事实即缺格，不填 0），实得 ' \
         + repr(got_rows)
-    assert 's:output_fingerprints={}' in body, \
-        'bundle 内如实为 {}：生产出口归 M29-2（ORCH-59 预裁决），本包只保留 seam + 披露'
+    assert 's:output_fingerprints={}' not in body and 's:output_fingerprints={' in body, \
+        'M29-2 / ORCH-59 六键口径：bundle 内为 ARTIFACT_NAMES - {audit.json} 六键；' \
+        'M29-1 过渡钉自述「生产出口归 M29-2」，其有效期前提已于 04cbe19 兑现（到期）' \
+        ' -> ORCH-66 批准翻面，属口径补齐而非 R-14 弱化：六键精确性' \
+        '（键集恰等 + 逐值落盘重算 + 正文六枚对账 + 自身哈希不入正文）' \
+        '已由 tests/test_report_set_outlet.py 的 8 条断言承担'
     assert 's:preflight_findings=[]' not in body, '[L1542] WARN 全量进 bundle，不被静默吞'
     assert 's:downgrade_actions=[]' not in body, \
         '[L1051] item 13：preflight / Step1 / Step2 三个来源的降级动作全量进 bundle'
