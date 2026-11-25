@@ -78,7 +78,7 @@
    "cx": "C3",
    "model": "qwen3.8-max",
    "reasoning_effort": "xhigh",
-   "status": "running-interrupted-ORCH-60",
+   "status": "done",
    "deps": [],
    "budget_min": 90,
    "writeset": [
@@ -101,7 +101,17 @@
     "disk_signal": "ORCH-60 生效：PLAN.md 8139B + progress.log 已落盘；dsm/cli.py +732/-19（九步 marshal 本体在写）；自报 eta=30min",
     "gaps_reported": "GAPS-1 soft_deductions 载体（-> ORCH-61 + CFG-1）；GAPS-2 --seed 事实必填；GAPS-3 output_fingerprints 鸡生蛋（-> ORCH-59 归 M29-2）；GAPS-4 previous_ledger 非空显式拒绝",
     "timebox": "40min -> T+2.35h"
-   }
+   },
+   "commit": "a432ef6",
+   "min": 145,
+   "head_at_commit": "a432ef6(parent 6412a72)",
+   "orch_verified": "主控独立 clone @a432ef6（porcelain 0）亲测：全量 2418 passed / 0 failed（31.78s）；tests/test_cli_marshal.py 定向 17 passed；normalize --check = NEEDS_NORMALIZATION 0 of 204 + DISCLOSURE 7 of 204；grep \"chain modules are all present\" dsm/cli.py = 0 命中（拒绝门已删）",
+   "writeset_actual": "dsm/cli.py 1679 行/101102B（+756/-19）+ tests/test_cli_marshal.py 新建 549 行",
+   "render_reports_wired": "是 —— cli.py:953 _report_frames -> :959 _render_reports -> :1120 内 :1129 reports.write_report_set；cmd_score 成功路真实写出七件产物",
+   "hash_evidence": "其端到端用例在真实九步 CLI 路径上实测 reproducibility_hash = e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904，与 v1.1 冻结值逐字相等 => ORCH-57「哈希是值面函数」获生产路径级实证（此前仅 spine 探针级）",
+   "selfreported_gap5_correction": "Zeno GAP-5 预告「权威哈希必变」被其自身实测推翻（同值）；主控采信实测，不采信预告",
+   "r14_selfcheck": "自报改了自己写错的两条断言（:267 首键假设错误 -> 改为与排序无关的解析式断言并要求八表 sha256+row_count 齐备；:306 把 master 13 行误当主体数 -> 改为本期 strategy_id x version_id 对=12 并新增前提检查）。主控判定：两条均为期望值取错口径，替换后强度上升，非弱化",
+   "gaps": "GAP-1 两个写集外缺陷 B1/B2（-> 派 B12-FIX）；GAP-2 output_fingerprints={} + run_id 非确定（-> M29-2 / NG-V12-26）；GAP-3 --previous-period 未接线（details 已如实披露，不造假基线）；GAP-4 不自我宣称 V-14 ✅（正确）"
   },
   "RC-1": {
    "wave": "W1",
@@ -251,17 +261,17 @@
   "M29-2": {
    "wave": "W2",
    "cx": "C2",
-   "model": "qwen3.8-flash",
+   "model": "qwen3.8-max/high",
    "reasoning_effort": "high",
-   "status": "pending",
+   "status": "running",
    "deps": [
     "M29-1"
    ],
    "budget_min": 50,
    "writeset": [
     "dsm/cli.py",
-    "dsm/reports.py",
-    "tests/test_report_set_outlet.py"
+    "tests/test_report_set_outlet.py(新)",
+    "dsm/reports.py(仅新增函数，严禁改既有 render*/write_report_set/render_audit_json)"
    ],
    "ev": {
     "min": null,
@@ -269,7 +279,9 @@
     "pytest": null,
     "first_pass": null,
     "gate_changed_since_rc": null
-   }
+   },
+   "agent": "Volta 01a21350-a114-7b22-80c9-8bdd672a992a",
+   "scope_after_m29_1": "范围已缩小：_render_reports 的生产驱动 M29-1 已完成；M29-2 剩余 = ORCH-59 两遍渲染六键回填 + outlet 测试（磁盘重算逐值全等 / 键集=6 / 文件集=7 / rs0-rs1 六件逐字节相等）+ G-8 CLI 端到端 MIX_QUALITY_DEGRADED"
   },
   "M28-1": {
    "wave": "W2",
@@ -843,6 +855,21 @@
    "budget_min": 40,
    "writeset": "只读；产出 dsm_stage/V12-DOC-PRE/**",
    "goal": "产出 V12-DOC-FINAL 可机械套用的编辑包：V-ACCEPTANCE-EVIDENCE §A/§N、KNOWN-GAPS（E-6/G-8/G-14/G-15 改写 + 新增 NG 行 + 13/12/11/10 四情形计数模板）、RUN doc :127 与「六列」纠正、P3b/P3c/README 陈旧陈述、tag 消息模板"
+  },
+  "B12-FIX": {
+   "status": "running",
+   "agent": "Epicurus 01a21351-b4ad-7082-8b73-625f1f3cab37",
+   "model": "qwen3.8-max/high",
+   "budget_min": 45,
+   "critical_path": true,
+   "writeset": [
+    "dsm/diagnostics.py",
+    "dsm/triangulation.py",
+    "tests/test_diagnostics_precision.py(新)",
+    "tests/test_triangulation_zero_variance.py(新)"
+   ],
+   "goal": "B1 _pearson 钱款列 Decimal prec 溢出（localcontext 提精度，禁 float、禁吞异常）；B2 dimensionless 恒定列除零（显式降级 + 复用已注册码披露，禁发明第三种归一化口径、禁写 reason_codes.py）",
+   "hard_stop": "哈希若变 或 既有测试钉字面哈希变红 -> blocked 不提交（主控已亲测：全仓无字面哈希钉，grep -rn e59234654f4e tests/ dsm/ = 0 命中）"
   }
  },
  "sync_points": {
@@ -880,19 +907,28 @@
  },
  "gates_v12": {
   "1": {
-   "status": "green-at-617e7a5",
+   "status": "green-at-a432ef6",
    "measured_by": "主控（独立 clone，porcelain 0）",
-   "value": "2401 passed / 0 failed / 0 error / 0 skip / 0 xfail",
-   "note": "最终 HEAD 须复测；M29-1 落地后应 >= 2401 + 其新增条数"
+   "value": "2418 passed / 0 failed / 0 error / 0 skip / 0 xfail（31.78s）",
+   "note": "最终 HEAD 须复测；M29-2 与 B12-FIX 落地后应 >= 2418 + 各自新增"
   },
   "2": "V-1~V-20 全 20 条在册；V-14 仅四项齐备才可上调，否则维持 ❌ 并逐字保留原因",
   "3": "repro_offline.sh --strict-isolation --expect <新哈希> 在最终 HEAD PASS，L3-strong，两跑自等，DIRTY=0，HEAD_STABLE=yes",
-  "4": "权威哈希必变（实现面改动）-> 重新登记 + invalidation_log 新 seq + 新旧两值与归因；v1.1 的 e5923465… 只作历史保留",
+  "4": {
+   "status": "evidence-strengthened",
+   "value": "e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904",
+   "evidence_levels": [
+    "spine 探针级（REPRO-PRE 5 次全链恒等）",
+    "生产路径级（M29-1 端到端九步 CLI 实测同值）"
+   ],
+   "literal_pin_scan": "主控亲测 grep -rn e59234654f4e tests/ dsm/ = 0 命中 => 重登记不撞任何断言",
+   "pending": "B12-FIX 与 M29-2 落地后须在最终 HEAD 复测；若变则登记新值 + 机理"
+  },
   "5": "邻居 CampaignLab 四项一致 + 契约 708679e9a83d/2003 行未变",
   "6": "KNOWN-GAPS 机械清点与汇总节逐字相等；阻塞数自 13 下降的每条给关闭依据",
   "7": {
    "status": "pending",
-   "count_denominator": "受控文件数已由 201 漂到 203（并发入库）；所有「7 of 201」表述必须写 7 of 203",
+   "count_denominator": "受控文件数持续漂移：201 -> 203 ->（M29-1 新增 test_cli_marshal.py）**204**；M29-2/B12-FIX 还会各新增文件。终态一律以最终 HEAD 的 normalize --check 实测分母为准，任何写死的分母都会假红",
    "note": "BK-3 已使披露 15->7；终态须 porcelain 空 + 编码三形式 + 四要素 0"
   }
  },
@@ -1098,21 +1134,21 @@
   }
  },
  "counters": {
-  "pkgs_total": 26,
-  "pkgs_done": 22,
-  "pkgs_running": 2,
-  "pkgs_pending": 2,
+  "pkgs_total": 27,
+  "pkgs_done": 23,
+  "pkgs_running": 3,
+  "pkgs_pending": 1,
   "w1_pkgs": 6,
   "w2_pkgs": 3,
   "w3_pkgs": 3,
   "max_pkgs": 5,
   "flash_pkgs": 18,
   "slots_limit": 6,
-  "slots_in_use": 2,
+  "slots_in_use": 4,
   "escalations": 0,
   "rework_rounds": 0,
   "budget_violations": 0,
-  "updated_at_epoch": 1795619877.2017124,
+  "updated_at_epoch": 1795620746.2389126,
   "adhoc_pkgs": 11,
   "orch_self_inflicted_errata": 4
  },
@@ -1143,7 +1179,8 @@
    "v2_probe": "DSM_HYPOTHESIS_EXAMPLES=500 tests/test_properties_all.py -> 16 passed（主控亲跑，三方同值）",
    "at_head_617e7a5": "独立 clone（porcelain 0）全量 2401 passed / 0 failed；spine -k reproducibility 1 passed；test_downgrade_matrix + test_config_soft_deductions 定向 59 passed",
    "hash": "e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904（2026-Q2；CFG-1/BK-3 改前改后逐字相等）",
-   "note": "最终 HEAD 上须复测全量 + V-2 + 门禁③两阶段"
+   "note": "最终 HEAD 上须复测全量 + V-2 + 门禁③两阶段",
+   "at_head_a432ef6": "独立 clone（porcelain 0）全量 2418 passed / 0 failed；marshal 定向 17 passed；normalize 0 of 204 / 披露 7 of 204；字面哈希钉 0 命中"
   }
  },
  "blocking_gaps_inherited": {
@@ -1186,37 +1223,49 @@
   }
  },
  "clock_now": {
-  "at_epoch": 1795619877.2017124,
-  "clock": "T+2.16h",
-  "head": "617e7a5",
-  "phase": "W2 尾 / W3 预备",
-  "remaining_hours": 3.84,
-  "note": "槽位 2/6（Zeno M29-1 + Peirce DOC-PRE）；余 4 槽待 M29-2 / DOC-FINAL / 可能的 EXIT-FIX"
+  "at_epoch": 1795620746.2389126,
+  "clock": "T+2.40h",
+  "head": "a432ef6",
+  "phase": "W2 尾",
+  "remaining_hours": 3.6,
+  "note": "槽位 4/6（Volta M29-2 / Epicurus B12-FIX / Peirce DOC-PRE / Zeno 保留复用）；余 2 槽给 DOC-FINAL 与应急"
  },
  "active_agents": {
-  "M29-1": {
-   "agent": "Zeno 01a212d3-8a38-7fe0-a7d1-277ddf145a5b",
-   "model": "qwen3.8-max/xhigh",
-   "state": "ORCH-64 已下发（interrupt）；cli.py 1678 行、tests/test_cli_marshal.py 512 行；七件产物已能落盘，剩 1 条红在 audit_json 口径",
+  "M29-2": {
+   "agent": "Volta 01a21350-a114-7b22-80c9-8bdd672a992a",
+   "model": "qwen3.8-max/high",
+   "state": "running",
+   "critical_path": true
+  },
+  "B12-FIX": {
+   "agent": "Epicurus 01a21351-b4ad-7082-8b73-625f1f3cab37",
+   "model": "qwen3.8-max/high",
+   "state": "running",
    "critical_path": true
   },
   "DOC-PRE": {
    "agent": "Peirce 01a21346-cfb1-7e32-be81-50758193fcfb",
    "model": "qwen3.8-flash/high",
-   "state": "running",
+   "state": "running（已下发分母漂移与新增 NG 补充情报）",
+   "critical_path": false
+  },
+  "M29-1": {
+   "agent": "Zeno 01a212d3-8a38-7fe0-a7d1-277ddf145a5b",
+   "model": "qwen3.8-max/xhigh",
+   "state": "done a432ef6；**保持开启**以便复用其 cli.py 深度上下文",
    "critical_path": false
   },
   "closed_this_window": [
-   "Erdos(M28-PRE)",
-   "Laplace(CEL-EQ)",
-   "Cicero(BK-5)",
-   "Halley(REPRO-PRE)",
-   "Socrates(M29-2-PRE)",
-   "Gibbs(M28-1)",
-   "Galileo(CFG-1)",
-   "Chandrasekhar(BK-3)",
-   "Parfit(GATE-PRE)",
-   "Maxwell(BK3-PRE)"
+   "Erdos",
+   "Laplace",
+   "Cicero",
+   "Halley",
+   "Socrates",
+   "Gibbs",
+   "Galileo",
+   "Chandrasekhar",
+   "Parfit",
+   "Maxwell"
   ]
  },
  "errata": [
@@ -1535,6 +1584,30 @@
    "what": "降级矩阵 26 行中仅 7 行为契约字面码名，另 28 个码名系 M28-PRE 语义推定（ORCH-56 采纳），已在测试内逐行标注「推定」",
    "owner": "行方业务确认",
    "close_condition": "业务侧确认 28 个推定码名，或按确认结果改名"
+  },
+  {
+   "id": "NG-V12-26",
+   "from": "M29-1 GAP-2",
+   "severity": "informative",
+   "what": "run_id 末段为每次运行不同的 8 位十六进制（实测 -7bed95eb / -9168da65 / -6a637057）=> 七件产物字节跨运行不可复现（report.md / score_card.csv 尤甚）。契约 L1640 的第二人复跑口径是比 reproducibility_hash 精确相等，故不违约",
+   "owner": "v1.3 / 待行方口径",
+   "close_condition": "若行方要求产物字节级可比，把 run_id 改为确定性派生（如输入指纹 + run_at 的哈希前 8 位）"
+  },
+  {
+   "id": "NG-V12-27",
+   "from": "M29-1 GAP-1 B1",
+   "severity": "blocking-until-B12-FIX",
+   "what": "dsm/diagnostics.py:223 _pearson：钱款列 M_CAMPAIGN_COST_MINOR≈2.8e6 => sxx*syy≈1e26，quantize 到 1e-12 需 38 位有效数字 > Decimal 默认 prec 28 => InvalidOperation => dsm score 退出码 5、不产任何结果",
+   "owner": "B12-FIX(Epicurus) 在飞",
+   "close_condition": "局部提高 decimal 精度且保持纯 Decimal 精确算术（禁 float / 禁粗化 quantize / 禁吞异常），并以独立预言机验证相关系数正确"
+  },
+  {
+   "id": "NG-V12-28",
+   "from": "M29-1 GAP-1 B2",
+   "severity": "blocking-until-B12-FIX",
+   "what": "dsm/triangulation.py:293 dimensionless：M_AUM_MINOR 在 12 主体上恒定 => min_max 归一后全 0 => gra_norm=initial/mean 两种签认口径参考值均为 0 => TriangulationError => 退出码 5",
+   "owner": "B12-FIX(Epicurus) 在飞",
+   "close_condition": "零方差列改为显式降级 + 复用已注册码披露（先例 SPEARMAN_ZERO_VARIANCE），禁发明第三种归一化口径、禁新增注册码（91 计数被钉）、禁改任何入分数值"
   }
  ],
  "t0_operative": {
