@@ -167,7 +167,12 @@ def _run_chain(root, period):
         inputs.metric_facts, inputs.metric_dict,
         params=attainment.AttainmentParams(
             attainment_cap=GOVERNANCE['attainment_cap'], on_zero=GOVERNANCE['on_zero'],
-            signed_off_statuses=GOVERNANCE['signed_off_statuses']))
+            signed_off_statuses=GOVERNANCE['signed_off_statuses']),
+            # ATT-1 / ERRATUM-08（ORCH-40 R4）：IMPUTE_MEDIAN 的统计量参考集优先取
+            # anchor_set（[L941] 锚定集优先），对象与 normalize.compute 第 3 位入参
+            # 同一个（_governance_docs 的 AnchorSetDoc）。必须落在 compute( 上，不得
+            # 塞进 AttainmentParams（A1DPREP §8.2 实测 ValidationError @168）。
+        anchor_set=anchor_set)
 
     # Step 3 evidence（M29 L1338）。D-MODELS-01 已由 ORCH-29 第 4 条 / ORCH-32 第 4 条
     # 收口为「Step2 松键 / Step7 严键」：PoolKey.evidence_class 现为可选，Step2 可以
@@ -437,30 +442,60 @@ def test_step1_io_loaders_real_tables_and_fingerprints(chain):
 
 
 def test_step1_io_loaders_loads_the_frozen_design_card_table(tmp_path):
-    '''RED（跨模块契约冲突 #1，归属待主控裁决）。
+    '''Step1（M29 L1330）：冻结 T4 设计卡 13 行整表加载，空串就是空串。
 
-    原文：M29 L1330「io_loaders -> 8 表 + InputFingerprints（SHA256 / 行数）」；
-          M34 L1455-1463 冻结的 fixtures 落在 fixtures/input/*.jsonl。
-    实测：dsm/io_loaders.py:read_table 只认 .csv / .parquet（其它后缀 -> CoercionError
-          MISSING_FILE），冻结的 JSONL 容器一张表都读不了；转成 CSV 后
-          design_card.jsonl 第 11/12 行（S-010 card_status=MISSING、S-011 PARTIAL）的
-          success_criteria 是空串，被 NULL_LITERALS 判成 None，而
-          models.DesignCardRow.success_criteria 是必填 str ->
-          DataLoadError「design_cards row 11/12 refused by DesignCardRow:
-          success_criteria」（kind=MODEL_ROW_REJECTED，属 BLOCKING_KINDS），
-          8 表里的 T4 永远加载不出来。
-    归属判定：dsm/fixtures_gen.py（A1：容器为 JSONL、空串取值）与 dsm/io_loaders.py
-          （C1：只支持 CSV/Parquet，'' 即 null）之间。请主控裁决是 A1 补 CSV 变体、
-          io_loaders 支持 JSONL，还是 models 放宽 success_criteria 为可空。
+    A1d 收口（ORCH-41 R1/R2）。原 RED 归因「JSONL vs CSV」经 A1DPREP 净树实测**证伪**：
+    抛错点不是 io_loaders.py:189-190 的后缀白名单（_stage 早已按 [L888] 在 tmp_path 下
+    产出 config/*.csv + data/<period>/*.csv），而是 io_loaders.py:270 的
+    DataLoadError「design_cards row 11/12 refused by DesignCardRow: success_criteria」
+    （kind=MODEL_ROW_REJECTED）。真正的冲突是**空串语义**：CSV 容器里 '' 被
+    NULL_LITERALS 升格为 None，而 models.DesignCardRow.success_criteria 是 [L1168]
+    的必填 str。
+    修法 = ORCH-41 R2 唯一许可方案：dsm/io_loaders.py 的**列级**口径
+    （TEXT_AS_IS_COLUMNS，按模型字段可空性推导）——必填 str 列的空单元格读回 ''，
+    可空列仍然 '' -> None，NULL_LITERALS 的全局语义一字未改。
+    依据：[L1168] 逐字「| success_criteria | 成功判定（含显著性水平与最小效应，若有） |」
+    是 T4 载荷列；[L1173] card_status 才是「卡不完备」的记录位；S-010 MISSING /
+    S-011 PARTIAL 的 success_criteria='' 是 M34 L1460 的刻意构造，是合法业务值。
+    不改 models.py（LOO-1 独占写集，且放宽为可空会与 test_golden_a.py:885 的既有绿
+    断言 assert card.success_criteria == '' 串味）、不改 evidence.py（CODES-2 刚落地；
+    且 evidence.py:283/299 在 ②③ 前先要求 card_status == COMPLETE，MISSING/PARTIAL
+    永不可达 _significance_hit）、不改 fixtures 字节。
+    D-A1-09（仓库级 data/<period>/ 目录树迁移）：ORCH-41 R3 判定**不需要**，本包不碰。
     '''
     conf, data = _stage(tmp_path, PERIOD, with_design_cards=True)
     loaded = io_loaders.load_inputs(data, PERIOD, conf, previous_period=PREVIOUS_PERIOD)
     assert len(loaded.inputs.design_cards) == 13
+    # ORCH-41 R2 的正向锁死：空串原样读回，不升格为 None、不填默认值（V-14），
+    # 与 tests/test_golden_a.py:885 的既有绿断言（== ''）同一口径。
+    by_sid = {(c.strategy_id, c.version_id): c for c in loaded.inputs.design_cards}
+    assert by_sid[('S-010', 'v1')].card_status == 'MISSING'      # [L1173]
+    assert by_sid[('S-010', 'v1')].success_criteria == ''        # [L1168] 空串合法
+    assert by_sid[('S-011', 'v1')].card_status == 'PARTIAL'      # [L1173]
+    assert by_sid[('S-011', 'v1')].success_criteria == ''        # [L1168] 空串合法
+    assert by_sid[('S-001', 'v1')].success_criteria == 'SYNTH_SUCC_CRITERIA'
+    assert all(isinstance(c.success_criteria, str) for c in loaded.inputs.design_cards)
 
 
 def test_step2_preflight_block_exit_writes_audit_bundle_and_no_score_card(chain):
-    '''preflight BLOCK 出口（M29 L1322-1326）：写 audit_bundle、退出码 2、不产 score_card。'''
-    result, config = chain['preflight'], chain['preflight_config']
+    '''preflight BLOCK 出口（M29 L1322-1326）：写 audit_bundle、退出码 2、不产 score_card。
+
+    A1d 收口（ORCH-40 R4 第2项 / ORCH-41 R5）：只换触发载荷，以下断言一条未删、
+    一条未弱化（BLOCK 退出码 2 + audit_bundle 已写 + 无 score_card + findings 计数 6
+    + 五项码集 + 降级台账三项 + V-14 抛错全部原样保留）。
+    原触发源是「冻结 weight_version 的 provenance = null」，A1c（D-A1-04 / ORCH-30
+    第3条 C2b）已按 [L880] 给冻结件补齐 provenance（合成待签认），冻结载荷因此改走
+    [L1322] 的 PASS/WARN 右支——那一支由
+    test_step2_preflight_reaches_pass_or_warn_on_the_frozen_fixtures 守护，两条测试
+    不再对同一份载荷断言互斥结论。本测试把同一份 FROZEN 权重的 provenance 摘掉，
+    逐字重现 [L880]「**缺 whatif_run_id 而 status = FROZEN → 加载失败**（v1.1 新增，
+    机器强制签认前必看预演）」，故 C-01 / WEIGHT_MISSING_WHATIF_RUN_ID 断言一字不改。
+    '''
+    # [L880] / [L900]：FROZEN 但缺 whatif_run_id -> C-01 BLOCK（dsm/preflight.py:188-190；
+    # WEIGHT_MISSING_WHATIF_RUN_ID 在 RUN_BLOCKING_CODES 内，dsm/preflight.py:36-40）
+    negative = chain['weight_version'].model_copy(update={'provenance': None})
+    config = dataclasses.replace(chain['preflight_config'], weight_version=negative)
+    result = preflight.run(chain['inputs'], config)
     assert result.status == 'BLOCK' and result.exit_code == 2
     codes = {(f.code, f.reason_code) for f in result.findings}
     assert ('C-01', 'WEIGHT_MISSING_WHATIF_RUN_ID') in codes
@@ -660,7 +695,9 @@ def test_step3_evidence_gate_only_does_not_enter_the_score(chain):
     '''Step 3（M29 L1338 + M26 L1617-1618）：GATE_ONLY 只做门禁，不乘进分数。'''
     assert chain['context'].evidence_mode == 'GATE_ONLY'
     ev, scores, wv = chain['evidence'], chain['scores'], chain['weight_version']
-    assert len(ev.rows) == 13
+    # D-EVID-01 / ORCH-37 第9条（ORCH-40 R4）：出桥按评价期过滤，S-005/v1 在 2026-Q2
+    # 无事实行不再出桥 -> 13 张冻结设计卡出桥 12 行。A1d 自测逐字 `assert 12 == 13`。
+    assert len(ev.rows) == 12
     assert {row.evidence_class for row in ev.rows} <= {'A', 'B', 'C', 'D'}
     for row in ev.rows:
         assert is_registered(row.evidence_reason)
@@ -813,7 +850,13 @@ def test_step6_grading_caps_by_evidence_without_touching_the_score(chain):
     # NOT_ASSESSED 单列，不给最低等级（M29 L1346）
     assessed = [r for r in grades.rows if r.grade != 'NOT_ASSESSED']
     naive = [r for r in grades.rows if r.grade == 'NOT_ASSESSED']
-    assert len(assessed) == 7 and len(naive) == 5
+    # 手算（A1d）：M34 L1459 逐字「证据分布：A×3、B×3、C×4、D×2（确保四类路径都被走到）」
+    # -> D 类主体 2 个（实测 S-010 EVIDENCE_CARD_MISSING、S-012 EVIDENCE_C_NO_LIMIT）；
+    # M29 L1346 逐字「Step 7 pooling → 分池禁混排 + 一级库门禁 + 占比双报 + NOT_ASSESSED
+    # 单列」，L1202「evidence_class_min | 该等级要求的最低证据等级（L1 建议要求 ≥ B）」
+    # -> 只有这 2 个 D 类落 NOT_ASSESSED，其余 12 - 2 = 10 个主体参评。A1c 补 [L1171]
+    # alt_method_note 后 S-004/S-005/S-007 由 D 回升为 B，旧值 7/5 作废。
+    assert len(assessed) == 10 and len(naive) == 2
     assert all(r.usable_for_elimination is False for r in naive)
     assert all(r.grade in ('L1', 'L2', 'L3', 'L4') for r in assessed)
     for row in grades.rows:
@@ -843,7 +886,10 @@ def test_step7_pooling_never_ranks_across_pools(chain):
         assert relatives == sorted(relatives, reverse=True), '池内名次必须由本池相对分决定'
     # 占比双报（[L1006] / M26 L1614）：池内占比分母是本域，全局占比分母是已参评总数
     assessed_total = sum(r.count for r in stats.rows)
-    assert assessed_total == 12 - stats.not_assessed_count == 7
+    # 手算（A1d）：主体级 A3B3C4D2=12（M34 L1459），NOT_ASSESSED 单列 2 个（M29 L1346）
+    # -> 池内计数之和 = 12 - 2 = 10；池键 = biz_domain × evidence_class（L942 逐字
+    # 「分池归一 | 标准化在**池内**进行（biz_domain × evidence_class），禁止跨池归一」）。
+    assert assessed_total == 12 - stats.not_assessed_count == 10
     for row in stats.rows:
         assert numeric.eq_tol(row.share_overall,
                               numeric.safe_div(D(row.count), D(assessed_total),
@@ -852,7 +898,7 @@ def test_step7_pooling_never_ranks_across_pools(chain):
     # 证据结构四类闭合 + NOT_ASSESSED 单列，禁止只报合并占比（M26 L1064）
     assert set(stats.evidence_structure) == {'A', 'B', 'C', 'D'}
     assert sum(stats.evidence_structure.values()) == 12
-    assert stats.not_assessed_count == 5
+    assert stats.not_assessed_count == 2   # D 类 2 主体（M34 L1459 D×2 / M29 L1346）
     assert all(is_registered(code) for code in stats.not_assessed_reasons)
     # Step 8 还没回灌时，一级库一个都不准入（稳健性未知 -> 举证制，[L1002]）
     assert not any(r.primary_pool_eligible for r in pool.rows)
@@ -869,7 +915,7 @@ def test_step8_sensitivity_flip_rate_reflows_into_step7_gate(chain):
         assert numeric.eq_tol(result.overall_flip_rate,
                               numeric.safe_div(D(result.flipped_count),
                                                D(result.assessed_count), on_zero=None))
-        assert result.assessed_count == 7      # 12 主体去掉 5 个 NOT_ASSESSED
+        assert result.assessed_count == 10     # 12 主体去掉 2 个 NOT_ASSESSED（M34 L1459 D×2）
         assert result.flag is None or is_registered(result.flag)
     assert sens.loo_dominant_metrics, 'M34 构造 6：主导权重指标必须被 LOO 点出来'
     assert sens.norm_swap_rank_correlation is not None
@@ -1003,6 +1049,19 @@ def test_l0b_whatif_step_unlocks_when_landed(chain):
     assert callable(module.run) and callable(module.signoff_verdict)
     assert {'candidate', 'baseline', 'inputs', 'config', 'period'} <= set(
         inspect.signature(module.run).parameters)
-    # 冻结 fixtures 的 FROZEN 权重 provenance 仍是 null -> C-01 仍 BLOCK，
-    # 归属与实测见 test_step2_preflight_reaches_pass_or_warn_on_the_frozen_fixtures。
-    assert chain['weight_version'].provenance is None
+    # A1d 归因闭环（ORCH-40 §3 第7项，销 PLACEHOLDER-A1c-01）：本断言原写「冻结
+    # fixtures 的 FROZEN 权重 provenance 仍是 null -> C-01 仍 BLOCK」，其**前提**已被
+    # A1c（D-A1-04 / ORCH-30 第3条 C2b）证伪——冻结 weight_version.jsonl 已按 [L880]
+    # 补齐 provenance（kind=AHP_ONLY + whatif_run_id=WIF-SYNTH-2026-01 + 签认四件套，
+    # 全部合成待业务签认），冻结载荷不再 BLOCK（实测 status=WARN，见
+    # test_step2_preflight_reaches_pass_or_warn_on_the_frozen_fixtures）。故本条红不是
+    # whatif 模块缺陷、也不是 A4 未落地，而是**测试把 A1c 之前的缺陷当期望**。
+    # 改为正向锁死 [L880]/[L900] 的 C-01 要件，断言强度只增不减；BLOCK 出口的负向守护
+    # 由 test_step2_preflight_block_exit_writes_audit_bundle_and_no_score_card 承担。
+    provenance = chain['weight_version'].provenance
+    assert chain['weight_version'].status == 'FROZEN'
+    assert provenance is not None, '[L880]：FROZEN 权重必须带 provenance'
+    assert str(provenance.whatif_run_id or '').strip(), \
+        '[L880] 逐字：缺 whatif_run_id 而 status = FROZEN → 加载失败'
+    assert 'WEIGHT_MISSING_WHATIF_RUN_ID' not in {
+        f.reason_code for f in chain['preflight'].findings}

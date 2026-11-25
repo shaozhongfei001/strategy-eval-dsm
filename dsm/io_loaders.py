@@ -146,6 +146,30 @@ TABLE_SPECS = {
 }
 
 
+def _required_text_columns():
+    '''ORCH-41 R2 (column level, never a global NULL_LITERALS change): a column whose
+    row model declares a **required** plain `str` keeps the empty cell as the legal
+    value '' instead of upgrading it to None. Authority: [L1168] makes T4
+    success_criteria a payload column ("成功判定（含显著性水平与最小效应，若有）") while
+    [L1173] card_status is where an incomplete card is recorded; the empty
+    success_criteria of design_cards rows 11/12 (S-010 card_status=MISSING, S-011
+    PARTIAL) is a deliberate M34 L1460 construction and the very material of an
+    incomplete design card, so reading it as absent would delete a real value - the
+    same reason 'NONE' is kept out of NULL_LITERALS above. The set is derived from
+    the model field annotations (required + exactly `str`), not hardcoded, so a
+    nullable / Literal / numeric column is untouched and '' still reads as None
+    there. Keeps one caliber with tests/test_golden_a.py:885 (`== ''`).'''
+    columns = set()
+    for table, model in TABLE_MODELS.items():
+        for name, field in model.model_fields.items():
+            if field.is_required() and field.annotation is str:
+                columns.add((table, name))
+    return frozenset(columns)
+
+
+TEXT_AS_IS_COLUMNS = _required_text_columns()
+
+
 @dataclass(frozen=True)
 class Inputs:
     '''[L891] Inputs: the five tabular tables io_loaders owns plus the prior ledger
@@ -234,7 +258,8 @@ def load_table(path, table, unit_map=None):
     for number, cells in enumerate(raw_rows, start=1):
         record, payload, broken = dict(zip(header, cells)), {}, False
         for column, text in record.items():
-            if text.strip().lower() in NULL_LITERALS:
+            if ((table, column) not in TEXT_AS_IS_COLUMNS
+                    and text.strip().lower() in NULL_LITERALS):
                 payload[column] = None  # null is null: never '', False or 0
                 continue
             kind = specs.get(column)
