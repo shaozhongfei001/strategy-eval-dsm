@@ -276,7 +276,7 @@
    "cx": "C3",
    "model": "qwen3.8-max/high",
    "reasoning_effort": "high",
-   "status": "running",
+   "status": "done",
    "deps": [
     "M29-1",
     "RC-1"
@@ -293,7 +293,15 @@
     "gate_changed_since_rc": null
    },
    "orch_note": "ORCH-56 渲染层口径；26 行 x 5 列（ERRATUM-V12-05）",
-   "agent": "Gibbs 01a21315-dcfa-7f20-991e-831adeda9149"
+   "agent": "Gibbs 01a21315-dcfa-7f20-991e-831adeda9149",
+   "commit": "ecb5535",
+   "min": 65,
+   "head_at_commit": "42a4084",
+   "orch_verified": "主控在独立 clone @617e7a5 定向复测 tests/test_downgrade_matrix.py + tests/test_config_soft_deductions.py = 59 passed",
+   "shape": "26 行 x 5 列（ERRATUM-V12-05 确认）",
+   "asserts": 161,
+   "literal_vs_inferred": "契约字面码 7 行；推定码 28 个（NG-V12-25）",
+   "gaps": "GAP-01..07 -> NG-V12-21/22/23/24"
   },
   "V15-PROV": {
    "wave": "W2",
@@ -335,7 +343,7 @@
    }
   },
   "BK-3": {
-   "status": "running",
+   "status": "done",
    "agent": "Chandrasekhar 01a2133c-5e39-7642-947b-24a02994529e",
    "model": "qwen3.8-flash/high",
    "budget_min": 25,
@@ -350,7 +358,12 @@
     "tests/test_triangulation.py"
    ],
    "goal": "8 文件补末尾 LF，披露 15->7；在独立 clone 跑全量 pytest 取可归因证据",
-   "collision": "与 M29-1/M29-2/M28-1/CFG-1 写集零交集（BK3-PRE 实测）"
+   "collision": "与 M29-1/M29-2/M28-1/CFG-1 写集零交集（BK3-PRE 实测）",
+   "commit": "2db67aa",
+   "min": 8,
+   "orch_verified": "主控亲跑 tools/normalize.py --check @617e7a5：NEEDS_NORMALIZATION 0 of 203，DISCLOSURE TRAILING_LF_HISTORICAL 7 of 203（docs/adr x2 + docs/digest/S1-T01 x5），与 8/7 划分逐字一致",
+   "numstat": "8 files changed, 8 insertions(+), 8 deletions(-)",
+   "isolated_pytest": "clone @2db67aa porcelain 0 -> 2401 passed / 0 failed"
   },
   "BK-4": {
    "wave": "W3",
@@ -804,7 +817,7 @@
    "orch_use": "V-8 blocked-by M29-2；V-14 维持 ❌（4/6）；V-10 与 V-1 须主控净 HEAD 亲跑"
   },
   "CFG-1": {
-   "status": "running",
+   "status": "done",
    "agent": "Galileo 01a2132f-056d-7962-a4d5-9e790bcb59e8",
    "model": "qwen3.8-max/high",
    "complexity": "C2-高风险",
@@ -816,7 +829,20 @@
    ],
    "goal": "按 ORCH-61 补 soft_deductions 治理键，使 Step4 SOFT 扣减在仓库自带 config 上可跑通；给出精确访问路径供 M29-1/M29-2 接线",
    "critical_path": true,
-   "why_critical": "M29-2 关闭 G-8 的判据是「CLI 实跑一条 WARN 不阻断路径，report.md ⑥ 出现 MIX_QUALITY_DEGRADED」=> 需要 dsm score 端到端成功 => 需要本键存在"
+   "why_critical": "M29-2 关闭 G-8 的判据是「CLI 实跑一条 WARN 不阻断路径，report.md ⑥ 出现 MIX_QUALITY_DEGRADED」=> 需要 dsm score 端到端成功 => 需要本键存在",
+   "commit": "42a4084",
+   "min": 14,
+   "orch_verified": "主控亲验 diff：config/grade_rules.yaml +22（顶层 soft_deductions: M_OPTOUT_RATE \"0.05\"，出处注释齐备）、tests/test_config_soft_deductions.py 新建 190 行；dsm/config.py 零改动（AppConfig.grade_rules 是 ConfigTree=dict，extra=forbid 只约束六个槽位名）",
+   "access_path": "app.grade_rules['soft_deductions'] -> {'M_OPTOUT_RATE': '0.05'}（下标式，属性式不存在）",
+   "hash_invariant": "改前改后 e5923465.. 逐字相等（该包自测 + 主控在 clone @617e7a5 复测 spine -k reproducibility 1 passed）"
+  },
+  "DOC-PRE": {
+   "status": "running",
+   "agent": "Peirce 01a21346-cfb1-7e32-be81-50758193fcfb",
+   "model": "qwen3.8-flash/high",
+   "budget_min": 40,
+   "writeset": "只读；产出 dsm_stage/V12-DOC-PRE/**",
+   "goal": "产出 V12-DOC-FINAL 可机械套用的编辑包：V-ACCEPTANCE-EVIDENCE §A/§N、KNOWN-GAPS（E-6/G-8/G-14/G-15 改写 + 新增 NG 行 + 13/12/11/10 四情形计数模板）、RUN doc :127 与「六列」纠正、P3b/P3c/README 陈旧陈述、tag 消息模板"
   }
  },
  "sync_points": {
@@ -853,13 +879,22 @@
   }
  },
  "gates_v12": {
-  "1": "全量 pytest 0 failed/0 error/0 skip/0 xfail，标准形式 + 门禁形式双跑，主控在最终 HEAD 亲测",
+  "1": {
+   "status": "green-at-617e7a5",
+   "measured_by": "主控（独立 clone，porcelain 0）",
+   "value": "2401 passed / 0 failed / 0 error / 0 skip / 0 xfail",
+   "note": "最终 HEAD 须复测；M29-1 落地后应 >= 2401 + 其新增条数"
+  },
   "2": "V-1~V-20 全 20 条在册；V-14 仅四项齐备才可上调，否则维持 ❌ 并逐字保留原因",
   "3": "repro_offline.sh --strict-isolation --expect <新哈希> 在最终 HEAD PASS，L3-strong，两跑自等，DIRTY=0，HEAD_STABLE=yes",
   "4": "权威哈希必变（实现面改动）-> 重新登记 + invalidation_log 新 seq + 新旧两值与归因；v1.1 的 e5923465… 只作历史保留",
   "5": "邻居 CampaignLab 四项一致 + 契约 708679e9a83d/2003 行未变",
   "6": "KNOWN-GAPS 机械清点与汇总节逐字相等；阻塞数自 13 下降的每条给关闭依据",
-  "7": "porcelain 空；编码门禁三形式 RC 全 0，四要素违规 0"
+  "7": {
+   "status": "pending",
+   "count_denominator": "受控文件数已由 201 漂到 203（并发入库）；所有「7 of 201」表述必须写 7 of 203",
+   "note": "BK-3 已使披露 15->7；终态须 porcelain 空 + 编码三形式 + 四要素 0"
+  }
  },
  "decisions": {
   "ORCH-49": {
@@ -1052,12 +1087,20 @@
    "split_disclosure": "G-15 行拆两段披露：已落地段（RC-1 @877b8fb + RC-2 @dcb6f21，逐条点名）与残留段（#5/#9 + 未接的 2 处），残留登记 NG-V12-19 移交 v1.3",
    "ledger_correction": "closable_by_this_run 由 [G-8,G-14,G-15] 更正为 [G-8,G-14]",
    "target_count": "目标阻塞 = 13 - E-6 - G-8 - G-14 = 10（外部 9 条 C-1~C-6/C-8/F-1/F-2 + G-15）。此为条件性目标，G-8/G-14 是否真闭以 M29-1/M29-2 落地后主控亲测为准，未闭则如实留 12"
+  },
+  "ORCH-64": {
+   "at_clock": "T+2.16h",
+   "topic": "audit.json 非合法 JSON（契约偏差）裁决 —— 解除 M29-1 红态的正确姿势",
+   "evidence": "两个独立包实测：M28-1(@ecb5535) 报「render_audit_json 正文是 audit.serialize_bundle 的 canonical_text（obj:AuditBundle{s:...}），不是 JSON，非 ASCII 被转义」；CFG-1(@42a4084) 全量跑时见 tests/test_cli_marshal.py:267 抛 json.decoder.JSONDecodeError。契约 L1225「audit.json | JSON | 一次运行的全部证据链」与 L1638 要求 JSON。",
+   "ruling": "本 RUN 不修。改 render_audit_json 会牵动 tests/test_reports.py:336（钉 audit.json 回读等值）、M28-1 刚落地的 161 条断言（中文披露串断言在 AuditBundle 载荷、ASCII 码名断言在 audit.json 字节）、以及多个只读包已固化口径；收益不抵风险。登记 NG-V12-21 移交 v1.3，并在终报与验收文档显式披露（不得静默）。",
+   "m29_1_instruction": "tests/test_cli_marshal.py 不得断言 json.loads(audit.json) 成功；断言对象换成契约 [L891] 的真实要求 —— bundle.input_fingerprints 八表 SHA256 与行数齐备（并可断言 canonical_text 内含这八个指纹串）。这不是弱化（R-14）：是从「实现尚未满足的格式假设」换成「契约明文要求且实现必须满足的内容要求」，且须在测试注释里逐字写明 canonical_text 口径与 NG-V12-21。不得为转绿去改 dsm/reports.py / dsm/audit.py（禁写文件）。",
+   "scope_guard": "GAP-M28-1-04（_CODE_STATUS[7] 单标签）与 GAP-M28-1-07（_EXCEPTION_CODES 把 WeightVersionInvalidError 映射成 3 而契约要求 2）均在 cli.py，但**不纳入 M29-1 时间盒**，登记 NG-V12-22 / NG-V12-23 归 v1.3；仅当 Zeno 已全绿且明显有余量、且改动不触碰任何既有断言时才允许顺手做并单列回报。"
   }
  },
  "counters": {
-  "pkgs_total": 25,
-  "pkgs_done": 19,
-  "pkgs_running": 4,
+  "pkgs_total": 26,
+  "pkgs_done": 22,
+  "pkgs_running": 2,
   "pkgs_pending": 2,
   "w1_pkgs": 6,
   "w2_pkgs": 3,
@@ -1065,11 +1108,11 @@
   "max_pkgs": 5,
   "flash_pkgs": 18,
   "slots_limit": 6,
-  "slots_in_use": 4,
+  "slots_in_use": 2,
   "escalations": 0,
   "rework_rounds": 0,
   "budget_violations": 0,
-  "updated_at_epoch": 1795619284.7943969,
+  "updated_at_epoch": 1795619877.2017124,
   "adhoc_pkgs": 11,
   "orch_self_inflicted_errata": 4
  },
@@ -1096,9 +1139,11 @@
   "invalidation_log": [],
   "orch_measured": {
    "at_head": "b157e00",
-   "full_pytest": "2342 passed / 0 failed（主控亲跑，20.85s）",
-   "v2_probe": "DSM_HYPOTHESIS_EXAMPLES=500 tests/test_properties_all.py -> 16 passed in 17.99s（主控亲跑；与 BK-4@d7b8675、BK-5@dcb6f21 三方同值）",
-   "note": "最终 HEAD 上须复测两项"
+   "full_pytest": "2342 passed / 0 failed（主控亲跑）",
+   "v2_probe": "DSM_HYPOTHESIS_EXAMPLES=500 tests/test_properties_all.py -> 16 passed（主控亲跑，三方同值）",
+   "at_head_617e7a5": "独立 clone（porcelain 0）全量 2401 passed / 0 failed；spine -k reproducibility 1 passed；test_downgrade_matrix + test_config_soft_deductions 定向 59 passed",
+   "hash": "e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904（2026-Q2；CFG-1/BK-3 改前改后逐字相等）",
+   "note": "最终 HEAD 上须复测全量 + V-2 + 门禁③两阶段"
   }
  },
  "blocking_gaps_inherited": {
@@ -1141,21 +1186,23 @@
   }
  },
  "clock_now": {
-  "at_epoch": 1795619284.7943969,
-  "clock": "T+1.99h",
-  "head": "d4d4b95",
-  "phase": "W2",
-  "remaining_hours": 4.01,
-  "note": "槽位 4/6；关键路径 M29-1(盒至 T+2.35h) -> M29-2 -> DOC-FINAL"
+  "at_epoch": 1795619877.2017124,
+  "clock": "T+2.16h",
+  "head": "617e7a5",
+  "phase": "W2 尾 / W3 预备",
+  "remaining_hours": 3.84,
+  "note": "槽位 2/6（Zeno M29-1 + Peirce DOC-PRE）；余 4 槽待 M29-2 / DOC-FINAL / 可能的 EXIT-FIX"
  },
  "active_agents": {
   "M29-1": {
    "agent": "Zeno 01a212d3-8a38-7fe0-a7d1-277ddf145a5b",
-   "state": "running",
+   "model": "qwen3.8-max/xhigh",
+   "state": "ORCH-64 已下发（interrupt）；cli.py 1678 行、tests/test_cli_marshal.py 512 行；七件产物已能落盘，剩 1 条红在 audit_json 口径",
    "critical_path": true
   },
-  "M28-1": {
-   "agent": "Gibbs 01a21315-dcfa-7f20-991e-831adeda9149",
+  "DOC-PRE": {
+   "agent": "Peirce 01a21346-cfb1-7e32-be81-50758193fcfb",
+   "model": "qwen3.8-flash/high",
    "state": "running",
    "critical_path": false
   },
@@ -1164,18 +1211,13 @@
    "Laplace(CEL-EQ)",
    "Cicero(BK-5)",
    "Halley(REPRO-PRE)",
-   "Socrates(M29-2-PRE)"
-  ],
-  "CFG-1": {
-   "agent": "Galileo 01a2132f-056d-7962-a4d5-9e790bcb59e8",
-   "state": "running",
-   "critical_path": true
-  },
-  "BK-3": {
-   "agent": "Chandrasekhar 01a2133c-5e39-7642-947b-24a02994529e",
-   "state": "running",
-   "critical_path": false
-  }
+   "Socrates(M29-2-PRE)",
+   "Gibbs(M28-1)",
+   "Galileo(CFG-1)",
+   "Chandrasekhar(BK-3)",
+   "Parfit(GATE-PRE)",
+   "Maxwell(BK3-PRE)"
+  ]
  },
  "errata": [
   {
@@ -1453,6 +1495,46 @@
    "what": "契约 L1046「AuditBundle 含输出文件清单与 SHA256」在 audit.json 自身亦为七件产物之一时字面自指；实现采六键口径，audit.json 自身 SHA256 走 write_report_set 返回值 / CLI details 外部通道披露",
    "owner": "M29-2 实现 + DOC-FINAL 披露",
    "close_condition": "n/a（契约只读不改原件；须在终报与验收文档显式披露，不得静默）"
+  },
+  {
+   "id": "NG-V12-21",
+   "from": "ORCH-64 / M28-1 + CFG-1 双独立实测",
+   "severity": "contract-deviation-carry",
+   "what": "audit.json 实为 serialize_bundle 的 canonical_text（obj:AuditBundle{...}），非合法 JSON；契约 L1225/L1638 要求 JSON",
+   "owner": "v1.3 RUN（reports.render_audit_json）",
+   "close_condition": "改为真 JSON 输出并同步 tests/test_reports.py:336 与 M28-1 断言口径，且不弱化任何断言"
+  },
+  {
+   "id": "NG-V12-22",
+   "from": "M28-1 GAP-04",
+   "severity": "disclosure",
+   "what": "dsm/cli.py _CODE_STATUS[7] 只有单标签 ALPHA_INFEASIBLE，与 ALPHA_FLOOR_INFEASIBLE 共用退出码 7，报告无法区分二者（与 ORCH-55 的 NG-V12-15 H-1 残留同族）",
+   "owner": "v1.3 RUN（cli.py）",
+   "close_condition": "退出码 7 上区分两个标签，或在报告⑩段显式披露二者共用退出码"
+  },
+  {
+   "id": "NG-V12-23",
+   "from": "M28-1 GAP-07",
+   "severity": "contract-deviation-carry",
+   "what": "config.WeightVersionInvalidError.exit_code==2（config.py:696，与契约一致），但 cli.py:56 _EXCEPTION_CODES 把该类映射到 3（CONFIG）=> 外壳映射与契约不一致",
+   "owner": "v1.3 RUN（cli.py）",
+   "close_condition": "外壳映射改回 2 或给出契约层裁决，并补端到端断言"
+  },
+  {
+   "id": "NG-V12-24",
+   "from": "M28-1 GAP-01/02/03/05/06",
+   "severity": "informative",
+   "what": "契约字面与实现披露串差异 5 条：①L1298「秩反转/anchor」在 reports.py 零命中，实际由 preflight finding + audit.json + ⑩段承载；②L1299 sensitivity.veto() 只认 BLOCK 级 flag，review 档（FLIP_RATE_REVIEW=WARN）不把 usable_for_elimination 压 false；③契约句「本期结果不得用于淘汰决策」实得「本期结论不得作为淘汰唯一依据」；④L1286/L1301 契约第5列写码名 WEIGHT_REALLOCATED / ENTROPY_INSUFFICIENT_SAMPLE，实现如实复刻；⑤L1284/L1290 实现披露串比契约更具体",
+   "owner": "行方业务确认 + 主控（契约只读，不改原件）",
+   "close_condition": "逐条取得业务口径确认，或 v1.3 按确认结果对齐实现/契约"
+  },
+  {
+   "id": "NG-V12-25",
+   "from": "M28-1 LITERAL_VS_INFERRED",
+   "severity": "informative",
+   "what": "降级矩阵 26 行中仅 7 行为契约字面码名，另 28 个码名系 M28-PRE 语义推定（ORCH-56 采纳），已在测试内逐行标注「推定」",
+   "owner": "行方业务确认",
+   "close_condition": "业务侧确认 28 个推定码名，或按确认结果改名"
   }
  ],
  "t0_operative": {
