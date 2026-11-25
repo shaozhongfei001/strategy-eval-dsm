@@ -2,8 +2,9 @@
 
 Sole source of truth: docs/digest/M32-tests-properties.md (SDD 1421-1440,
 verbatim quotes in each docstring; the properties are not re-invented here).
-Guard target: V-2. Dev-phase max_examples=25 per R-11; the 500-example run
-belongs to the Phase 3 V-2 gate, not to this file.
+Guard target: V-2. Dev-phase gauge is max_examples=25 per R-11; the 500-example
+V-2 contract tier (P-1~P-15 each at 500 examples, contract L1495) is opt-in
+via MAXEX_500 / DSM_HYPOTHESIS_EXAMPLES=500 so a plain regression run stays fast.
 
 Independence (anti-cheat control): this is a verification-lane artifact. It
 reads dsm/** only and never edits it; an implementation conflict stays RED
@@ -41,6 +42,7 @@ weights_combine -- waiting for A3/A4 modules would only weaken these guards.
 '''
 import copy
 import datetime as dt
+import os
 import tempfile
 from decimal import Decimal
 
@@ -72,7 +74,16 @@ from dsm.reason_codes import RC
 
 wc = weights_combine
 wcal = weights_calibrate
-MAXEX = settings(max_examples=25, deadline=None)  # R-11 dev-phase gauge
+# V-2 contract tier: P-1~P-15 at hypothesis 500 examples each (contract L1495).
+# It is OPT-IN so the default dev-phase gauge (R-11) stays fast: a plain
+# pytest run keeps all 16 P-tests at 25 examples (~3s wall). This adds work
+# only when requested; no example count is reduced to pass (R-14).
+MAXEX_500 = settings(max_examples=500, deadline=None)  # contract tier
+# Single-command trigger for the 500-example gate tier:
+#   DSM_HYPOTHESIS_EXAMPLES=500 /home/szf/venvs/dsm/bin/python -m pytest tests/test_properties_all.py
+# Unset -> dev gauge (25); set to 500 -> the 16 @MAXEX tests run at MAXEX_500.
+_MAXEX_N = int(os.environ.get("DSM_HYPOTHESIS_EXAMPLES", "25"))
+MAXEX = MAXEX_500 if _MAXEX_N == 500 else settings(max_examples=_MAXEX_N, deadline=None)
 
 DAY1 = dt.date(2026, 1, 1)
 DAY2 = dt.date(2026, 12, 31)
