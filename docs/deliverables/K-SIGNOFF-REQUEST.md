@@ -39,7 +39,7 @@
 
 | 编号 | 键位／治理项 | 现拟定值（代码／夹具实际用的值，非签认值） | 出处 | 属性 | 需谁签 | 不签的后果 |
 |---|---|---|---|---|---|---|
-| K-01 | 维度权重 W_d（`config/weights_*.yaml`） | 无签认值、无已提交载体；集成演练由冻结 fixtures 的合成权重文档代用；DRAFT 权重被拒（`dsm/weights_combine.py:126` AHP_DRAFT_ONLY 门【清单实测@`aa4a9ba`】） | M38 L13／SDD 1738；`dsm/config.py:80` WEIGHTS_GLOB、`dsm/weights_combine.py:302`（清单实测@`aa4a9ba`） | 纯演练假定 | 评价管理委员会（专家组 ≥5 人 + AHP 一致性 CR<0.1） | G7 阻塞核心项；报告 `OPEN_PARAMETER_IDS` 把 K-01~K-20 渲染为 PLACEHOLDER（`dsm/reports.py:80/644`【实测@22f8179】） |
+| K-01 | 维度权重 W_d（`config/weights_*.yaml`） | 无签认值、无已提交载体；集成演练由冻结 fixtures 的合成权重文档代用；DRAFT 权重被拒（`dsm/weights_combine.py:126` AHP_DRAFT_ONLY 门【清单实测@`aa4a9ba`】） | M38 L13／SDD 1738；`dsm/config.py:80` WEIGHTS_GLOB、`dsm/weights_combine.py:302`（清单实测@`aa4a9ba`） | 纯演练假定 | 评价管理委员会（专家组 ≥5 人 + AHP 一致性 CR<0.1） | G7 阻塞核心项；报告 `OPEN_PARAMETER_IDS` 把 K-01~K-20 渲染为 PLACEHOLDER（`dsm/reports.py:80/644`【实测@22f8179】）【SIGN-2】演练 ahp `expert_count=2`（`config/weights_WV-SYNTH-2026.yaml:88`，M29-3 已在该文件 `:25` 自我披露）先天不满足本行『专家组 ≥5 人』口径（契约 SDD L1738 已 SIGN-2 逐字复核）→ K-01 签认时 ahp 段须整段重做并复验 CR<0.1 |
 | K-02 | 维度内指标权重 w_j（weights yaml，与熵权按 α 组合后冻结） | 同 K-01：无签认值，fixtures 合成值代用 | M38 L14／SDD 1739；`dsm/models.py:551`、`dsm/weights_combine.py:303`（清单实测@`aa4a9ba`） | 纯演练假定 | 评价管理委员会 | 同 K-01 |
 | K-03 | 各级 attainment_floor（grade_rules yaml） | 无签认值；冻结 fixtures 的门槛为**合成治理值**（`dsm/fixtures_gen.py:340` 注释自述【清单实测@`aa4a9ba`】）；M38 原文仅给举例分位锚「如 L1=P80、L2=P50、L3=P20」 | M38 L15／SDD 1740；`dsm/config.py:580/907-1013`、`dsm/grading.py:79/137-164`（清单实测@`aa4a9ba`） | 纯演练假定 | 评价管理委员会（附历史分位与可接受淘汰比例） | 定级四档门槛全为合成值 → 等级不可用于真实资源配置 |
 | K-04 | 红线阈值（投诉率／退订率／触达频次上限／合规违规数，redlines yaml） | 无签认值；fixtures 合成阈值代用（M_CONTACT_FREQ_PER_30D／M_COMPLAINT_RATE，`dsm/fixtures_gen.py:316/319`【清单实测@`aa4a9ba`】） | M38 L16／SDD 1741（**明文「不得由模型方拟定」**）；`dsm/redline.py:265` | 纯演练假定（且契约禁止我方拟定） | 行方（引用行内制度／监管阈值） | 红线判定无制度依据 |
@@ -169,6 +169,7 @@
 ### §5.2 当前实测状态（观测 HEAD `22f8179`，本包亲测）
 
 - `git ls-files config` = **0**：已提交的签认载体不存在。
+- **【SIGN-2 刷新·实测@5bef1cb】`git ls-files config` = 6**：并发包 M29-3 已在 commit `ae2ca02` 提交 6 个演练 yaml（`ahp_matrices.yaml / anchor_set.yaml / eval_config.yaml / grade_rules.yaml / redlines.yaml / weights_WV-SYNTH-2026.yaml`）。本值由 SIGN-2 在 HEAD `5bef1cb` 亲跑 `git ls-files config | wc -l` 取得。**`ae2ca02` 推翻了上一行【实测@22f8179】=0 的历史快照**——上一行系 SIGN-1 当时事实，依 R-14 原样留档、不删不改。⚠️ 这 6 个文件**全部是「合成待签认」载荷，绝不等于 G7 已签**（见 §5.3）；§2 F-2 行「`config/` 已提交 0 文件【实测@22f8179】」同为历史快照，现值以本行为准。
 - `dsm/config.py:449 load_all()` 对缺失文件／未填占位以 `EXIT_CONFIG=3`（`dsm/config.py:71`）拒绝【两处均实测@22f8179】→ **真实运行（`dsm score`）不可用，只能跑合成演练**（KNOWN-GAPS §F「设计如此，非缺陷」定性沿用）。
 - `dsm/reports.py:80 OPEN_PARAMETER_IDS = K-01..K-20`、`:644` 在报告中把 20 项渲染为 PLACEHOLDER【实测@22f8179】。
 - K-01~K-40 全部签认动作**均未发生**（本单 §3.2 勾选位全部空白即为现状凭证）。
@@ -178,6 +179,11 @@
 - 本 RUN 的 **M29-3 包正在 `config/` 造一套「完整但显式标注合成待签认」的演练 config**（写集 `config/**` + `tests/test_config_dryrun.py`，RUN §2 表；本包实测@22f8179 工作树已见未提交文件 `eval_config.yaml／weights_WV-SYNTH-2026.yaml／redlines.yaml／grade_rules.yaml／anchor_set.yaml／ahp_matrices.yaml`，`git ls-files` 计数仍为 0）。
 - **RUN §1 逐字红线**：「M29-3 的演练 config 只是『合成待签认』样例，**绝不等于 G7 已签**」；其现值如 `whatif_run_id=WIF-SYNTH-2026-01`，逐键标注「合成值待业务签认」，**严禁冒充签认真值、严禁填 K-01~K-20**（RUN §3 M29-3 节）。
 - 因此：**不得据演练 config 的存在宣称 G7 已通过、不得宣称本仓库可用于真实资源配置**；文档与 README 首屏的「G5／G7 未过 → 不得输出可用于真实资源配置的分数或等级」声明**一字不得改**（RUN §1，且有测试守护）。
+- **【SIGN-2 强化·实测@5bef1cb】config/ 现已确有 6 个已提交文件（commit `ae2ca02`）——本条边界比 SIGN-1 时更需钉死、不得松动**：
+  1. **6 个 yaml 全部为合成待签认载荷**：SIGN-2 亲跑 `grep -l 合成待签认` 命中 **6/6**、`grep -l G7` 命中 **6/6**（逐文件 合成／G7 命中次数：`ahp_matrices.yaml`=2／1、`anchor_set.yaml`=2／1、`eval_config.yaml`=16／1、`grade_rules.yaml`=3／1、`redlines.yaml`=1／1、`weights_WV-SYNTH-2026.yaml`=7／2）。
+  2. **逐字免责行实证**：`config/weights_WV-SYNTH-2026.yaml:2`（SIGN-2 `sed -n '2p'` 逐字复核）原文＝`# M29-3 演练 config（DRILL ONLY）——合成待签认，绝不等于 G7（F-2）治理配置签认。`——文件自我声明「≠G7」。
+  3. **红线一字未松**：G7（F-2）**仍未签**、本 RUN 不做；K-01~K-20 一个签认值都不填；§3.2 的 45 个勾选位（SIGN-2 亲跑：顶层 K 勾选框 40 个＋缩进 K-21 子项框 5 个）**保持全空白**——无任何框被置为已勾选、`值`／`签认人`／`日期` 三栏仍全为下划线占位；本包不宣称任何 V 项或 G5／G7 通过。**文件进仓 ≠ 载体签认完成**（完成判据见 §5.4）。
+  4. **AHP 先天不达标披露（M29-3 自报、SIGN-2 复核）**：演练载荷 `config/weights_WV-SYNTH-2026.yaml:88` 记 `expert_count: 2`，且该文件 `:25` 已自我披露「本载荷 ahp.expert_count=2，不满足 SDD L1738『专家组 ≥ 5 人』」。SIGN-2 直接复核契约 SDD **L1738** 原文＝「AHP 两两比较 + 一致性检验（CR < 0.1）；专家组 ≥ 5 人；结果签认并冻结」。**故 K-01 真正签认时 ahp 段须整段重做（≥5 人）并复验 CR<0.1，演练载荷不可复用为签认证据**（同步写入 §3 K-01 行）。
 
 ### §5.4 G7 判「通过」的建议完成判据（供收口包／主控引用；本包不判定）
 
@@ -194,6 +200,15 @@
 - **九条阻塞缺口全部在册**：C-1（§2 行1）、C-2（§2 行2）、C-3（§2 行3）、C-4（§2 行4）、C-5（§2 行5）、C-6（§2 行6）、C-8（§2 行7，关联 K-21①~⑤）、F-1（§4）、F-2（§5 + §3 全表）——与 `ops/dag-state-v1.2.json` 的 `blocking_gaps_inherited.external_only`（实测 9 条：C-1~C-6、C-8、F-1、F-2）逐条对应。
 - **40 个编号全部在册**：K-01~K-40 在主表各有一行、在 §3.2 各有一个勾选位（K-26／K-31／K-40 为「知悉/核验」型动作，已在勾选行内注明，不属于行方数值签认）。
 - **计数口径差异如实披露（未由本包调和）**：`K-SIGNOFF-CHECKLIST.md`（P3c-final）自述「39 个编号／43 个签认动作」（K-01~K-35 含 K-21 五子项=39，+K-36~K-39=43，**未含 K-40**）；`ops/dag-state.json:763`（BK-1 澄清节）写「K 签认动作 40 个（K-01~K-35 含 K-21 五子项=39，加 K-40）」（**未含 K-36~K-39**）。两口径互有遗漏，**并集 = 40 个编号 + K-21 拆出的 4 个额外子项 = 44 个动作位（本单 §3.2 共 45 个勾选位，含 K-21 母项）**。差异属台账问题，归主控在 V12-DOC-FINAL 统一口径，本包只登记不裁决。
+- **【SIGN-2 登记·GAPS-3】K 动作数三处口径互斥（三值全留档，本包不悄悄挑一个）**：
+
+  | 口径 | 编号数 | 签认动作数 | 观测点 | 性质 |
+  |---|---|---|---|---|
+  | A 清单自述（规范计数） | 39（K-01~K-39） | **43**（不含 K-40） | `K-SIGNOFF-CHECKLIST.md:87`【SIGN-2 实测：`grep -oE 'K-[0-9]{2}'` 去重=39、max=K-39、自述 43】 | 送签单据规范计数 |
+  | B v1.1 台账（FROZEN 只读） | K-01~K-35 + K-40 | **40**（不含 K-36~K-39） | `ops/dag-state.json:763`【SIGN-2 实测原文，逐字转录】 | 历史快照，依 ORCH-49 §1 FROZEN，**严禁改写**，仅作历史值留档 |
+  | C SIGN-1 并集（本单） | 40（K-01~K-40） | **44 动作位 / 45 勾选位** | 本单 §3 主表 + §3.2【SIGN-2 实测：顶层勾选框=40、K-21 子项框=5，合计 45 勾选位】 | 含 K-40 且 K-21 拆 4 个额外子项 |
+
+  **裁决口径**：以 `K-SIGNOFF-CHECKLIST.md` 自身逐号枚举（口径 A：39 编号／43 动作）为送签单据的**规范计数**；三值差异如实留档，**归主控收口统一**（本包只登记不裁决、不改台账）。B 口径的 40 系 v1.1 发布即 FROZEN 的历史值（ORCH-49 §1），**严禁改写**；A／C 与 B 的出入（K-36~K-39 是否计入、K-40 是否计入、K-21 母项是否单列勾选）由主控在 V12-DOC-FINAL 统一。
 - **无出处条目**：主表中唯一「出处缺失」是 **K-22**（契约原文无出处，需设计方确认，已如实标注）；C-1~C-6／C-8 的**新立 K 编号**在既有文档中不存在，本单按 L-12 不自行编号，登记为「需主控补分配」。
 
 ---
@@ -205,6 +220,8 @@
 ```
 git rev-parse HEAD                     # 期望 >= 22f8179；行号断言仅在该 HEAD 成立
 git ls-files config | wc -l            # 期望 0（已提交载体不存在；工作树可能含 M29-3 未提交演练文件）
+git ls-files config | wc -l            # 【实测@5bef1cb】= 6（M29-3 @ae2ca02 推翻 @22f8179 的 0；上一行 0 系历史值，依 R-14 保留、不改判）
+git ls-files config                    # 期望 6 文件白名单（均合成待签认，≠G7）：ahp_matrices.yaml anchor_set.yaml eval_config.yaml grade_rules.yaml redlines.yaml weights_WV-SYNTH-2026.yaml
 grep -n "EXIT_CONFIG = 3" dsm/config.py                       # :71
 grep -n "def load_all" dsm/config.py                          # :449
 grep -n "OPEN_PARAMETER_IDS" dsm/reports.py                   # :80/:644
@@ -219,6 +236,8 @@ grep -n "RI" dsm/weights_ahp.py | head                        # :62 CR_THRESHOLD
 ```
 
 注：转录自 `K-SIGNOFF-CHECKLIST.md` 的行号以 `aa4a9ba` 为观测基线，其中 `attainment.py:149/546`、`evidence.py:68`、`sensitivity.py:423-424` 三处在 `22f8179` 已实测漂移（本单已改用新行号并双侧标注）。`cli.py:918` 与 `cli.py:319` 未漂移。
+
+**【SIGN-2 追记·§7 期望值刷新】**：上面 `git ls-files config` 的期望已由 SIGN-1 的「0」刷新为 **6 文件白名单**（原「期望 0」行系 @22f8179 历史值，依 R-14 保留、不改判）。该 `config/` 目录现由占位守卫测试 `tests/test_config_placeholder.py::test_t05_m04_the_repository_config_directory_stays_empty`（【实测@5bef1cb】:1593）守卫——该函数即当前全量 pytest 唯一红条，并发包 T05-FIX 正按主控裁决 **ORCH-53** 改造之；T05-FIX 落地后的确切函数名／行号＝`PLACEHOLDER-TO-REFRESH(主控/T05-FIX)`（R-12 不猜）。ORCH-53 结论转录：「`config/` 空目录守卫属代理式误报，M29-3 的 `config/**` 系 `docs/RUN-UNATTENDED-v1.2.md:83` 明文授权的产品内容（SIGN-2 复核 :83＝M29-3 行写集含 `config/**`(新)），守卫已按立法原意（禁止 T05 测试遗留文件）重新对齐」。
 
 ---
 
