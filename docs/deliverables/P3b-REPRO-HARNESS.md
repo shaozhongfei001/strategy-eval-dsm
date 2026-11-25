@@ -49,7 +49,7 @@
 > **当前唯一产出该真值的路径仍是测试侧 `_run_chain`，不是 CLI 真实运行。**
 
 * **CLI 侧已接真源（旧文档「cli.py:199 仍是 PLACEHOLDER」已被证伪）**：P2-wire-A（commit `53ed80c`）在 `dsm/cli.py:243-288` 的 `audit_context()` 接了真源，`:288` 即 `digest(tuple(score_card), tuple(grade_ledger), wvid)`，digest 取自 `dsm/audit.py:242` 的 `reproducibility_hash`；`weight_version_id` 拿不到时以 EXIT_CONFIG=3 报错，绝不用 PLACEHOLDER 冒充（V-14）。
-* 但 `config/` 实测仍 **0 文件**；`dsm/config.py:449` `load_all()` 在缺 `REQUIRED_CONFIG_STEMS` 时以 `EXIT_CONFIG = 3`（`dsm/config.py:71`）拒绝 → `dsm score` 端到端**仍不可跑**（属设计而非回归）。结论从「CLI 链路尚未产出真哈希」修订为「**CLI 已接线，但 config/ 未签认故 dsm score 端到端仍不可跑**」。
+* 但 `config/` 实测仍 **0 文件**；`dsm/config.py:449` `load_all()` 在缺 `REQUIRED_CONFIG_STEMS` 时以 `EXIT_CONFIG = 3`（`dsm/config.py:71`）拒绝 → `dsm score` 端到端**仍不可跑**（属设计而非回归）。结论从「CLI 链路尚未产出真哈希」修订为「**CLI 已接线，但 config/ 未签认故 dsm score 端到端仍不可跑**」。 【**v1.2 实况更正（DOC-FINAL-A @`50fa9e0` 亲测）**：`git ls-files -- config` = **6 个跟踪文件**（`ahp_matrices.yaml`／`anchor_set.yaml`／`eval_config.yaml`／`grade_rules.yaml`／`redlines.yaml`／`weights_WV-SYNTH-2026.yaml`；M29-3 `ae2ca02` 入库 + CFG-1 `42a4084` 增顶层键 `soft_deductions`），属**合成待签认演练样例，不等于 G7 签认**；G5／G7 未过与「不得输出可用于真实资源配置的分数或等级」的首屏声明**一字未改**。本句「0 文件」= **v1.1 口径，保留为历史**。】
 * 真值产出点：`tests/test_integration_spine.py` 的 `_run_chain(root, period)` —— 读 `fixtures/input/**` 冻结真数据，按 M29 [L1330]-[L1358] 九步跑真实模块，内部经 `audit.reproducibility_hash(score_card, grade_ledger, weight_version_id)` 产出。
 * 断言载体：`tests/test_integration_spine.py::test_reproducibility_hash_is_identical_across_two_runs`（即 `ops/dag-state.json → reproducibility_evidence.assertion` 登记的那一条）。**行号以函数名为准**：该文件被在飞 lane（ROB-1 等）持续编辑，实测行号 886@`82d5a6a` → 1005@`31eb1b2` → 1112@`5d13ef3` → ROB-1（`111570a`）后继续漂移；旧文档写死的 886/480/1005 均已过时，本文件不再以裸行号作唯一引用。
 
@@ -66,7 +66,7 @@
 | fixtures | `fixtures/input/*.jsonl`、`fixtures/golden/**`、`fixtures/manifest.json` | 经 `_stage()` 落到临时目录后由 `io_loaders` 读取 |
 | 权重版本 id | `fg.OAT20_WEIGHT_VERSION_ID`（冻结 fixtures，status=FROZEN） | `_governance_docs()` |
 | 治理入参 | `GOVERNANCE` 字典（合成，逐项有出处） | 同文件文件头 |
-| config 目录 | **不参与** | `config/` 为 0 文件 |
+| config 目录 | **不参与** | `config/` 为 0 文件  【**v1.2 实况更正（DOC-FINAL-A @`50fa9e0` 亲测）**：`git ls-files -- config` = **6 个跟踪文件**（`ahp_matrices.yaml`／`anchor_set.yaml`／`eval_config.yaml`／`grade_rules.yaml`／`redlines.yaml`／`weights_WV-SYNTH-2026.yaml`；M29-3 `ae2ca02` 入库 + CFG-1 `42a4084` 增顶层键 `soft_deductions`），属**合成待签认演练样例，不等于 G7 签认**；G5／G7 未过与「不得输出可用于真实资源配置的分数或等级」的首屏声明**一字未改**。本句「0 文件」= **v1.1 口径，保留为历史**。】 |
 
 ---
 
@@ -160,7 +160,7 @@ wheelhouse 内容校验（B6）：`wheelhouse.sha256` 清单存在则 `sha256sum
 | **P-1** | wheelhouse **首次预下载**需联网 | `pip download` 必须访问索引 | 已在仓库外 `/home/szf/dsm-wheelhouse` 建好（§4.4 命令）；异机需照此重建 |
 | **P-2** | 基座 python 解释器 | `python -m venv` 需宿主已有 3.11+ 解释器，解释器本身离线装不出来 | 实测 `/home/szf/venvs/dsm/bin/python`（Python 3.12.3）；目标单机须自备同版本 |
 | **P-3** | 「单机」≠「异机/第二人」 | 全部轮次都在同一台 WSL2 主机（t16）完成 | V-3「第二人复跑」半边**仍是 PLACEHOLDER**（§7 第 1 条） |
-| **P-4** | CLI 真实运行链路未覆盖 | `config/` 0 文件 → `load_all()` EXIT_CONFIG=3 拒绝 | CLI 侧哈希已接真源（B2 修订），但 `dsm score` 端到端仍不可跑；哈希仍出自 spine 测试内合成 GOVERNANCE 配置（§7 第 3/4 条） |
+| **P-4** | CLI 真实运行链路未覆盖 | `config/` 0 文件 → `load_all()` EXIT_CONFIG=3 拒绝 | CLI 侧哈希已接真源（B2 修订），但 `dsm score` 端到端仍不可跑；哈希仍出自 spine 测试内合成 GOVERNANCE 配置（§7 第 3/4 条）  【**v1.2 实况更正（DOC-FINAL-A @`50fa9e0` 亲测）**：`git ls-files -- config` = **6 个跟踪文件**（`ahp_matrices.yaml`／`anchor_set.yaml`／`eval_config.yaml`／`grade_rules.yaml`／`redlines.yaml`／`weights_WV-SYNTH-2026.yaml`；M29-3 `ae2ca02` 入库 + CFG-1 `42a4084` 增顶层键 `soft_deductions`），属**合成待签认演练样例，不等于 G7 签认**；G5／G7 未过与「不得输出可用于真实资源配置的分数或等级」的首屏声明**一字未改**。本句「0 文件」= **v1.1 口径，保留为历史**。】 |
 | **P-5** | pytest 自身临时目录 | `tmp_path_factory` 在 `/tmp/pytest-of-<user>/` 留最近 3 次目录（pytest 默认行为） | `--no-pytest` 可完全避免；脚本自身 `$TMP` 与 `PROBE_TMP` 实测零残留 |
 | **P-6** | 「断网」不覆盖主机层 | netns 只切断本进程树的网络，宿主其他进程仍可联网 | `--no-index --no-cache-dir` 关闭索引与缓存旁路；修后正向自检 + `--netns on` 硬失败 + LEAK 降级三重兜底 |
 
@@ -184,7 +184,7 @@ wheelhouse 内容校验（B6）：`wheelhouse.sha256` 清单存在则 `sha256sum
 
 1. **第二人/异机复跑仍是 PLACEHOLDER**：本文件全部实测在同一台 WSL2 主机（t16）、同一 Python 3.12.3 完成；哈希的环境无关性只有测试级证据（`tests/test_audit.py` home vs foreign 同哈希、环境量不入哈希），无真异机/第二人实测。
 2. **wheelhouse 不入库且平台绑定**：26 wheel / 37MB，cp312-manylinux_x86_64 专用；异机或换 Python 版本必须按 §4.4 重新联网构建，本包无法代证。
-3. **`config/` 实测 0 文件 → `dsm score` 端到端仍不可跑**：`dsm/config.py:449` `load_all()` 以 `EXIT_CONFIG=3`（`dsm/config.py:71`）拒绝，**属设计而非缺陷回归**；P3b 签核不得宣称「dsm score 端到端跑出同一哈希」。
+3. **`config/` 实测 0 文件 → `dsm score` 端到端仍不可跑**：`dsm/config.py:449` `load_all()` 以 `EXIT_CONFIG=3`（`dsm/config.py:71`）拒绝，**属设计而非缺陷回归**；P3b 签核不得宣称「dsm score 端到端跑出同一哈希」。 【**v1.2 实况更正（DOC-FINAL-A @`50fa9e0` 亲测）**：`git ls-files -- config` = **6 个跟踪文件**（`ahp_matrices.yaml`／`anchor_set.yaml`／`eval_config.yaml`／`grade_rules.yaml`／`redlines.yaml`／`weights_WV-SYNTH-2026.yaml`；M29-3 `ae2ca02` 入库 + CFG-1 `42a4084` 增顶层键 `soft_deductions`），属**合成待签认演练样例，不等于 G7 签认**；G5／G7 未过与「不得输出可用于真实资源配置的分数或等级」的首屏声明**一字未改**。本句「0 文件」= **v1.1 口径，保留为历史**。】
 4. **哈希出自 spine 测试内合成的 GOVERNANCE 配置**：`_run_chain` 用 `tests/test_integration_spine.py` 文件头 `GOVERNANCE` 字典（逐项有出处）+ 冻结 fixtures 驱动九步真跑；`config/` 完全不参与该哈希，故该哈希未覆盖 CLI 配置装载链路（V-10 残留）。
 
 ---
@@ -206,7 +206,7 @@ wheelhouse 内容校验（B6）：`wheelhouse.sha256` 清单存在则 `sha256sum
 | 自等 | **是**（all_equal=1；meta：period=2026-Q2 seed=20260101 run_id=SYNTH-RUN-0001 exit_code=0 len=64） |
 | pytest 断言 | rc=0（`test_reproducibility_hash_is_identical_across_two_runs`，多产物逐项自等载体） |
 | HEAD_STABLE | yes（src_head_end=`93abfee4…`，B9 校验：运行窗口内无在飞提交） |
-| wh_manifest | absent-unverified（`/home/szf/dsm-wheelhouse` 无清单文件，B6 如实标注，不因此 FAIL） |
+| wh_manifest | absent-unverified（`/home/szf/dsm-wheelhouse` 无清单文件，B6 如实标注，不因此 FAIL） 。**DOC-FINAL-A 两路并存事实（避免与 RESULT 行互相打脸）**：默认路径 `dsm_stage/P3b-prep/wheelhouse`（26 wheel）带旁挂清单 `dsm_stage/P3b-prep/wheelhouse.sha256`（26 行；DOC-PRE 复核 `cd dsm_stage/P3b-prep/wheelhouse && sha256sum -c --quiet ../wheelhouse.sha256; echo rc=$?` → **rc=0 全 OK**）⇒ `verified(26 entries, sha256sum -c all OK)`；显式路径 `/home/szf/dsm-wheelhouse`（26 wheel）**无清单** ⇒ `absent-unverified` **仍成立**。B6 语义不变（absent 不 FAIL）。最终签核走哪一路、`wh_manifest` 取何值 = `PLACEHOLDER-TO-REFRESH(主控@最终HEAD)`（PH-04／PH-05，取 RESULT 行的 `wh_manifest=` 字段）；本处 v1.1 的 `absent-unverified` 记录**保留为历史**（该次走的是显式路径）。 |
 | exit code / 耗时 | 0 / 14s |
 | RESULT 行（原文） | `RESULT=PASS HASH=e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904 COMMIT=93abfee ELAPSED=14s ISOLATION=L3-strong: fresh clone + netns offline (connectivity self-check confirmed) + dedicated venv from local wheels DIRTY=3 HEAD_STABLE=yes ASSERTION=pytest` |
 | 日志 | `dsm_stage/P3b-FIX/signoff.log`（gitignored）；同目录 `selftest1.log`/`selftest2.log`/`selftest3.log` 为 B1/B5 验收对照 |
@@ -232,7 +232,7 @@ wheelhouse 内容校验（B6）：`wheelhouse.sha256` 清单存在则 `sha256sum
 | ISOLATION | **L3-strong**：fresh clone + netns offline（connectivity self-check confirmed）+ dedicated venv from local wheels |
 | env_mode | `dedicated venv (no system site-packages) installed from local wheelhouse with --no-index` |
 | env_python | `Python 3.12.3` |
-| wh_manifest | `absent-unverified`（wheelhouse 无清单文件，B6 如实标注，不因此 FAIL） |
+| wh_manifest | `absent-unverified`（wheelhouse 无清单文件，B6 如实标注，不因此 FAIL） 。**DOC-FINAL-A 两路并存事实（避免与 RESULT 行互相打脸）**：默认路径 `dsm_stage/P3b-prep/wheelhouse`（26 wheel）带旁挂清单 `dsm_stage/P3b-prep/wheelhouse.sha256`（26 行；DOC-PRE 复核 `cd dsm_stage/P3b-prep/wheelhouse && sha256sum -c --quiet ../wheelhouse.sha256; echo rc=$?` → **rc=0 全 OK**）⇒ `verified(26 entries, sha256sum -c all OK)`；显式路径 `/home/szf/dsm-wheelhouse`（26 wheel）**无清单** ⇒ `absent-unverified` **仍成立**。B6 语义不变（absent 不 FAIL）。最终签核走哪一路、`wh_manifest` 取何值 = `PLACEHOLDER-TO-REFRESH(主控@最终HEAD)`（PH-04／PH-05，取 RESULT 行的 `wh_manifest=` 字段）；本处 v1.1 的 `absent-unverified` 记录**保留为历史**（该次走的是显式路径）。 |
 | DIRTY / dirty_files | `DIRTY=0` / `dirty_files=0`（签核时点工作树干净，优于 `93abfee` 那次的 3 项） |
 | HEAD_STABLE | `yes`（`head_stable=yes (src_head_end=3da51ab325a535525c20fe25a96b33182edf08b9…)`，B9：运行窗口内无在飞提交） |
 | pytest_assertion | `rc=0` |
@@ -240,7 +240,7 @@ wheelhouse 内容校验（B6）：`wheelhouse.sha256` 清单存在则 `sha256sum
 | runs / elapsed | `runs=2` / `elapsed_seconds=15`（RESULT 行 `ELAPSED=15s`） |
 | tmpdir | `/tmp/p3b-repro.WQQSlx8P` |
 
-**结论**：**tag 前置 ③ 在最终 HEAD `3da51ab` 判「满足」**（exit 0 + RESULT=PASS + L3-strong + 两跑逐字符自等），不再限于 `93abfee` / `da4d0a9`。**同时维持不变的两条诚实边界**：① 本次仍是**同机、同 Python 3.12.3**，**第二人 / 异机复跑仍为 PLACEHOLDER** → **V-3 / V-10 维持 ⏳，不因本笔上调**；② wheelhouse 不入库且绑定 cp312-manylinux-x86_64，本次 `wh_manifest=absent-unverified`；③ `config/` 实测 0 文件 → 本哈希仍出自 spine 测试内合成 GOVERNANCE，**不得宣称「`dsm score` 端到端跑出同一哈希」**（§7 第 3/4 条照旧适用）。
+**结论**：**tag 前置 ③ 在最终 HEAD `3da51ab` 判「满足」**（exit 0 + RESULT=PASS + L3-strong + 两跑逐字符自等），不再限于 `93abfee` / `da4d0a9`。**同时维持不变的两条诚实边界**：① 本次仍是**同机、同 Python 3.12.3**，**第二人 / 异机复跑仍为 PLACEHOLDER** → **V-3 / V-10 维持 ⏳，不因本笔上调**；② wheelhouse 不入库且绑定 cp312-manylinux-x86_64，本次 `wh_manifest=absent-unverified`；③ `config/` 实测 0 文件 → 本哈希仍出自 spine 测试内合成 GOVERNANCE，**不得宣称「`dsm score` 端到端跑出同一哈希」**（§7 第 3/4 条照旧适用）。 【**v1.2 实况更正（DOC-FINAL-A @`50fa9e0` 亲测）**：`git ls-files -- config` = **6 个跟踪文件**（`ahp_matrices.yaml`／`anchor_set.yaml`／`eval_config.yaml`／`grade_rules.yaml`／`redlines.yaml`／`weights_WV-SYNTH-2026.yaml`；M29-3 `ae2ca02` 入库 + CFG-1 `42a4084` 增顶层键 `soft_deductions`），属**合成待签认演练样例，不等于 G7 签认**；G5／G7 未过与「不得输出可用于真实资源配置的分数或等级」的首屏声明**一字未改**。本句「0 文件」= **v1.1 口径，保留为历史**。】。**DOC-FINAL-A 两路并存事实（避免与 RESULT 行互相打脸）**：默认路径 `dsm_stage/P3b-prep/wheelhouse`（26 wheel）带旁挂清单 `dsm_stage/P3b-prep/wheelhouse.sha256`（26 行；DOC-PRE 复核 `cd dsm_stage/P3b-prep/wheelhouse && sha256sum -c --quiet ../wheelhouse.sha256; echo rc=$?` → **rc=0 全 OK**）⇒ `verified(26 entries, sha256sum -c all OK)`；显式路径 `/home/szf/dsm-wheelhouse`（26 wheel）**无清单** ⇒ `absent-unverified` **仍成立**。B6 语义不变（absent 不 FAIL）。最终签核走哪一路、`wh_manifest` 取何值 = `PLACEHOLDER-TO-REFRESH(主控@最终HEAD)`（PH-04／PH-05，取 RESULT 行的 `wh_manifest=` 字段）；本处 v1.1 的 `absent-unverified` 记录**保留为历史**（该次走的是显式路径）。
 
 **签核适用域论证（为何签核 HEAD 与被 tag 的 HEAD 可以不同）**：本笔签核完成后，HEAD 还会因 **V1-FINAL 包的 docs 提交**（`docs/deliverables/**` + `README.md`）与**主控的 ledger 提交**（`ops/dag-state.json`）而前移。`reproducibility_hash` 的输入面是 **seed `20260101` / period `2026-Q2` / `fixtures/input` + `fixtures/golden` / 冻结权重版本 id**（出处：`ops/dag-state.json → reproducibility_evidence.harness.inputs`），**不含 `docs/**` 与 `ops/**`**，故这些后续提交不改变任何被哈希的输入，本签核结论对最终被 tag 的 commit 仍然适用。**该结论由主控在 push 前用 `git diff --name-only 3da51ab..HEAD` 实测核验**，核验输出记入 `ops/dag-state.json` 与主控最终报告；**本包按派工纪律未代跑、未代填结果**（本包亦未触碰 `ops/dag-state.json`）。若核验发现任何超出 `docs/**` 与 `ops/dag-state.json` 的触及面（尤其 `dsm/**`、`fixtures/**`、`tools/repro_offline.sh`），本论证立即失效，须在新 HEAD 重跑本工装后再打 tag。
 

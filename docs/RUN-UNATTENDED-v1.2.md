@@ -38,9 +38,9 @@
 **目标**：关掉 v1.1 移交的 **4 条工程阻塞项**与 **8 条 ⏳**，使 **V-14 具备由 ❌ 上调 ✅ 的四项齐备条件**。
 
 **V-14 转正四项齐备判据（缺一不得上调）**：
-1. M28 降级矩阵 **26 行**（契约 SDD **L1280–L1305**）逐条遍历断言落地且全绿；
+1. M28 降级矩阵 **26 行**（契约 SDD **L1280–L1305**）逐条遍历断言落地且全绿； 【**DOC-FINAL-A 落地实况（@`50fa9e0`）**：已落地 = M28-1 `ecb5535`（26 行 × **5 列**／885 行／161 断言，采渲染层口径 ORCH-56，**非端到端**）；列数更正见 ERRATUM-V12-05。本项判据本身**不因此齐备**——V-14 仍 ❌（见 §1 第 3 项与 KNOWN-GAPS §I）。】
 2. M29 **九步 marshal** 本体落地（契约 §3.15.1 流程图 L1325–L1358）：`dsm/cli.py:319 _chain_gate` 在模块齐全时**不再** `raise InvariantError`（现 `:333`）；
-3. G-15 **reason_code 六条**接线完成（重复键不再静默取后一行等）；
+3. G-15 **reason_code 六条**接线完成（重复键不再静默取后一行等）； 【**实测 4/6（ORCH-63 维持阻塞）**：已接 = RC-1 `877b8fb`（#2 重复键出码 / #3 零方差 Spearman 带码入 flags / 三角 verdict 静默补披露）+ RC-2 `dcb6f21`（#4 熵权组合逐条 append / #7 C-03 换码 `WEIGHT_DICT_MISALIGNED`）；未接 = **#5** `REDLINE_EXCLUDED_FROM_ENTROPY` 逐指标披露、**#9** `attainment.py:524/:528/:532` 合成行换 `MISSING_FACT_RULE_APPLIED` ⇒ 延期 v1.3 = **NG-V12-19**；本项**未齐备**，本棒不改判。】
 4. `dsm/cli.py` 约 `:918` 的 `except OSError: return None` 静默降级返工为**显式 reason_code + 报告披露**。
 
 **明确不做（本 RUN 范围外，违则判越界）**：
@@ -117,14 +117,14 @@
 - 产物一律落 `dsm_stage/<PKG>/`（**gitignored**，不进 commit），并在回报里给出可复跑命令。
 
 ### M29-3 —— 演练用 config 样例集（C2 / flash / medium）
-- **实测锚点**：`git ls-files config` = **0 文件**；`dsm/config.py:449 load_all()` 以 `EXIT_CONFIG=3`（`:71`）拒绝 → `dsm score` 端到端不可跑。
+- **实测锚点**：`git ls-files config` = **0 文件**；`dsm/config.py:449 load_all()` 以 `EXIT_CONFIG=3`（`:71`）拒绝 → `dsm score` 端到端不可跑。 【**v1.2 实况更正（本棒 @`50fa9e0` 亲测）**：`git ls-files -- config` = **6 个跟踪文件**（`ahp_matrices.yaml`／`anchor_set.yaml`／`eval_config.yaml`／`grade_rules.yaml`／`redlines.yaml`／`weights_WV-SYNTH-2026.yaml`；M29-3 `ae2ca02` 入库 + CFG-1 `42a4084` 增 `soft_deductions` 顶层键），属**合成待签认演练样例，不等于 G7 签认**；「0 文件」为 v1.1 口径，保留为历史。】
 - **要做**：造一套**完整但显式标注「合成待签认」**的演练 config，使端到端可跑通；每个治理值必须可追溯到 K 编号（K-01~K-40）并标 PLACEHOLDER 属性。
 - **红线**：这**不是** G7 签认。README 首屏与交付包声明一字不改。
 
 ### M29-2 / M28-1 / BK-3 / BK-4 / V12-DOC-FINAL
 - **M29-2**：给 `dsm/reports.py:799 write_report_set` 接**生产调用点**，使 `bundle.output_fingerprints`（`dsm/models.py:1247`，[L1051] item 10，file→SHA256；`dsm/audit.py:257` 校验）不再是 spine 面实测的 `{}`；同时闭合 **G-8**（`MIX_QUALITY_DEGRADED` 端到端可达）。
-- **M28-1**：新建 `tests/test_downgrade_matrix.py`，对契约 **SDD L1280–L1305 的 26 行 × 六列**逐条参数化断言，且断言「**出现在报告中**」。现状（实测）：`grep -rn 'M28' tests/*.py` 仅 3 处命中且全在 `test_preflight.py` 的 docstring/注释（L6/L506/L596），**零断言**。依赖 M29-1 + RC-1。
-- **BK-3**：给这 **9 个非 docs 文件**补末尾 LF（**纯字节追加、零内容改写**）：`dsm/diagnostics.py`、`dsm/triangulation.py`、`dsm/whatif.py`、`tests/test_diagnostics.py`、`tests/test_golden_a.py`、`tests/test_methods_whatif.py`、`tests/test_sensitivity.py`、`tests/test_triangulation.py`、`tools/repro_offline.sh`。目标：披露项 **16 → 7**。需主控授权（已在 ORCH-49 授权），**必须在所有代码包之后单独执行**。
+- **M28-1**：新建 `tests/test_downgrade_matrix.py`，对契约 **SDD L1280–L1305 的 26 行 × 六列**逐条参数化断言，且断言「**出现在报告中**」。现状（实测）：`grep -rn 'M28' tests/*.py` 仅 3 处命中且全在 `test_preflight.py` 的 docstring/注释（L6/L506/L596），**零断言**。依赖 M29-1 + RC-1。 【**ERRATUM-V12-05 更正（ORCH-56 · 本棒 @`50fa9e0` 亲验契约）**：契约 L1278 表头逐字 = `| 情形 | 检测点 | 降级动作 | 是否出分 | 披露位置 |` ⇒ **5 列**，不是六列；「六列」是 RUN doc 转录错误。M28-1 已按 **26 行 × 5 列** 落地 `ecb5535`（本棒实测 `wc -l tests/test_downgrade_matrix.py` = **885**、`grep -c assert` = **161**，非「断言零、无包领取」）。本行原句保留为派工单历史。】
+- **BK-3**：给这 **9 个非 docs 文件**补末尾 LF（**纯字节追加、零内容改写**）：`dsm/diagnostics.py`、`dsm/triangulation.py`、`dsm/whatif.py`、`tests/test_diagnostics.py`、`tests/test_golden_a.py`、`tests/test_methods_whatif.py`、`tests/test_sensitivity.py`、`tests/test_triangulation.py`、`tools/repro_offline.sh`。目标：披露项 **16 → 7**。需主控授权（已在 ORCH-49 授权），**必须在所有代码包之后单独执行**。【**生效口径纠正（BK-3 `2db67aa` 本棒实测）**：`git show --stat 2db67aa` = **8 files changed**，非 docs 文件 = **8 个**（`dsm/diagnostics.py`／`dsm/whatif.py`／`tests/test_diagnostics.py`／`tests/test_golden_a.py`／`tests/test_methods_whatif.py`／`tests/test_sensitivity.py`／`tests/test_triangulation.py`／`tools/repro_offline.sh`），披露项由 **15 → 7**；「9 个文件、16→7」为派工单时点的过期口径，原句保留为历史。本棒 @`50fa9e0` 独立复扫（Python 逐文件读末字节）= **7 个缺末尾 LF，全部在 `docs/**`、非 docs 面 0 个**：`docs/adr/ORCH-19.md`、`docs/adr/RUN-A1c-fixtures-controlled-thaw.md`、`docs/digest/S1-T01{,b,c,d,e}.md`；与 `python3 tools/normalize.py --check` 的 `DISCLOSURE TRAILING_LF_HISTORICAL 7 of 204` 同源。本棒**未在**这 7 个文件上动笔（避免把披露项变成强制违规）。】
 - **BK-4**：结掉 `docs/deliverables/V-ACCEPTANCE-EVIDENCE.md` 中残留的 6 处 `PLACEHOLDER-TO-REFRESH`（索引 #2/#3/#4/#6/#8/#10），每条写明「已定值」或「仍缺什么 + 归属」。
 - **V12-DOC-FINAL**：V 三态重判（**只依主控亲测**）、KNOWN-GAPS 机械重算并与汇总节自证相等、README 与交付包刷新、tag 前置 ①~⑦ 逐条落稿。
 
@@ -136,6 +136,8 @@
 2. **②** V-1~V-20 全 20 条在册；每条 ❌/⏳ 有归属包 + K 编号 + 下一版条件；**V-14 只有在四项齐备时才允许上调**，否则维持 ❌ 并逐字保留原因。
 3. **③** `tools/repro_offline.sh --strict-isolation --expect <新哈希>` 在**最终 HEAD** PASS，`L3-strong`、两跑 64 位逐字自等、`DIRTY=0`、`HEAD_STABLE=yes`。
 4. **④** **权威哈希必变**（实现面改动）→ 必须重新登记，并在 v1.2 台账 `invalidation_log` 追加新 seq，写明新旧两值与归因；`v1.1` 的 `e5923465…` 作为历史保留，**不得沿用**。
+
+> **④ 更正追记（ORCH-57 / ERRATUM-V12-06，主控已裁；原句保留为派工单历史，不改写）**：不再预设「哈希必变」，改为**登记最终 HEAD 上的实测值 + 未变更的机理说明 + 4 条正对照**。机理 = 复现哈希输入面是**值面**：`dsm/audit.py:231-239` 的 `canonical_text({schema, weight_version_id, score_card, grade_ledger})`，其中 `HASH_SCHEMA` = `dsm.reproducibility/v1`、`SCORE_CARD_HASH_FIELDS` = **34 列**（非 30；**ERRATUM-V12-08**）、`GRADE_LEDGER_HASH_FIELDS` = 5 列，**零源码指纹**（无 run_id／run_at／路径／主机名／输出文件名）⇒ 实现面改动与哈希变化**无必然关系**。实测值 = `PLACEHOLDER-TO-REFRESH(主控@最终HEAD)`（PH-06；取门禁③阶段 A 的 RESULT 行 `HASH=`）；v1.1 冻结值 `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904` 保留为历史；4 条正对照建议面 = ①改 `weight_version_id` ②改 score_card 任一入列值 ③改 grade_ledger 任一 grade ④越出 34 列改列集合。重登记安全性：`grep -rn e59234654f4e tests/ dsm/` = **0 命中**（主控亲测）。
 5. **⑤** 只读邻居四项一致（`m0-framework`/`0cccb76`/porcelain 0/rev-list 154）+ 契约 `708679e9a83d`/2003 行未变。
 6. **⑥** KNOWN-GAPS 机械清点与汇总节逐字相等；阻塞数从 **13** 下降的每条都要给关闭依据（commit / 裁决）。
 7. **⑦** 工作树 porcelain 为空；编码门禁**三形式**（默认 / `--changed-since` / 提交后复跑）RC 全 0，四要素违规 0。
@@ -163,3 +165,14 @@ NOTES=<越界/超支/驳回建议/需主控裁决事项，如实写>
 - 达成：①~⑦ 全满足 + `v1.2.0` 已推送 → 出最终报告后停止。
 - 未达成但到 6h 硬停：如实登记遗留（缺什么 / 归属 / 下一版条件），**不 push 半成品 tag**，出报告后停止。
 - 任一核验失败（邻居被动、契约被改、哈希不可复现、门禁染红且无法在不弱化断言的前提下修复）→ **立即停止并上报，严禁自行强行凑绿**。
+
+
+## §7 落地实况追记（DOC-FINAL-A 落笔 · 只追加不改写历史 · 观测 HEAD `50fa9e0`）
+
+- **本 RUN 已落地（本棒 @`50fa9e0` 亲验 commit 存在 + 锚点复测）**：M28-1 `ecb5535`（降级矩阵 26 行 × **5 列**／885 行／161 断言）· CFG-1 `42a4084`（`config/grade_rules.yaml` 顶层键 `soft_deductions`，值取自 `tests/test_integration_spine.py:84`，**合成待签认**）· BK-3 `2db67aa`（8 files，披露 15→7）· T05-FIX `cba7320`（T05-M04 由字面 `== []` 改为三条泄漏检测，零弱化）· RC-1 `877b8fb`（G-15 #2/#3 + 三角披露；⚠️ subject 首字符混入 BOM = **ERRATUM-V12-03**，文件内容零影响）· RC-2 `dcb6f21`（G-15 #4/#7；#5/#9 明确不做）· CEL-EQ `b157e00`（`tests/test_cel_disabled_fieldwise.py` 1119 行插入）· M29-1 `a432ef6`（`_chain_gate` 真串九步 marshal + V-14 第 4 项返工）· M29-3 `ae2ca02`（config/ 6 件入库）
+- **M29-1 调用链锚点（本棒 `git show 50fa9e0:dsm/cli.py` 与 `a432ef6` 双测同值）**：`:953 frames = _report_frames(` → `:959 fingerprints, render_details = _render_reports(...)` → `:1120 def _render_reports(...)` → `:1129 ...write_report_set(...)(report_set, run.dir)` ⇒ `cmd_score` 成功路真实写出七件产物；旧 raise 串已删（`grep -c "chain modules are all present" dsm/cli.py` = **0**）。v1.1 文本的 `cli.py:391`／`:406` 系过期行号（现值 `:1105`／`:1120`）。
+- **在飞（本棒一律不预填结果）**：M29-2（`dsm/cli.py`／`dsm/reports.py`／新建 `tests/test_report_set_outlet.py`）状态 = `PLACEHOLDER-TO-REFRESH(主控@最终HEAD)`（PH-03／PH-21；取值命令 `git log --oneline -6`）；B12-FIX（`dsm/diagnostics.py`／`dsm/triangulation.py` + 两个新测试）状态 = `PLACEHOLDER-TO-REFRESH(主控@最终HEAD)`（PH-21；取值命令 `git log --oneline -6` 后跑 `python -m dsm.cli … score …` 并 `echo $?`，期望 RC=0，未修 = 5）。开工实测 `git status --porcelain` = ` M dsm/cli.py`（属 M29-2 在飞，本棒未触碰、未 add、未 stash）。
+- **门禁终态登记**：① 全量 = `PLACEHOLDER-TO-REFRESH(主控@最终HEAD)`（PH-02；参考值 2418 passed / 0 failed @`a432ef6`，主控独立 clone）② V-2 500 例档 = `PLACEHOLDER-TO-REFRESH(主控@最终HEAD)`（PH-01）③ 阶段 A/B = `PLACEHOLDER-TO-REFRESH(主控@最终HEAD)`（PH-04／PH-05，RESULT 行原文整行粘贴）④ 权威哈希 = PH-06（按 §1 第 4 项追记口径：实测值 + 机理 + 4 条正对照，**不预设必变**）⑤ 邻库／契约只读 = 本棒开工亲验：CampaignLab = `m0-framework`／`0cccb76`／porcelain `0`／rev-list `154`；契约 = `708679e9a83d`／**2003 行**／**177646 B** 三项逐位相符 ⑥ 阻塞数下降逐条依据 = 见 `docs/deliverables/KNOWN-GAPS.md` 汇总节（本棒落笔后机械清点）⑦ 编码门禁 = 本棒三形式实测均 **exit 0**：`NEEDS_NORMALIZATION 0 of <PLACEHOLDER-TO-REFRESH(主控@最终HEAD)>`（开工 @`50fa9e0` = 204）＋ `DISCLOSURE TRAILING_LF_HISTORICAL 7 of <同上>`（**分母一律不写死**，取值命令 `python3 tools/normalize.py --check | head -4`）。
+- **ERRATUM-V12-09（本棒登记 · 主控已裁）**：`_EXCEPTION_CODES` 中把 `WeightVersionInvalidError` 映射到退出码 **3** 的那一行，锚点 = **`dsm/cli.py:53`**（本棒逐 HEAD 实测 `git show <h>:dsm/cli.py | grep -n WeightVersionInvalidError`：`617e7a5`／`b157e00`／`a432ef6`／`50fa9e0` **四个 HEAD 同值 `:53`**；字典声明 `^_EXCEPTION_CODES = ` 起于 `:52`）。M28-1 自述与派工单／dag-state `carry_gaps_v12[NG-V12-23]` 所写「`cli.py:56`」有误。**本棒不改 M28-1 已提交测试文件的注释**（R-13 禁 amend／禁改 `tests/**`），`ops/**` 零写入 ⇒ 台账侧更正归主控。
+- **收口次序（ORCH-58）**：内容包 → DOC-FINAL → 台账 commit → porcelain 0 → 门禁① 全量 → 门禁③ 阶段 A 取哈希 + 阶段 B `--expect` 复验 → `git tag -a v1.2.0 -F <tagmsg.txt>`（**四要素写进标签消息**，禁用 `-m` 防码页损毁）→ push main → push tag。**门禁③载体禁用 `git archive` 导出树**：`tools/repro_offline.sh:92` 逐字 `[ -d "$SRC/.git" ] || die "not a git repository: $SRC"`，导出树无 `.git` 会直接 die（本棒实测该行）。
+- **三态裁定边界**：本棒（DOC-FINAL-A）**未改任何 V 项 ✅／⏳／❌**；三态裁定权只属主控（L-11／ORCH-49 第 6 条）。本棒仅在证据列补事实与写「具备上调条件，裁定待主控」。

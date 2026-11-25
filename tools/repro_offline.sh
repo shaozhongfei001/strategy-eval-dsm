@@ -37,11 +37,16 @@
 #   * L3-strong 只在「wheelhouse 可用」AND「netns 真实生效（自检通过）」两条件同时
 #     成立时输出（V-14：任何降级都显式可见，禁止静默降级）。
 #   * 复现哈希当前由 tests/test_integration_spine.py 的 _run_chain 产出（测试内合成
-#     GOVERNANCE 配置），**不是** dsm score CLI 的真实运行：仓库 config/ 为 0 文件
-#     （实测），dsm/config.py:449 load_all() 以 EXIT_CONFIG=3（dsm/config.py:71）拒绝，
-#     dsm score 端到端不可跑（属设计而非回归）。CLI 侧 reproducibility_hash 已由
-#     P2-wire-A 接真源（dsm/cli.py:243-288，:288 调 dsm/audit.py:242 的
-#     reproducibility_hash 取真 digest），不再是 PLACEHOLDER。
+#     GOVERNANCE 配置）。**追记 v1.2（观测 HEAD a432ef6 / 50fa9e0，DOC-FINAL-A 仅改本段
+#     注释文字，逻辑零改动）**：M29-1 a432ef6 已把 _chain_gate 改为真串九步 marshal，
+#     dsm score 端到端**已可跑**（tests/test_cli_marshal.py 断言七件产物落盘）；仓库
+#     config/ 现**有 6 个跟踪文件**（git ls-files -- config 实测；M29-3 ae2ca02 +
+#     CFG-1 42a4084 入库，属合成待签认演练样例，**不等于 G7 签认**）；缺治理签认时
+#     dsm/config.py:449 load_all() 仍按 EXIT_CONFIG=3（dsm/config.py:71）拒绝。
+#     CLI 侧 reproducibility_hash 已由 P2-wire-A 接真源：锚点随并发包漂移，
+#     @a432ef6 实测为 cli.py:264（注释）/ :279（取 _attr(audit,
+#     reproducibility_hash, audit_context)）/ :288（写 digest 字典，调 dsm/audit.py:242），
+#     原文所写 dsm/cli.py:243-288 系 v1.1 行号，保留为历史；已不再是 PLACEHOLDER。
 #   * 源仓库工作区脏（DIRTY=n>0）时如实标注：clone 是 commit-exact，脏文件不进
 #     clone、不影响哈希；但签核结论只覆盖 RESULT_COMMIT 本身，不覆盖未提交改动。
 #   * clone 前后 HEAD 一致性校验（HEAD_STABLE）：运行期间在飞 lane 前移源仓库 HEAD
