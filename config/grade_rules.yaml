@@ -67,3 +67,25 @@ grades:
 policy:
   upgrade_consecutive_periods: 2
   demotion_immediate: true
+
+# ---------------------------------------------------------------------------
+# SOFT 红线扣减幅度（契约 L484：「SOFT 红线：命中 → 独立扣减（在等级判定之外单列），
+# **不进加权**……扣减幅度由 grade_rules.yaml 配置」；同表 L990 同一口径）。
+# 载体 = 本文件**顶层** soft_deductions 映射（主控裁决 ORCH-61，不得改写口径），
+# 语义 = metric_id -> 0..1 扣减比率。它是 grades / policy 的**兄弟顶层键**，不是
+# 任何一行定级规则的字段：dsm/models.py:557 GradeRuleRow 为 frozen + extra=forbid，
+# 往某一行里塞 soft_deductions 必须抛错（本仓库 tests/test_config_soft_deductions.py
+# 反向钉死这一点）。
+# 消费点：dsm/redline.py:243-249 _deduction —— 按 ADJ-2 做成必填入参，缺失即抛错、
+# 越出 0..1 即抛错，绝不自定数（H-5）；dsm/cli.py:456 _soft_deductions(app) 从本树
+# 逐字读出，缺块则走 [L1080] 退出码 3 点名键位，shell 侧同样不自定数。
+# 数值出处（R-12 禁编造，逐字照抄）：tests/test_integration_spine.py:84
+#     GOVERNANCE['soft_deductions'] = {'M_OPTOUT_RATE': D('0.05')}
+# 写法与同文件 attainment_floor: "1.00" 同风格（**字符串**，不是裸浮点）：比率经
+# dsm/numeric.py 的 q12 定点化，H-4 明文 never float。
+# 只有这一个 metric_id、这一个数值有出处。其余 SOFT 红线指标的扣减幅度，契约与夹具
+# 均未给值，故**一律不补**——没有出处就是编造（R-12 / H-5）。
+# 合成待签认（DRILL ONLY），非行方签认治理值（F-2）。
+# ---------------------------------------------------------------------------
+soft_deductions:
+  M_OPTOUT_RATE: "0.05"
