@@ -2,7 +2,16 @@
 
 策略评价「可辩护评分」模型（**DSM** = Defensible Scoring Model）**v1.1** 的离线批量实现。
 
-> **读者须知（首屏声明）**：本仓库当前 **G5（D6 证据复核）与 G7（治理配置签认）两道门禁均未通过**，`config/` 目录实测 **0 文件**、K-01~K-20 全部为 `PLACEHOLDER`。因此本仓库**只能用于合成数据的全流程演练**，**不得输出任何可用于真实资源配置的分数或等级**（判据见 `docs/digest/M39-risks-gates.md` L45，即 SDD L1797）。详见下文[第 8 节「当前状态」](#8-当前状态诚实节)。
+> **读者须知（首屏声明）**：本仓库当前 **G5（D6 证据复核）与 G7（治理配置签认）两道门禁均未通过**，`config/` 目录实测 **0 文件**、K-01~K-35 全部为 `PLACEHOLDER`。因此本仓库**只能用于合成数据的全流程演练**，**不得输出任何可用于真实资源配置的分数或等级**（判据见 `docs/digest/M39-risks-gates.md` L45，即 SDD L1797）。详见下文[第 8 节「当前状态」](#8-当前状态诚实节)。
+
+> **P3c-pre2 事实校正（必读：本节覆盖下文所有陈旧数字）**　观测 HEAD `f27334d`（A1d），`git tag -l` 实测 **0** 条。
+> ① **KNOWN-GAPS 阻塞数已由 24 改为 16**（D-DOC-01 已修）：合计 **64 条**（A10/B10/C8/D7/E8/F2/**G19**）、**阻塞 16 / 非阻塞 48**，汇总节与正文逐条列举**已回读自证相等**；旧的「19 条」与「24 条」两个数字**都不要再引用**。
+> ② **K 清单已扩到 K-01~K-35**（35 个编号 / 39 个签认动作，K-21 拆 5 子项），全部仍为 PLACEHOLDER；`config/` 实测 **0 文件**，真跑以 `EXIT_CONFIG=3` 拒绝（**设计如此，非缺陷**）。
+> ③ **`reproducibility_hash` 现值 = `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904`**（@`42d5346`），台账 `8083efc9…` → `4de4b8cb…` → `e5fa8ae0…` → `e5923465…` → **终值 `PLACEHOLDER-TO-REFRESH(P2-wire-B)`**，旧值一律保留、**严禁修回**。**P3b 判据 = 最终 HEAD 上全新 clone + `unshare -rn` 真断网 + 同 seed 两连跑精确自等，不是与任何旧值相等。**
+> ④ **CLI 仍无 console script**（`D-CLI-01`，本 RUN 裁定不补）：唯一入口 `/home/szf/venvs/dsm/bin/python -m dsm.cli`，8 条叶子命令 + 公共 6 参数 + `--schemes`，退出码 0/2/3/4/5/6/7。**且 M29 九步 marshal（[L1330]-[L1358]）本体未落地**：`cli.py:_chain_gate` 在模块齐全时仍 `raise InvariantError`（退出码 5），P2-wire-A 落的两个 seam 目前**没有生产调用点、只由测试驱动** → **不得写成「CLI 已可用」**（`KNOWN-GAPS G-14` / `K-34`）。
+> ⑤ **缺陷 27 条、勘误 11 条（ERRATUM-01~11）、教训 L-01~L-12**；P2 已拆两次：**P2 → P2-cli + P2-wire → P2-wire-A + P2-wire-B**（ORCH-36 第5条 / ORCH-39 第6.4条）。`reason_code` 注册数 **91**（R15B2 的 90 + CODES-2 @`32cafd0` 的 `EV_OUT_OF_EVAL_PERIOD`）。
+> ⑥ **LOO-1 新增契约产出物 `SensitivityReport.loo_impact`**（L748/L1409/L1450 要求的「每指标 LOO 影响力排名」），实测 `loo_impact_max = M_REV_MINOR 0.120000000000` 与手算逐位相符；**MD 报告面出口已由 P2-wire-A @`53ed80c` 闭环**（`report.md` ⑦ 段），**CSV 面本 RUN 不做**（ORCH-42 第4条，扩列属契约变更），**CLI 摘要面**被 ④ 的 marshal 缺位挡住 → 在 ④ 落地前**不得声称该产出物在 CLI 面对用户可见**。
+> ⑦ 最终全量 pytest 数字（当前已入账权威基线只到 `after_MODELS1` = 11 failed / 2190 passed / 2201 collected @`cc18a38`，其 11 红拆分本身也是 PLACEHOLDER）、最终哈希、最终 `git rev-list --count origin/main..HEAD` 一律 `PLACEHOLDER-TO-REFRESH`（A1d／E2b／E3b／P2-wire-A 并发施工，此刻测到的都不是终值；P3C-draft 当时实测的 ahead=34 **不得沿用**）。
 
 - **唯一权威设计文档（SDD）**：`开发设计文档-策略评价可辩护评分模型DSM-v1.1.md`，共 **2003 行**（本包实测 `wc -l`），sha256 前 12 位 **`708679e9a83d`**（本包实测）。
 - **本 README 的事实纪律**：下文每一个数字要么是本包亲自实测（标注「实测」），要么注明来源文件与 commit（标注「来源」）。查不到的一律写 `PLACEHOLDER`，**不猜、不编**（本 RUN 铁律 R-12）。
@@ -329,10 +338,10 @@ tools/repro_offline.sh --strict-isolation --expect <64 位期望哈希>
 
 - 实测：`find config -type f | wc -l` = **0**。
 - 后果：`dsm/config.py:449` 的 `load_all()` 在缺失 `REQUIRED_CONFIG_STEMS`（5 个固定 stem + `weights_*.yaml` 通配，共 **6 类**）时抛 `ConfigPlaceholderError`，按 `dsm/config.py:71` 的 `EXIT_CONFIG = 3` 拒绝（实测输出见 §5.4；SDD M29 L1328 同口径）。
-- **定性**：这是 **K-01~K-20 待业务签认**的直接后果，**不是缺陷**。SDD 的设计意图就是「任何业务数值未签认 → 配置加载直接失败，**不出分**」——宁可不评，不可错评。对应门禁 **G7「治理配置已签认」= 未完成且无载体**（`docs/deliverables/KNOWN-GAPS.md` F-2 行，逐字引 M39 L1794）。
+- **定性**：这是 **K-01~K-35 待业务签认**的直接后果，**不是缺陷**。SDD 的设计意图就是「任何业务数值未签认 → 配置加载直接失败，**不出分**」——宁可不评，不可错评。对应门禁 **G7「治理配置已签认」= 未完成且无载体**（`docs/deliverables/KNOWN-GAPS.md` F-2 行，逐字引 M39 L1794）。
 - G7 未过时的合法动作（M39 L45）：**仅允许**合成数据全流程 / 演示报告 / whatif 预演；**不得**输出可用于真实资源配置的分数或等级。该声明必须进报告首屏，实测有守护：`tests/test_reports.py::test_gate_not_passed_puts_statement_on_first_screen`（PASS，来源 V-ACCEPTANCE-EVIDENCE D-11）。
 
-### 8.4 K-01~K-20 全部 PLACEHOLDER；KNOWN-GAPS 计数
+### 8.4 K-01~K-35 全部 PLACEHOLDER；KNOWN-GAPS 计数
 
 - **K-01 ~ K-20：20 项全部 `PLACEHOLDER`**，无一脱离。来源：`docs/deliverables/K-SIGNOFF-CHECKLIST.md`（P3c-prep，commit `fb68af8`），唯一事实来源为 `docs/digest/M38-k-params.md`（SDD L1734-L1760 逐字）。报告侧亦把 20 项全部渲染为 `PLACEHOLDER`（`dsm/reports.py:71 OPEN_PARAMETER_IDS` + `:467-468`）。
 - 该清单自带计数小结（逐字）：有代码落点的 K 项 **19/20**，**无落点 = K-07**（`min_sample_size_for_A` / 显著性水平 / MDE 在 `dsm`、`tools`、`tests` 全部 grep 无命中 → **证据 A 类判定未实现该判据**）；M38 原文给了建议值的 **7 条**（K-05、K-08、K-11、K-15、K-18、K-19、K-20），其余 **12 条原文未给数值，一律未代拟**；K-11/K-15/K-20 存在「sensitivity 或 weights_combine 给默认 vs weights_calibrate 拒默认」的**双轨不一致**，备注为「半」，裁决归主控/行方。
@@ -363,7 +372,7 @@ ORCH-35 的**决定性理由**（ADR §2 逐字）：L901 同一句之内既规�
 - **其中 2 个码的 severity 依据仍为 `PLACEHOLDER`，待业务签认**（本包实测 `dsm/reason_codes.py` 中 basis 文本以 `PLACEHOLDER:` 开头的码恰为这 2 个）：
   - **`SPEARMAN_ZERO_VARIANCE`**（当前暂定 **WARN**，`dsm/reason_codes.py:271-274`）：原文（M26 L1022-L1031、§2.6.4 L730-L740）只规定 mean_ρ 与阈值的两个结论与「可关 → `TRIANGULATION_DISABLED`（不得静默）」，**未给零方差情形的严重度列**。
   - **`APPROXIMATE_ATTRIBUTION`**（当前暂定 **WARN**，`dsm/reason_codes.py:322`）：M10 L674 只要求「标注」，**原文未给严重度列**。
-  - 裁决：**ORCH-34 第 2 条** —— 维持暂定 **WARN**、**不得升格为 BLOCK**（ORCH-30：不得凭空升格严重级）；其正当性来源是 V-14（必须披露）而非门禁；P3a 必须把这两条列入「待业务签认」清单（与 K-01~K-20 同类）并在证据表披露节点名。
+  - 裁决：**ORCH-34 第 2 条** —— 维持暂定 **WARN**、**不得升格为 BLOCK**（ORCH-30：不得凭空升格严重级）；其正当性来源是 V-14（必须披露）而非门禁；P3a 必须把这两条列入「待业务签认」清单（与 K-01~K-35 同类）并在证据表披露节点名。
   - **勿混淆**：`CONFIG_PLACEHOLDER`（`dsm/reason_codes.py:35`，severity = **BLOCK**）是**码名**里带 PLACEHOLDER 的另一个码，含义是「配置中存在未签认的 PLACEHOLDER 字段，拒绝出分」，与上述「severity 依据为 PLACEHOLDER」不是一回事。
 - 另需知道的口径更正：**`DESIGN_CARD_TABLE_ABSENT` 的退出码以 M21 L892 的 io 层 `4` 为准**（ORCH-34 第 1 条更正 ORCH-30 第 4 条的「退出码 2」笔误），且**不得**同时出现在 preflight 的 `RUN_BLOCKING_CODES`（退出码 2）里，否则一码两退出码属口径矛盾。
 - KNOWN-GAPS B-10 曾记「实测 81 码」，`r15_batch_2.result.text_81_explained` 已查明：那是把 `_DYNAMIC_PREFIXES` 的 2 行前缀映射（`REDLINE_HARD_` / `REDLINE_SOFT_` → 模板码）误计为码，该 2 行不产生 RC 成员；**实测三证一致**（`_DEFS` 行数 = `len(list(RC))` = `len(all_codes())` = `len(_META)`）= 79（改前）。
@@ -389,7 +398,7 @@ ORCH-35 的**决定性理由**（ADR §2 逐字）：L901 同一句之内既规�
 | 未覆盖 | 依据 | 现状 |
 |---|---|---|
 | **真实用户 / 真实客户数据** | SDD L1530「不需要数据库、不需要联网、不接生产库」；`frozen_fixtures.rule`「不使用任何真实客户数据」 | 全流程只用 **17 个合成 fixture 文件 / 896 事实行 / 5 期 / 12 策略 / 4 域**（冻结于 `ca31dd1`）。**未接任何真实数据源** |
-| **行内授权 / 治理签认** | 门禁 **G7**「治理配置已签认」= 未完成（M39 L1794）；K-04 明文「红线阈值…**不得由模型方拟定**」 | `config/` 0 文件；K-01~K-20 全 PLACEHOLDER。签认动作属**行方（评价管理委员会）**，不属本 RUN |
+| **行内授权 / 治理签认** | 门禁 **G7**「治理配置已签认」= 未完成（M39 L1794）；K-04 明文「红线阈值…**不得由模型方拟定**」 | `config/` 0 文件；K-01~K-35 全 PLACEHOLDER。签认动作属**行方（评价管理委员会）**，不属本 RUN |
 | **争议来源复核** | 门禁 **G5**「D6 证据复核已完成」= **未完成 → 复核前全面禁用**（M39 L1792） | 本 RUN 无复核产物（`grep -rn D6 dsm/*.py` 无命中）；**任何争议来源结论禁止引用** |
 | **生产对账 / 上线运行** | SDD L1526「实际耗时须**上线后实测**，本方案**不预估性能数字**」 | 无生产环境、无对账链路、无性能数字 |
 | **因果增量（incrementality）** | 证据强度 A 类判据 = K-07（`min_sample_size_for_A` / 显著性水平 / MDE） | **未实现**：K-07 在 `dsm`、`tools`、`tests` 全部 grep **无命中**（K-SIGNOFF-CHECKLIST 计数小结）→ 当前无法据本仓库产出因果增量结论 |
@@ -434,7 +443,7 @@ ORCH-35 的**决定性理由**（ADR §2 逐字）：L901 同一句之内既规�
 |---|---|
 | 交付包由哪些文件构成、打 tag 的前置条件与发布步骤 | **`docs/deliverables/P3c-DELIVERY-PACKAGE.md`** |
 | 某条验收判据 V-x 有没有实测证据 | `docs/deliverables/V-ACCEPTANCE-EVIDENCE.md`（四列表 + 披露 D-1~D-12） |
-| 某个业务参数谁签认、代码落点在哪一行 | `docs/deliverables/K-SIGNOFF-CHECKLIST.md`（K-01~K-20） |
+| 某个业务参数谁签认、代码落点在哪一行 | `docs/deliverables/K-SIGNOFF-CHECKLIST.md`（K-01~K-35） |
 | 还有什么没做、是否阻塞交付 | `docs/deliverables/KNOWN-GAPS.md`（A~F 六类 45 条） |
 | `reproducibility_hash` 怎么算、第二人怎么复跑 | `docs/deliverables/P3b-REPRO-HARNESS.md` + `tools/repro_offline.sh` |
 | 为什么某处实现与原文不同 | `docs/adr/*.md`（32 份）+ `ops/dag-state.json → decisions` |
@@ -442,3 +451,57 @@ ORCH-35 的**决定性理由**（ADR §2 逐字）：L901 同一句之内既规�
 | 本 RUN 的宪章、铁律 R-1~R-18、包定义 | `docs/RUN-UNATTENDED-v3.0-PARALLEL.md` |
 
 > **版本状态**：`v1.1.0` **尚未打 tag**。tag 必须在 **P2 全量转绿**之后由**主控**执行；打 tag 的可机械核验前置清单见 `docs/deliverables/P3c-DELIVERY-PACKAGE.md` 第 2 节。
+
+---
+
+## 12. P3c-pre2 事实校正与「只差最终数字刷新」清单（ORCH-39 ~ ORCH-42）
+
+> 本节由 **P3c-pre2** 写入，目的是把 README 推到**只差最终数字刷新**的定稿状态。凡与上文冲突处，**以本节为准**（上文保留原样以便对账，不做静默改写）。观测 HEAD `f27334d`。
+
+### 12.1 复现哈希台账（**严禁修回**）
+
+| 顺序 | 值（64 位） | 产生于 | 状态 |
+|---|---|---|---|
+| 1 | `8083efc940c648c460516291efe61ae35b6093671ae9b68f93fbab8bbc3a26b8` | `8cd222c` | **superseded**（SEAM-1 前）|
+| 2 | `4de4b8cb63cbb29b66379bf3d96295ddfac11430d6432883713c8c5997a202d7` | `82d5a6a`（台账 seq1 的 hash_after，因 SEAM-1 @`8f2eca3` 锚定参考尺改动而变）| **superseded_by_A1c** |
+| 3 | `e5fa8ae01476ffd08c5812ea221988a97f06729481a072d94bf753e00275fd9d` | `6299245`（A1c 受控解冻 fixtures；连跑两次精确相等）| **superseded_by_G14FIX** |
+| 4 | `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904` | `42d5346`（G14FIX：`reject_reason` 新增 `PRIMARY_POOL_REJECTED_GRADE` 经 `grade_ledger.l1_gate_reasons` 进入哈希面）| **当前实测值**（两跑相等）|
+| 5 | `PLACEHOLDER-TO-REFRESH(P2-wire-B)` | 最终 HEAD（A1d @`f27334d` 已实测 hash **UNCHANGED**，因其评价期事实表完整不触发 IMPUTE 分支；P2-wire-A @`53ed80c` 结论亦为 unchanged，但 `report.md` ②⑥⑦⑧ 段文本变了 → `output_fingerprints` **必变**）| **终值待 P2-wire-B 重测登记** |
+
+- **P3b 判据（`reproducibility_evidence.p3b_criterion` 逐字）**：「最终 HEAD 上全新 clone + `unshare -rn` 真断网 + 同 seed 两连跑精确自等；**不是**与任何旧值相等」。工装 = `tools/repro_offline.sh`（@`d228edd`）+ `docs/deliverables/P3b-REPRO-HARNESS.md`，隔离级别 **L3-strong**。
+
+### 12.2 `invalidation_log` 的 9 项 PLACEHOLDER 清单重核（P3C-draft §5.5 → 本包逐项重核）
+
+| 原 PLACEHOLDER 项 | 现状（本包重核） | 是否已消除 |
+|---|---|---|
+| `invalidation_log` 的 `hash_after`（seq2／seq3 曾为「待测」）| **已补齐**：seq1 `8083efc9…`→`4de4b8cb…`、seq3（A1c @`6299245`）`4de4b8cb…`→`e5fa8ae0…`、seq4（G14FIX @`42d5346`）`e5fa8ae0…`→`e5923465…`，均为实测 64 位；seq5（A1d／LOO-1／P2-wire-A）的 `hash_after` 仍为 PLACEHOLDER | **部分消除**（seq5 待 P2-wire-B）|
+| 异机第二人复跑 | **仍在**：本 RUN 无法完成（依赖行方／第二人环境），P3b-prep 自披露的 PLACEHOLDER 未变 | ❌ 仍在 |
+| tag 是否代表「可上线版本」的口径 | **仍在**：`git tag -l` 实测 **0** 条，`v1.1.0` 由主控在 P2-wire-B 全量转绿后统一执行；G5／G7 未过 → tag **不代表**可上线，只代表「合成数据演练版」（宪章 §3.2 第239行未要求 G7 先过才能打 tag）| ❌ 仍在（口径须主控与行方确认）|
+| **G5**（D6 证据复核）| **仍在**：`grep -rn D6 dsm/*.py` 无命中，本 RUN 无复核产物 → 复核完成前争议来源结论**禁止引用** | ❌ 仍在（依赖行方）|
+| **G7**（治理配置签认）| **仍在**：`config/` 实测 **0 文件**，K-01~K-35 全部 PLACEHOLDER；真跑在 `config.load_all()`（`dsm/config.py:449`）按 `EXIT_CONFIG=3`（`:71`）拒绝 | ❌ 仍在（依赖行方评价管理委员会）|
+| **K-07**（`min_sample_size_for_A`／显著性水平／MDE）| **仍在**：在 `dsm`／`tools`／`tests` 全域 grep **无代码落点**，证据 A 类判据未实现 | ❌ 仍在 |
+| `SPEARMAN_ZERO_VARIANCE` 与 `APPROXIMATE_ATTRIBUTION` 的 severity 依据 | **仍在**：ORCH-34 第2条维持暂定 WARN、不升格，转业务签认 → 本包已立 **K-30** | ❌ 仍在（已编号化）|
+| C-03「孤儿权重项」定义 | **仍在**：原文未找到（ORCH-35 第7条）；另 P2-wire-A 上报 `preflight.py:215-237` 的 C-03 应由 `CONFIG_SEMANTIC_ERROR` 换 `WEIGHT_DICT_MISALIGNED`（M22 [L902] 逐字 BLOCK）→ 归 C2（`KNOWN-GAPS G-15 #7`）| ❌ 仍在 |
+| ERRATUM-01／02 的业务确认结论 | **仍在**：若业务确认「单维清空即阻断」，属 C-02 阈值变更须走契约变更流程；勘误总数已由 3 条增至 **11 条**（新增 ERRATUM-04~09 见 ORCH-36/37、**ERRATUM-10** combine 退出码以 M21 L892 的 io 层 4 为准、**ERRATUM-11** G-14 三口径 12／11／9）| ❌ 仍在 |
+
+### 12.3 本 RUN 明确不做／不补的项（如实披露，不得读成已完成）
+
+- **无 console script**（`D-CLI-01`，ACCEPTED-DISCLOSED，ORCH-39 第3条）：不补 `[project.scripts]`，避免写集扩散并与 P2-cli／P2-wire-A 抢 `pyproject.toml`。
+- **无前端界面**；本 RUN **未接入**真实用户／行内授权／生产对账／因果增量；`CEL` 增量层契约在 v1 **保留未接入**（`CEL_NOT_CONNECTED`，`cel_contract_version` 保持 PLACEHOLDER → **K-31**）。
+- **LOO 影响力的 CSV 载体不做**（ORCH-42 第4条 → **K-32**）：`SENSITIVITY_COLUMNS` 13 列不扩 `metric_id`／`loo_impact`（`tests/test_reports.py:355` 已钉表头，扩列属契约变更）。
+- **G-14 的上期 PoolStats 载体不做**（ORCH-42 第5条 → **K-33**）：`Inputs`([L891])／`AuditBundle`([L1051] 十六列) 不加列；`_previous_pool_stats()` 返回 None，报告显式披露「本期不可比」（符合 V-14：不造假基线）。
+- **whatif 的 GEOMETRIC 近似归因不做**（`KNOWN-GAPS G-19`）：非 LINEAR 一律抛 `WhatifOperatorError(CONFIG_SEMANTIC_ERROR)`。⚠️ 派工单要求登记为 `D-A4-02`，但 `dag-state` 已存在同号且 **CLOSED** 的 `D-A4-02`（`whatif.py:571` 裸字面量，fix_commit `9078201`）→ **撞号**，本包不自占该号，请主控改号（同 **L-12**）。
+- **`M_REPEAT_USE_COUNT` 等指标签认面**、**g09 守护力 vacuous（K-28）**、**g07 docstring 陈旧值（K-26）**：分别归 P3a 披露／E3b。
+
+### 12.4 待刷新的最终数字（本包一律不填）
+
+| 项 | 现值 | 终值 |
+|---|---|---|
+| 全量 pytest（failed／passed／collected）| 已入账权威基线 `after_MODELS1` = **11／2190／2201** @`cc18a38`（11 红拆分本身是 PLACEHOLDER）；此后 A1d @`f27334d` 报 spine **7 红 → 1 红**、P2-wire-A 报定向 8 文件 **260 passed／0 failed**（**均未跑全量**）| `PLACEHOLDER-TO-REFRESH(P2-wire-B)` |
+| `reproducibility_hash` | `e59234654f4e760b76a661ea4f25b0bdc32987e941f9fecca51762e3c9180904` @`42d5346`（A1d 与 P2-wire-A 均实测 unchanged）| `PLACEHOLDER-TO-REFRESH(P2-wire-B)` |
+| `output_fingerprints` | P2-wire-A 改了 `report.md` ②⑥⑦⑧ 段 → **必变** | `PLACEHOLDER-TO-REFRESH(P2-wire-B)` |
+| `git rev-list --count origin/main..HEAD` | P3C-draft 当时实测 34（**不得沿用**）；`git tag -l` 实测 **0** | `PLACEHOLDER-TO-REFRESH(主控 push 前重测)` |
+| ratchet（架构碰撞白名单）| 32 对（其中 4 对已失效）| 收缩到 **28** 归 `P2-wire-B`（ORCH-34 第3条：须在 A1c 之后、只许缩短）|
+| `defects`／`errata`／`orch_lessons` | **27／11／12**（L-01~L-12）| 主控 push 前再核 |
+
+- **邻仓只读校验（本包实测）**：`/home/szf/dev/CampaignLab` = `m0-framework`／`0cccb76`／porcelain **0**／rev-list **154**，与本包开工前一致，**未触碰**。契约文件 `开发设计文档-策略评价可辩护评分模型DSM-v1.1.md` 的 sha256[:12] = `708679e9a83d`、行数 **2003**，核验通过。
