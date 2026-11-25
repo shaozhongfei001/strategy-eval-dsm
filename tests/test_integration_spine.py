@@ -40,9 +40,12 @@ import pytest
 from dsm import (aggregate, attainment, audit, evidence, fixtures_gen as fg, grading,
                  io_loaders, normalize, numeric, pooling, preflight, redline, reports,
                  sensitivity)
-from dsm.models import (AnchorSetDoc, AttainmentRow, DesignCardRow, GradeLedgerRow,
-                        GradeRuleRow, MetricDictRow, PoolKey, ScoreCardDimCell,
-                        ScoreCardMetricCell, ScoreCardRow, ScoringContext, WeightVersionDoc)
+from dsm.models import (AnchorSetDoc, AttainmentRow, DesignCardRow, EvidenceFrame,
+                        EvidenceRow, GradeFrame, GradeLedgerRow, GradeRow, GradeRuleRow,
+                        MetricDictRow, PoolKey, ScoreCardDimCell, ScoreCardMetricCell,
+                        ScoreCardRow, ScoreFrame, ScoreRow, ScoringContext,
+                        SensitivityReport, SensitivitySchemeResult, StrategyMasterRow,
+                        WeightVersionDoc)
 from dsm.reason_codes import RC, is_registered, message
 
 D = Decimal
@@ -935,14 +938,118 @@ def test_step8_sensitivity_flip_rate_reflows_into_step7_gate(chain):
     assert {(r.strategy_id, r.version_id) for r in before.rows} == \
         {(r.strategy_id, r.version_id) for r in after.rows}
     assert not any(r.primary_pool_eligible for r in after.rows)
-    robust = [r for r in after.rows if r.reject_reason == RC.PRIMARY_POOL_REJECTED_ROBUST]
-    assert robust, 'A/B 类且已参评的策略必须被 flip_rate 挡在一级库外'
-    assert all(r.pool_key.evidence_class in ('A', 'B') for r in robust)
+    # ---- ROB-1 段(i)：真实 2026-Q2 载荷下的拒绝原因分布钉死（已知事实显式化）----
+    # 依据 ORCH-43§1：契约 §3.6.3「一级库门禁」行（L1002）四条件以「且」串联并按此先后
+    # 枚举——evidence_class ∈ {A,B}(1)、grade = L1(2)、无 HARD 红线命中(3)、无
+    # FLIP_RATE_UNUSABLE(4)——=> GRADE 先于 ROBUST（G14FIX 42d5346 的单槽优先序即此权威
+    # 口径，不是缺陷）。契约 L1006 逐字列出 PRIMARY_POOL_REJECTED_ROBUST，该码必须保持
+    # 「活的」：其活性由本函数段(ii)的 L1 x FLIP_RATE_UNUSABLE 有无对照证明。本期 12 主体
+    # 等级全为 L2（一级库要求 L1），A/B 类已参评行全部停在第 2 条件，故 ROBUST 在真实载荷
+    # 下结构不可达——计数 == 0 是被显式断言的已知事实，不是被掩盖的漏洞。
+    by_reason = {}
+    for r in after.rows:
+        by_reason.setdefault(getattr(r.reject_reason, 'value', r.reject_reason),
+                             []).append(r)
+    assert len(after.rows) == 12 == sum(len(v) for v in by_reason.values())
+    grade_rows = by_reason[RC.PRIMARY_POOL_REJECTED_GRADE.value]
+    assert len(grade_rows) == 6      # M34 L1459：A x 3 + B x 3，全 L2 -> L1002 第2条挡住
+    assert {r.strategy_id for r in grade_rows} == (
+        {'S-001', 'S-002', 'S-004', 'S-005', 'S-007', 'S-009'})
+    assert all(r.pool_key.evidence_class in ('A', 'B') for r in grade_rows)
+    # A/B 类已参评行全体恰为这 6 行：没有任何 A/B 行落到其它码（分布闭合）
+    assert {r.strategy_id for r in after.rows
+            if r.pool_key.evidence_class in ('A', 'B')} == (
+        {r.strategy_id for r in grade_rows})
+    ev_rows = by_reason[RC.PRIMARY_POOL_REJECTED_EVIDENCE.value]
+    assert len(ev_rows) == 4         # M34 L1459：C x 4；C 类不得进一级库（L1002 第1条）
+    assert {r.strategy_id for r in ev_rows} == {'S-003', 'S-006', 'S-008', 'S-011'}
+    assert all(r.pool_key.evidence_class == 'C' for r in ev_rows)
+    # D x 2（M34 L1459）两条 D 路径各自钉死到码：S-010 设计卡 MISSING
+    # （fixtures_gen:349-350 -> evidence.py:274），S-012 C 类未填解释限制
+    # （evidence.py:322）；[L1004] NOT_ASSESSED 的 D 行由 evidence_reason 承载。
+    assert [r.strategy_id
+            for r in by_reason.get(RC.EVIDENCE_CARD_MISSING.value, ())] == ['S-010']
+    assert [r.strategy_id
+            for r in by_reason.get(RC.EVIDENCE_C_NO_LIMIT.value, ())] == ['S-012']
+    assert all(r.pool_key.evidence_class == 'D'
+               for r in by_reason.get(RC.EVIDENCE_CARD_MISSING.value, ())
+               + by_reason.get(RC.EVIDENCE_C_NO_LIMIT.value, ()))
+    # ROBUST 计数 == 0（真实载荷结构不可达，见上方依据注释；活性证明在段(ii)）
+    assert RC.PRIMARY_POOL_REJECTED_ROBUST.value not in by_reason
+    assert set(by_reason) == {RC.PRIMARY_POOL_REJECTED_GRADE.value,
+                              RC.PRIMARY_POOL_REJECTED_EVIDENCE.value,
+                              RC.EVIDENCE_CARD_MISSING.value,
+                              RC.EVIDENCE_C_NO_LIMIT.value}
     gate = [r for r in after.rows if r.reject_reason == RC.PRIMARY_POOL_REJECTED_EVIDENCE]
     assert gate and all(r.pool_key.evidence_class == 'C' for r in gate)
     # 稳定性标签与可用性落到 score_card（M26 L1624-1625）
     assert {row.usable_for_elimination for row in chain['score_card']} == {False}
     assert any(row.stability_label is not None for row in chain['score_card'])
+
+    # ---- ROB-1 段(ii)：ROBUST 活性「有/无对照」（ORCH-43§2；契约 L1006 逐字列出
+    # PRIMARY_POOL_REJECTED_ROBUST，不得退化为死码）----
+    # 段(i) 证明真实 2026-Q2 载荷下 ROBUST 结构不可达（12 主体全 L2）。这里构造自包含
+    # 最小合成载荷（单主体 X-ROB：A 类证据 x grade = L1，[L1002] 第1~3条全成立），唯一
+    # 变量 = Step8 产物是否携带 FLIP_RATE_UNUSABLE（第4条）。期望值由契约语义推导
+    # （R-14，非 probe 回填）：
+    #   有异常 -> L1002 四「且」不全成立，且前三条全过 -> 单槽落第4条对应码
+    #            PRIMARY_POOL_REJECTED_ROBUST（L1006 枚举），primary_pool_eligible 假；
+    #   无异常 -> 四条件全成立 -> 准入，reject_reason = None（L1002 举证制）。
+    # flip_rate 数字不编造：1 与 0 分居 review_max 两侧，review_max 逐字取自本文件
+    # SENSITIVITY_CONFIG（与上文 verdict 判定同源，[L1019] 否决判据）。
+    assert numeric.D('1') > numeric.D(SENSITIVITY_CONFIG['review_max'])
+    assert numeric.D('0') <= numeric.D(SENSITIVITY_CONFIG['review_max'])
+    probe_score = ScoreRow(
+        strategy_id='X-ROB', version_id='v1', period=PERIOD,
+        composite_absolute=D('0.5'), composite_relative=D('0.5'),
+        dim_absolute={}, dim_relative={}, coverage=D('1'),
+        weight_version_id=fg.WEIGHT_VERSION_ID, operator='LINEAR')
+    probe_grade = GradeRow(
+        strategy_id='X-ROB', version_id='v1', period=PERIOD, grade='L1',
+        grade_reason_path=(), capped=False,
+        # grading.py:367 口径：本列只反映 Step6 可见否决（NOT_ASSESSED），flip_rate
+        # 回灌不落 GradeRow -> 两份载荷同值 True，保证唯一变量是 sensitivity。
+        usable_for_elimination=True)
+    probe_ev = EvidenceRow(
+        strategy_id='X-ROB', version_id='v1', evidence_class='A',
+        evidence_reason=RC.EV_A_RANDOMIZED, evidence_source='CARD_ONLY')
+    probe_master = StrategyMasterRow(
+        strategy_id='X-ROB', version_id='v1', strategy_name='SYNTH_ROBUST_PROBE',
+        biz_domain='D_ROB', scene_code='SYNTH', segment_type='NEW',
+        online_date=fg.DATA_AS_OF, owner_dept='SYNTH_DEPT',
+        owner_name='SYNTH_OWNER', status='ACTIVE')
+    probe_params = pooling.PoolingParams(
+        min_pool_size=GOVERNANCE['min_pool_size'])   # 与文件头治理值同源（=1）
+    sens_bad = SensitivityReport(
+        by_scheme=(SensitivitySchemeResult(
+            scheme='OAT_10', overall_flip_rate=D('1'), flipped_count=1,
+            assessed_count=1, flag=RC.FLIP_RATE_UNUSABLE.value),),
+        by_strategy=(), seed=SEED)
+    sens_ok = SensitivityReport(
+        by_scheme=(SensitivitySchemeResult(
+            scheme='OAT_10', overall_flip_rate=D('0'), flipped_count=0,
+            assessed_count=1, flag=None),),
+        by_strategy=(), seed=SEED)
+    # 回灌的读取缝就是 pooling.flip_rate_unusable（[L1019] -> [L1002] 第4条）
+    assert pooling.flip_rate_unusable(sens_bad) is True
+    assert pooling.flip_rate_unusable(sens_ok) is False
+    probe_args = (ScoreFrame(rows=(probe_score,)), GradeFrame(rows=(probe_grade,)),
+                  EvidenceFrame(rows=(probe_ev,)), (probe_master,), None)
+    bad_pool, _bad_stats = pooling.build(*probe_args, sensitivity=sens_bad,
+                                         params=probe_params)
+    ok_pool, _ok_stats = pooling.build(*probe_args, sensitivity=sens_ok,
+                                       params=probe_params)
+    assert len(bad_pool.rows) == len(ok_pool.rows) == 1
+    bad_row, ok_row = bad_pool.rows[0], ok_pool.rows[0]
+    # 有异常：Step8 的 FLIP_RATE_UNUSABLE 真的把 L1 x A 挡在一级库外（Step8 -> Step7 回灌）
+    assert bad_row.primary_pool_eligible is False
+    assert bad_row.reject_reason == RC.PRIMARY_POOL_REJECTED_ROBUST
+    assert (bad_row.pool_key.biz_domain, bad_row.pool_key.evidence_class) == ('D_ROB', 'A')
+    assert bad_row.pool_rank == 1, 'ROBUST 是 WARN（L1006）：不中断 Step7，名次照给'
+    # 无异常（对照）：同一主体、同一份 Step5/Step6 产物，四条件全立 -> 可达，不再 ROBUST
+    assert ok_row.primary_pool_eligible is True
+    assert ok_row.reject_reason is None
+    assert ok_row.pool_rank == 1
 
 
 def test_step9_audit_manifest_and_reports_ten_sections(chain):
