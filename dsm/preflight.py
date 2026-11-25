@@ -37,7 +37,10 @@ RUN_BLOCKING_CODES = frozenset((
     RC.WEIGHT_VERSION_INVALID.value, RC.WEIGHT_VERSION_DRAFT.value,
     RC.WEIGHT_VERSION_STALE.value, RC.WEIGHT_MISSING_WHATIF_RUN_ID.value,
     RC.CONFIG_SEMANTIC_ERROR.value, RC.CALIBER_VERSION_MISMATCH.value,
-    RC.MONEY_NON_INTEGER.value, RC.DIMENSION_EMPTIED.value))
+    RC.MONEY_NON_INTEGER.value, RC.DIMENSION_EMPTIED.value,
+    # RC-1 / CONSUMPTION-TODO 第 2 条：设计卡重复键拒绝静默取后一行，显式拒绝
+    # （M18 [L1102] T4 粒度 = 策略 × 版本；M22 [L917] BLOCK 只写 audit_bundle + 退出码 2）。
+    RC.DESIGN_CARD_DUPLICATE_KEY.value))
 # [L1278] 披露位置列，按 reason_code 查表；查不到就抛，不给默认值（V-14）。
 DISCLOSURE = {
     RC.WEIGHT_VERSION_INVALID.value: AUDIT_ONLY, RC.WEIGHT_VERSION_DRAFT.value: AUDIT_ONLY,
@@ -49,7 +52,8 @@ DISCLOSURE = {
     RC.MISSING_RATE_WARN.value: 'preflight findings', RC.RANK_REVERSAL_RISK.value: '报告首屏',
     RC.FIRST_PERIOD.value: 'preflight findings', RC.DATA_QUALITY_SUSPECT.value: 'score_card flag',
     RC.EVIDENCE_CARD_PARTIAL.value: 'evidence_reason', RC.MISSING_RATE_BLOCK.value: LEDGER,
-    RC.NOT_ASSESSED.value: LEDGER, RC.EVIDENCE_CARD_MISSING.value: LEDGER}
+    RC.NOT_ASSESSED.value: LEDGER, RC.EVIDENCE_CARD_MISSING.value: LEDGER,
+    RC.DESIGN_CARD_DUPLICATE_KEY.value: AUDIT_ONLY}
 CONFIG_FIELDS = ('period', 'period_ref_date', 'weight_version', 'anchor_set',
                  'signed_signoff_status', 'missing_rate_warn', 'missing_rate_block')
 # audit_bundle 注入键（H-8：run_id / run_at 不由本模块读时钟；reproducibility_hash
@@ -317,7 +321,24 @@ class _Checks:
     def c08(self):
         # [L907] PARTIAL -> 证据上限压到 C；MISSING（含根本没有卡）-> 证据 D ->
         # NOT_ASSESSED，台账单独计数；策略级降级，不阻断其余策略（[L1292]）。
-        by_key = {(c.strategy_id, c.version_id): c for c in self.cards}
+        # RC-1（CONSUMPTION-TODO 第 2 条 / M18 [L1102] T4 粒度 = 策略 × 版本）：原字典推导
+        # 遇重复键静默取后一行 = V-14 静默降级（MISSING 卡可被后行 COMPLETE 盖掉）。改为
+        # 建索引前显式查重并出 DESIGN_CARD_DUPLICATE_KEY（BLOCK，audit + 退出码 2，[L917]），
+        # 索引保留首行、后行不再参与判定——宁可不评不可错评（M22 [L918]），拒绝仍是有码的拒绝。
+        by_key, dup_rows = {}, {}
+        for card in self.cards:
+            dup_key = (card.strategy_id, card.version_id)
+            if dup_key in by_key:
+                dup_rows.setdefault(dup_key, [by_key[dup_key]]).append(card)
+                continue
+            by_key[dup_key] = card
+        for (dup_sid, dup_vid), dup_list in sorted(dup_rows.items()):
+            self.add('C-08', RC.DESIGN_CARD_DUPLICATE_KEY,
+                     'strategy:' + dup_sid + ' version:' + dup_vid,
+                     '同一 (strategy_id, version_id) 出现 ' + str(len(dup_list))
+                     + ' 条设计卡行（card_status = '
+                     + ', '.join(str(r.card_status) for r in dup_list)
+                     + '），违 [L1102] T4 粒度=策略×版本，拒绝静默取后一行；索引以首行为准')
         for row in self.masters:
             sid, scope = row.strategy_id, 'strategy:' + row.strategy_id
             card = by_key.get((sid, row.version_id))

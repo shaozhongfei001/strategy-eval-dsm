@@ -382,6 +382,8 @@ def _pair(left: Mapping, right: Mapping, keys: Sequence):
     DivisionUndefinedError（相关性 genuinely undefined），这里回 None：
     TriangulationReport 的四个 rho 列都是 nullable（models.py 1149-1152），
     未定义的结论不报数、也不编一个数出来。'''
+    # RC-1（CONSUMPTION-TODO 第 3 条·模块侧）：回 None 的「不编数」行为保持原样，
+    # 但不再静默——run() 经 _flags() 把该 None 登记为 SPEARMAN_ZERO_VARIANCE 塞进 flags。
     try:
         return numeric.spearman([left[k] for k in keys], [right[k] for k in keys])
     except numeric.DivisionUndefinedError:
@@ -422,11 +424,27 @@ def verdict(mean_rho, threshold):
     METHOD_DIVERGENCE（首屏警示 + 人工复核 + 本期暂停淘汰）。threshold 是必填治理
     值，无默认（R-12）。mean_rho 为 None（某对排序零方差）时不给结论、回 None：
     models.py 1134 的注释正是「a disabled or incomplete run has no verdict」。'''
+    # RC-1（CONSUMPTION-TODO 第 3 条·模块侧）：mean_rho 为 None（某对零方差）时不给
+    # 结论、回 None 的行为保持原样，但由 run() 的 _flags() 带码披露，不静默。
     if mean_rho is None:
         return None
     limit = numeric.from_float(threshold) if isinstance(threshold, float) \
         else numeric.D(threshold)
     return RC_AGREEMENT if numeric.D(mean_rho) >= limit else RC_DIVERGENCE
+
+
+def _flags(agreement, rho_set):
+    '''三角标记的构造（RC-1 / CONSUMPTION-TODO 第 3 条·模块侧）：有结论记结论码；
+    三对 rho 或 mean_rho 任何一列为 None（_pair/verdict 的零方差回 None，不编数）就
+    加记 SPEARMAN_ZERO_VARIANCE，供 reports._section_8 的「三角标记」与「Spearman
+    相关无定义」披露位消费（V-14）。本码 WARN 且不阻断（M26 [L1022] 不入分，
+    blocks_run=False），与 verdict 一致时结论码照旧单独成 flag。
+    '''
+    codes = [] if agreement is None else [agreement]
+    if (rho_set.rho_main_topsis is None or rho_set.rho_main_gra is None
+            or rho_set.rho_topsis_gra is None or rho_set.mean_rho is None):
+        codes.append(RC.SPEARMAN_ZERO_VARIANCE.value)
+    return tuple(codes)
 
 
 def run(scores, normalized, weights, config, *, directions):
@@ -493,7 +511,7 @@ def run(scores, normalized, weights, config, *, directions):
         rows=rows, rho_main_topsis=r.rho_main_topsis, rho_main_gra=r.rho_main_gra,
         rho_topsis_gra=r.rho_topsis_gra, mean_rho=r.mean_rho, agreement=agreement,
         gra_by_metric=gra_by_metric(matrix, dirs, rho, method),
-        flags=(agreement,) if agreement is not None else ())
+        flags=_flags(agreement, r))
 
 
 def veto(report) -> TriangulationVeto:
