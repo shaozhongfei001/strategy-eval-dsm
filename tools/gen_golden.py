@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from functools import lru_cache
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -39,7 +40,51 @@ def _case(cid, src, scope, scenario, subject, probes, expects, hand, status, gap
     return row
 
 
-def golden_cases():
+G09_RULES = ('ZERO', 'SKIP', 'IMPUTE_MEDIAN', 'BLOCK')
+
+
+@lru_cache(maxsize=4)
+def _g09_branch(seed=fg.SEED_DEFAULT):
+    '''G-09 四分支的载体与字典计数：从冻结 fixtures 的真实数据推导，不写死字面量。
+
+    ORCH-40 第5条（A1c 明确移交）：A1c(6299245) D-A1-03 依 ORCH-37 第1条把 BLOCK 缺格
+    载体由 M_COMPLAINT_RATE（HARD 红线）迁到 M_SATISFY_SCORE 并同维对调 missing_rule，
+    而本文件旧版把四个载体写成字面量 -> golden_map 的 none:true 探针被证伪（红条
+    tests/test_fixtures.py::test_golden_trigger_probes[G-09]）。改为按 [L1134] 的四个
+    missing_rule 名 + [L1411]「四种分支各有一个真实缺格」在评价期事实表里重算载体，
+    载体再迁移时无需改代码。返回 (branch_map 文本, subject 串, {rule: (sid, vid, mid)},
+    {rule: 计数}, 计数文本)。
+    '''
+    bundle = fg.build_bundle(seed)
+    rows = {r['metric_id']: r for r in bundle['metric_dict']}
+    census = {r: sum(1 for x in rows.values() if x['missing_rule'] == r) for r in G09_RULES}
+    have = {(f['strategy_id'], f['version_id'], f['metric_id'])
+            for f in bundle['metric_fact'] if f['period'] == E}
+    carriers = {}
+    for sid, vid in sorted({(s, v) for (s, v, _m) in have}):
+        for m in sorted(rows):
+            rule = rows[m]['missing_rule']
+            if rule in G09_RULES and rule not in carriers and (sid, vid, m) not in have:
+                carriers[rule] = (sid, vid, m)
+    missing = [r for r in G09_RULES if r not in carriers]
+    if missing:
+        raise SystemExit('G-09: no real missing cell for ' + ','.join(missing))
+
+    def _sub(sid, vid):
+        return sid + ('/' + vid if vid != 'v1' else '')
+
+    branch_map = ', '.join('%s->%s %s' % (r, _sub(*carriers[r][:2]), carriers[r][2])
+                           for r in G09_RULES)
+    subject = ','.join(_sub(*carriers[r][:2]) for r in G09_RULES)
+    census_text = (' / '.join('%s %d' % (r, census[r]) for r in G09_RULES)
+                   + '（metric_dict 全表 %d 行实测计数；probe 的 n 是下限语义）'
+                     % len(rows))
+    return branch_map, subject, carriers, census, census_text
+
+
+def golden_cases(seed=fg.SEED_DEFAULT):
+    (g09_branch_map, g09_subject, g09_carriers, g09_census,
+     g09_census_text) = _g09_branch(seed)
     return (
         _case('G-01', 'digest M31 第 1403 行', 'base',
               'A 类证据 + 全指标达标 + 无红线 -> 一级', 'S-001',
@@ -127,9 +172,36 @@ def golden_cases():
                   notcontains={'strategy_ids': fg.EXTREME_STRATEGY[0]}),
                _p('strategy_master', {'strategy_id': fg.EXTREME_STRATEGY[0]}, none=True)],
               {'existing_norm_composite_grade': '完全不变', 'rank_reversal': '不出现'},
-              {'extreme_attainment': '1.900000（+1 指标）/ 1.000000（-1 指标）',
+              # A1c(6299245) ADR §11 D-A1-06（只登记未代填，R-14 交本包独立手算）：
+              # 旧值 extreme_attainment「+1 指标一律 1.900000」与变体事实行不自洽 ——
+              # [L1460] 强制的零变异构造把 M_AUM_MINOR 恒留成 10000 = target，达成率
+              # 只能是 1.0；[L1407] 原文只写「attainment 极高」，无任何数值，故 1.9
+              # 在 G-05 侧无原文依据（1.9 的原文出处是 [L1405] 的 G-03，不得跨用例串味）。
+              # 手算（纯有理数精确，V-9 全程不经 float）：
+              #   CONTRIB = 0.80*1.9(M_REV_MINOR 19000/10000)
+              #           + 0.10*1.0(M_AUM_MINOR 10000/10000)
+              #           + 0.10*1.9(M_CUST_GAIN 190/100) = 1.52+0.10+0.19 = 1.81
+              #   EFFIC 1.63 / EXPER 1.18 / COST 1.00 / SUST 1.90 / PROC 1.45
+              #   composite = 0.30*1.81 + 0.21*1.63 + 0.21*1.18 + 0.14*1.00
+              #             + 0.07*1.90 + 0.07*1.45
+              #           = 0.543 + 0.3423 + 0.2478 + 0.14 + 0.133 + 0.1015
+              #           = 1.5076（q12 = 1.507600，与 ADR §11 的 1.507600000000
+              #             精确相等，尾 6 位为零）   （[L1342] Step5；旧记 1.5346
+              #             起算于 0.30*1.9，差 0.30*0.09 = 0.027）
+              {'extreme_attainment': '除 M_AUM_MINOR 外：+1 指标 1.900000、'
+                                     '-1 指标 1.000000（实际值 = target）；'
+                                     'M_AUM_MINOR 恒 10000 = target（[L1460] 零变异构造，'
+                                     '不得改）-> 达成率 1.000000',
+               'dim_CONTRIB': '1.810000',
+               'composite_absolute': '1.507600',
+               'arithmetic': 'CONTRIB = 0.80*1.9 + 0.10*1.0 + 0.10*1.9 = 1.81；'
+                             'composite = 0.30*1.81 + 0.21*1.63 + 0.21*1.18 + 0.14*1.00'
+                             ' + 0.07*1.90 + 0.07*1.45 = 1.5076（q12 精确，尾 6 位为零）',
+               'precision_note': '两个 hand 值都是精确有理数，6 位小数即 q12 全值；'
+                                 '本文件不连写 12 位小数，因 tests/test_fixtures.py:408 '
+                                 '的 PII 正则会把 12 位连写数字判成身份证号（该测试非本包写集）',
                'periods': '仅评价期 ' + E},
-              'SPEC（需两次运行对比，期望值不预填）'),
+              'SPEC+HAND_COMPUTED'),
         _case('G-06', 'digest M31 第 1408 行 / M37 E5', 'variant:G06_weight_oat20',
               'CONTRIB 权重 x1.2 其余重归一 -> flip_rate / stability_label',
               'S-002,S-004',
@@ -173,18 +245,26 @@ def golden_cases():
               {'v1_periods': '4 期历史 2025-Q3..2026-Q2', 'v2_periods': '评价期 ' + E},
               'SPEC+HAND_COMPUTED'),
         _case('G-09', 'digest M31 第 1411 行', 'base',
-              'missing_rule 四种分支各有一个真实缺格', 'S-005/v2,S-006,S-011,S-008',
-              [_p('metric_dict', {'missing_rule': r}, n=1) for r in
-               ('ZERO', 'SKIP', 'IMPUTE_MEDIAN', 'BLOCK')] +
-              [_p('metric_fact', {'strategy_id': s, 'period': E, 'metric_id': m},
-                  none=True) for s, m in
-               (('S-005', 'M_CAMPAIGN_COST_MINOR'), ('S-006', 'M_CUST_GAIN'),
-                ('S-011', 'M_ROI'), ('S-008', 'M_COMPLAINT_RATE'))],
+              'missing_rule 四种分支各有一个真实缺格', g09_subject,
+              # [L1134] 四条 missing_rule 在 metric_dict 全表 15 行里的**实测计数**
+              # （ZERO 6 / SKIP 4 / IMPUTE_MEDIAN 3 / BLOCK 2）。probe 的 n 语义是
+              # 「匹配行数下限」，故下界取实测计数即最强且不越界。旧版四条一律 n=1：
+              # A1CPREP 的「BLOCK 只剩 1 个」漏数 M_CONTACT_FREQ_PER_30D 与
+              # M_RETENTION_RATE，这两条在 A1c(6299245) 之前就已错（ORCH-40 第9条 ③）。
+              [_p('metric_dict', {'missing_rule': r}, n=g09_census[r]) for r in G09_RULES] +
+              # 更精确的匹配条件：把每个分支的载体 metric_id 与规则名一起钉死，
+              # 使「四种分支各有一个真实缺格」[L1411] 可被 probe 直接证伪。
+              [_p('metric_dict', {'metric_id': g09_carriers[r][2], 'missing_rule': r})
+               for r in G09_RULES] +
+              [_p('metric_fact', {'strategy_id': g09_carriers[r][0],
+                                  'version_id': g09_carriers[r][1], 'period': E,
+                                  'metric_id': g09_carriers[r][2]}, none=True)
+               for r in G09_RULES],
               {'ZERO': '按 0 计入', 'SKIP': '剔除并重归一', 'IMPUTE_MEDIAN': '中位数填补',
-               'BLOCK': 'S-008 不产出分数', 'four_branches_distinct': True},
-              {'branch_map': 'ZERO->S-005/v2 M_CAMPAIGN_COST_MINOR, SKIP->S-006 '
-                             'M_CUST_GAIN, IMPUTE_MEDIAN->S-011 M_ROI, BLOCK->S-008 '
-                             'M_COMPLAINT_RATE'},
+               'BLOCK': g09_carriers['BLOCK'][0] + ' 不产出分数',
+               'four_branches_distinct': True},
+              {'branch_map': g09_branch_map,
+               'missing_rule_census': g09_census_text},
               'SPEC+HAND_COMPUTED'),
         _case('G-10', 'digest M31 第 1412 行', 'base+variant:G10_dim_emptied',
               '未签认指标被剔除；维度被清空 -> preflight BLOCK',
@@ -238,7 +318,31 @@ def golden_cases():
                    'eval_method': 'OBSERVATIONAL_ONLY'},
                   scope='variant:G14_c_share_up') for s in fg.C_SHARE_UP_IDS],
               {'warning': 'MIX_QUALITY_DEGRADED', 'report': '池内占比与合并占比分列'},
-              {'c_share_base': '4/12 = 0.333333', 'c_share_variant': '6/12 = 0.500000'},
+              {'c_share_base': '3/9 = 0.333333',
+               'c_share_variant': '5/9 = 0.555556',
+               # G14FIX(42d5346) 已把判据改成「分子 = C 类占比」（[L1416] verbatim
+               # 「构造一级库中 C 类占比上升的场景」），分母依 [L1004]「NOT_ASSESSED
+               # 单独计数，不计入分母」与 share_* 同源剔 NOT_ASSESSED -> 已参评 9。
+               # 旧记 4/12、6/12 是 A1 期口径（分母取评价期事实 pair 12），A1c 补
+               # alt_method_note 后证据结构由 B0D5 变 B3D2、NOT_ASSESSED 由 5 变 2，
+               # 该口径已过期。ORCH-37 第3条：双口径禁混用 ——
+               #   主体级证据结构 A3 B3 C4 D2 = 12（评价期事实 pair）
+               #   行级           A3 B4 C4 D2 = 13（design_card 全表，含 S-005/v1）
+               #   池/占比级      A3 B3 C3 D2 = 11（S-008 因 BLOCK 不产出分数，不入池）
+               #   NOT_ASSESSED = 2（S-010 卡缺失、S-012 C 类未写 interpretation_limit）
+               #   -> 已参评 = 11 - 2 = 9
+               # 变体把 S-005/v2 与 S-007 由 B 降 C（变体卡已写 interpretation_limit，
+               # 故不再被 [L977] 第⑤步降 D）-> C = 5，B = 1，已参评仍 9 -> 5/9 触发
+               # MIX_QUALITY_DEGRADED。手算见 dsm_stage/E2b/probe_hand_e2b_p2.py（零
+               # dsm import，按 [L977] 五步短路独立重算）。
+               'share_numerator': '一级库 C 类条数：基线 3（S-003 / S-006 / S-011）-> '
+                                  '变体 5（再加 S-005/v2、S-007）',
+               'share_denominator': '已参评 9 = 池级 11（A3 B3 C3 D2）剔 NOT_ASSESSED 2',
+               'share_precision': '判据量按 V-9 用 Decimal q12（1e-12）算：q12(3/9) 与 '
+                                  'q12(5/9) 是纯循环小数，12 位展开在本文件一律不连写'
+                                  '（tests/test_fixtures.py:408 的 PII 正则 \\d{12,} 会误判，'
+                                  '该测试非本包写集）；精确值以分数 3/9、5/9 为准，'
+                                  '6 位小数为 ROUND_HALF_UP 展示值'},
               'SPEC+HAND_COMPUTED'),
         _case('G-15', 'digest M31 第 1417 行', 'base',
               'waiver_allowed=true 但缺 approval_id -> 视为未豁免，照常强制降级', 'S-006',
@@ -258,7 +362,7 @@ def golden_cases():
 
 
 def golden_map(seed):
-    cases = golden_cases()
+    cases = golden_cases(seed)
     return {'schema': SCHEMA, 'seed': seed, 'generated_by': 'tools/gen_golden.py',
             'discipline': 'R-14：expects 来自 digest M31，hand 来自 fixtures 构造手算，'
                           '严禁用实现输出反填；PENDING_IMPL 一律留空',

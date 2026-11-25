@@ -284,7 +284,8 @@ def _run_period(fx, period, *, metric_dict=None, facts=None, min_coverage=Decima
     ev = evidence.classify(fx['cards'], period_facts, params=EV_PARAMS)
     if manifest_evidence:
         ev = _manifest_evidence(ev)
-    att = attainment.compute(period_facts, md, params=ATT_PARAMS)
+    att = attainment.compute(period_facts, md, params=ATT_PARAMS,
+                             anchor_set=fx['anchor'])
     nrm = normalize.compute(att, md, fx['anchor'], params=NRM_PARAMS,
                             pools=_pool_map(ev, fx['master']))
     scores = aggregate.compose(att, nrm, fx['weights'], None)
@@ -777,7 +778,8 @@ def test_g09_missing_rule_four_branches_are_each_other_different(fx):
     '''
     facts = tuple(r for r in fx['facts'] if r.period == EVAL_PERIOD)
     ev = evidence.classify(fx['cards'], facts, params=EV_PARAMS)
-    att = attainment.compute(facts, fx['metric_dict'], params=ATT_PARAMS)
+    att = attainment.compute(facts, fx['metric_dict'], params=ATT_PARAMS,
+                             anchor_set=fx['anchor'])
     nrm = normalize.compute(att, fx['metric_dict'], fx['anchor'], params=NRM_PARAMS,
                             pools=_pool_map(ev, fx['master']))
     scores = aggregate.compose(att, nrm, fx['weights'], None)

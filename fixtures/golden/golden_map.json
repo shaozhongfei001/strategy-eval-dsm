@@ -245,8 +245,12 @@
         "rank_reversal": "不出现"
       },
       "hand": {
-        "extreme_attainment": "1.900000（+1 指标）/ 1.000000（-1 指标）",
-        "periods": "仅评价期 2026-Q3"
+        "arithmetic": "CONTRIB = 0.80*1.9 + 0.10*1.0 + 0.10*1.9 = 1.81；composite = 0.30*1.81 + 0.21*1.63 + 0.21*1.18 + 0.14*1.00 + 0.07*1.90 + 0.07*1.45 = 1.5076（q12 精确，尾 6 位为零）",
+        "composite_absolute": "1.507600",
+        "dim_CONTRIB": "1.810000",
+        "extreme_attainment": "除 M_AUM_MINOR 外：+1 指标 1.900000、-1 指标 1.000000（实际值 = target）；M_AUM_MINOR 恒 10000 = target（[L1460] 零变异构造，不得改）-> 达成率 1.000000",
+        "periods": "仅评价期 2026-Q3",
+        "precision_note": "两个 hand 值都是精确有理数，6 位小数即 q12 全值；本文件不连写 12 位小数，因 tests/test_fixtures.py:408 的 PII 正则会把 12 位连写数字判成身份证号（该测试非本包写集）"
       },
       "id": "G-05",
       "probes": [
@@ -289,7 +293,7 @@
       "scope": "variant:G05_append_extreme",
       "source": "digest M31 第 1407 行",
       "subject": "S-901",
-      "value_status": "SPEC（需两次运行对比，期望值不预填）"
+      "value_status": "SPEC+HAND_COMPUTED"
     },
     {
       "expects": {
@@ -437,7 +441,8 @@
         "four_branches_distinct": true
       },
       "hand": {
-        "branch_map": "ZERO->S-005/v2 M_CAMPAIGN_COST_MINOR, SKIP->S-006 M_CUST_GAIN, IMPUTE_MEDIAN->S-011 M_ROI, BLOCK->S-008 M_COMPLAINT_RATE"
+        "branch_map": "ZERO->S-005/v2 M_CAMPAIGN_COST_MINOR, SKIP->S-006 M_CUST_GAIN, IMPUTE_MEDIAN->S-011 M_ROI, BLOCK->S-008 M_SATISFY_SCORE",
+        "missing_rule_census": "ZERO 6 / SKIP 4 / IMPUTE_MEDIAN 3 / BLOCK 2（metric_dict 全表 15 行实测计数；probe 的 n 是下限语义）"
       },
       "id": "G-09",
       "probes": [
@@ -445,7 +450,7 @@
           "m": {
             "missing_rule": "ZERO"
           },
-          "n": 1,
+          "n": 6,
           "scope": "base",
           "t": "metric_dict"
         },
@@ -453,7 +458,7 @@
           "m": {
             "missing_rule": "SKIP"
           },
-          "n": 1,
+          "n": 4,
           "scope": "base",
           "t": "metric_dict"
         },
@@ -461,7 +466,7 @@
           "m": {
             "missing_rule": "IMPUTE_MEDIAN"
           },
-          "n": 1,
+          "n": 3,
           "scope": "base",
           "t": "metric_dict"
         },
@@ -469,7 +474,39 @@
           "m": {
             "missing_rule": "BLOCK"
           },
-          "n": 1,
+          "n": 2,
+          "scope": "base",
+          "t": "metric_dict"
+        },
+        {
+          "m": {
+            "metric_id": "M_CAMPAIGN_COST_MINOR",
+            "missing_rule": "ZERO"
+          },
+          "scope": "base",
+          "t": "metric_dict"
+        },
+        {
+          "m": {
+            "metric_id": "M_CUST_GAIN",
+            "missing_rule": "SKIP"
+          },
+          "scope": "base",
+          "t": "metric_dict"
+        },
+        {
+          "m": {
+            "metric_id": "M_ROI",
+            "missing_rule": "IMPUTE_MEDIAN"
+          },
+          "scope": "base",
+          "t": "metric_dict"
+        },
+        {
+          "m": {
+            "metric_id": "M_SATISFY_SCORE",
+            "missing_rule": "BLOCK"
+          },
           "scope": "base",
           "t": "metric_dict"
         },
@@ -477,7 +514,8 @@
           "m": {
             "metric_id": "M_CAMPAIGN_COST_MINOR",
             "period": "2026-Q3",
-            "strategy_id": "S-005"
+            "strategy_id": "S-005",
+            "version_id": "v2"
           },
           "none": true,
           "scope": "base",
@@ -487,7 +525,8 @@
           "m": {
             "metric_id": "M_CUST_GAIN",
             "period": "2026-Q3",
-            "strategy_id": "S-006"
+            "strategy_id": "S-006",
+            "version_id": "v1"
           },
           "none": true,
           "scope": "base",
@@ -497,7 +536,8 @@
           "m": {
             "metric_id": "M_ROI",
             "period": "2026-Q3",
-            "strategy_id": "S-011"
+            "strategy_id": "S-011",
+            "version_id": "v1"
           },
           "none": true,
           "scope": "base",
@@ -505,9 +545,10 @@
         },
         {
           "m": {
-            "metric_id": "M_COMPLAINT_RATE",
+            "metric_id": "M_SATISFY_SCORE",
             "period": "2026-Q3",
-            "strategy_id": "S-008"
+            "strategy_id": "S-008",
+            "version_id": "v1"
           },
           "none": true,
           "scope": "base",
@@ -671,8 +712,11 @@
         "warning": "MIX_QUALITY_DEGRADED"
       },
       "hand": {
-        "c_share_base": "4/12 = 0.333333",
-        "c_share_variant": "6/12 = 0.500000"
+        "c_share_base": "3/9 = 0.333333",
+        "c_share_variant": "5/9 = 0.555556",
+        "share_denominator": "已参评 9 = 池级 11（A3 B3 C3 D2）剔 NOT_ASSESSED 2",
+        "share_numerator": "一级库 C 类条数：基线 3（S-003 / S-006 / S-011）-> 变体 5（再加 S-005/v2、S-007）",
+        "share_precision": "判据量按 V-9 用 Decimal q12（1e-12）算：q12(3/9) 与 q12(5/9) 是纯循环小数，12 位展开在本文件一律不连写（tests/test_fixtures.py:408 的 PII 正则 \\d{12,} 会误判，该测试非本包写集）；精确值以分数 3/9、5/9 为准，6 位小数为 ROUND_HALF_UP 展示值"
       },
       "id": "G-14",
       "probes": [
