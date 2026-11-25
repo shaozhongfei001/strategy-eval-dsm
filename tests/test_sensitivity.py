@@ -501,3 +501,124 @@ def test_drop_metric_renormalizes_within_and_across_dimensions():
     total = numeric.weighted_sum(
         [(numeric.ONE, emptied.level1_weights[k]) for k in sorted(emptied.level1_weights)])
     assert numeric.eq_exact(total, numeric.ONE)
+
+
+# --------------------------------------------------------------------------
+# T-SEN-02b -- LOO impact ranking: the [L748] OUTPUT column, kept apart from
+# the flip_rate JUDGE column. Hand-computed on the absolute track, q12, with
+# [L954] within-dimension renormalisation after each drop (R-14: no value is
+# read back from the implementation).
+#
+#   level1 = A 0.5 / B 0.5;  A = {m_z: 1};  B = {m_a: 0.75, m_b: 0.25}
+#   S1 = S2 = (m_z 0.9, m_a 0.2, m_b 1.0)
+#   base     = 0.5*0.9 + 0.5*(0.75*0.2 + 0.25*1.0) = 0.45 + 0.5*0.40
+#            = 0.650000000000                                   -> L2
+#   drop m_z -> A emptied, level1 renormalises to {B: 1}
+#            = 0.400000000000                    delta 0.25      -> L3 (flip)
+#   drop m_a -> B = {m_b: 1}  = 0.45 + 0.5*1.0
+#            = 0.950000000000                    delta 0.30      -> L1 (flip)
+#   drop m_b -> B = {m_a: 1}  = 0.45 + 0.5*0.2
+#            = 0.550000000000                    delta 0.10      -> L2 (no flip)
+#   -> impact ranking m_a 0.300000000000 > m_z 0.250000000000 > m_b 0.100000000000
+#      while _loo_targets discovery order is m_z, m_a, m_b (dimension then id).
+# --------------------------------------------------------------------------
+IMPACT_LEVEL1 = {'A': Decimal('0.5'), 'B': Decimal('0.5')}
+IMPACT_LEVEL2 = {'A': {'m_z': Decimal('1')},
+                 'B': {'m_a': Decimal('0.75'), 'm_b': Decimal('0.25')}}
+IMPACT_VALUES = {'S1': {'m_z': '0.9', 'm_a': '0.2', 'm_b': '1.0'},
+                 'S2': {'m_z': '0.9', 'm_a': '0.2', 'm_b': '1.0'}}
+IMPACT_GRADES = {'S1': 'L2', 'S2': 'L2'}
+IMPACT_RANK = (('m_a', Decimal('0.300000000000')),
+               ('m_z', Decimal('0.250000000000')),
+               ('m_b', Decimal('0.100000000000')))
+
+
+def impact_doc():
+    return weights_doc(IMPACT_LEVEL1, IMPACT_LEVEL2)
+
+
+def impact_report(**config_overrides):
+    config = dict(CONFIG)
+    config.update(config_overrides)
+    return sensitivity.run(context(IMPACT_VALUES, IMPACT_GRADES), ('LOO',),
+                           config, weights=impact_doc(), grade_fn=GRADE_FN)
+
+
+def test_tsen02b_loo_impact_ranks_every_target_metric_descending():
+    '''[L748] output column / [L1450] T-SEN-02 impact order: every dropped
+    metric gets its impact measured and the column comes out descending, so the
+    head is the [L1409] loo_impact max without a second sort.'''
+    report = impact_report()
+    assert report.loo_impact == IMPACT_RANK
+    assert [metric for metric, _value in report.loo_impact] == ['m_a', 'm_z', 'm_b']
+    values = [value for _metric, value in report.loo_impact]
+    assert values == sorted(values, reverse=True)
+
+
+def test_tsen02b_dominant_list_is_ordered_by_impact_not_by_discovery():
+    '''Both m_z and m_a flip 2 of 2 = 1.000000000000 > loo_dominant_flip_rate
+    0.2, so the judge column keeps both; the ORDER is the impact ranking, i.e.
+    m_a (0.300000000000) before m_z (0.250000000000), not the _loo_targets
+    discovery order m_z, m_a, m_b.'''
+    report = impact_report()
+    assert report.loo_dominant_metrics == ('m_a', 'm_z')
+    assert RC.DOMINANT_METRIC.value in report.flags
+
+
+def test_tsen02b_ranking_survives_a_threshold_that_warns_nobody():
+    '''Judge column and output column are different fields: with the warning
+    threshold raised above every achievable flip_rate nothing is dominant and
+    no DOMINANT_METRIC flag fires, yet the [L748] impact ranking is unchanged
+    and still names its leader (no silent degradation, V-14).'''
+    report = impact_report(loo_dominant_flip_rate='1.5')
+    assert report.loo_dominant_metrics == ()
+    assert RC.DOMINANT_METRIC.value not in report.flags
+    assert report.loo_impact == IMPACT_RANK
+
+
+def test_tsen02b_a_metric_that_flips_nobody_is_still_ranked():
+    '''m_b moves the composite by 0.100000000000 but flips no grade, so the
+    flip_rate judge leaves it out of the dominant list while the impact ranking
+    still carries it: neither column replaces the other.'''
+    report = impact_report()
+    assert ('m_b', Decimal('0.100000000000')) in report.loo_impact
+    assert 'm_b' not in report.loo_dominant_metrics
+
+
+def test_tsen02b_impact_values_are_q12_decimals_and_reproducible():
+    '''V-9: an impact is a q12 Decimal, never a float, and two runs of one
+    config give one byte string ([L1052]).'''
+    report = impact_report()
+    assert report.loo_impact
+    for metric, value in report.loo_impact:
+        assert isinstance(metric, str)
+        assert isinstance(value, Decimal)
+        assert not isinstance(value, float)
+        assert -value.as_tuple().exponent == 12
+        assert value >= Decimal(0)
+    assert impact_report().model_dump_json() == report.model_dump_json()
+
+
+def test_tsen02b_equal_impact_lists_both_and_invents_no_unique_leader():
+    '''GOLDEN_VALUES: dropping m1 leaves the m2 track (S1 0.9) and dropping m2
+    leaves the m1 track (S1 0.7) around a base of 0.8, so both impacts are
+    exactly 0.100000000000. A tie is reported as a tie -- both metrics keep
+    their equal value, metric_id ascending is a serialisation determinism rule
+    only -- and no home-made tie-break promotes one of them (ORCH-40 2.2). The
+    judge column is untouched by the tie: only m2 flips S1, so it stays the one
+    dominant metric.'''
+    report = sensitivity.run(context(GOLDEN_VALUES, GOLDEN_GRADES), ('LOO',),
+                             dict(CONFIG), weights=weights_doc(),
+                             grade_fn=GRADE_FN)
+    assert report.loo_impact == (('m1', Decimal('0.100000000000')),
+                                 ('m2', Decimal('0.100000000000')))
+    assert report.loo_dominant_metrics == ('m2',)
+
+
+def test_tsen02b_impact_column_is_empty_when_loo_was_not_run():
+    '''The carrier defaults to () and stays () for a run without LOO, so an
+    absent ranking is tellable from a ranking of zeros (V-14).'''
+    report = sensitivity.run(context(GOLDEN_VALUES, GOLDEN_GRADES), ('OAT_10',),
+                             dict(CONFIG), weights=weights_doc(),
+                             grade_fn=GRADE_FN)
+    assert report.loo_impact == ()

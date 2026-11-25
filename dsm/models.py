@@ -1131,7 +1131,21 @@ class SensitivityReport(_OutputModel):
     must say the result may not drive elimination" ([L1019], [L1064]) is a
     rendering rule, so it gets no column. seed is nullable because [L1270]
     makes an unset seed a legal state that only forbids MC; the
-    SeedRequiredError that [L1017] mentions is sensitivity.py behaviour (S6).'''
+    SeedRequiredError that [L1017] mentions is sensitivity.py behaviour (S6).
+
+    loo_impact is the [L748] LOO output column ("每指标的 LOO 影响力排名") and
+    the quantity [L1409] takes a maximum of, carried as (metric_id, impact)
+    pairs already ordered by impact descending so the head is the loo_impact
+    max and the [L1450] T-SEN-02 order is readable off the column without a
+    second sort. It is appended last, not inserted, so no existing column moves
+    (R-15, same as the MODELS-1 precedent on NormalizedFrame). It is a separate
+    field from loo_dominant_metrics on purpose: [L748] puts the impact ranking
+    in the OUTPUT column and the flip_rate test in the JUDGE column, so a metric
+    that dominates the composite yet flips no grade still has to be nameable.
+    A pair, not a dict, because the ranking order is the content and a dict
+    would have to be re-sorted at serialisation time ([L1053] item 3) to say
+    anything. Evidence level derived: the contract names the product but gives
+    no formula (K-22 / ORCH-40 2.2). Empty when LOO was not run.'''
 
     by_scheme: tuple[SensitivitySchemeResult, ...]  # [L1018] per scheme
     by_strategy: tuple[SensitivityStrategyRow, ...]  # [L1018] per strategy
@@ -1139,6 +1153,8 @@ class SensitivityReport(_OutputModel):
     norm_swap_rank_correlation: Ratio | None = None  # [L1018] Spearman, no bound
     flags: tuple[ReasonCode, ...] = ()  # [L1020] LOO_SAMPLED carrier
     seed: StrictInt | None = None  # [L1017] / [L1270] a count (H-4)
+    # [L748] LOO impact ranking / [L1409] loo_impact max, descending (derived:)
+    loo_impact: tuple[tuple[str, Ratio], ...] = ()
 
 
 class TriangulationReport(_OutputModel):

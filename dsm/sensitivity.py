@@ -34,6 +34,15 @@ FrameGrade), normalizer (Step 2 under ANOTHER method: (raw Decimals of one pool
 x metric group, method) -> Decimals). NORM_SWAP switches the method and
 recomposes; it never re-normalizes the same data with the same method.
 
+LOO carries two different things on two different fields, because [L748] puts
+them in two different columns: loo_impact ranks EVERY target metric by
+max |composite_LOO - composite_base| over the assessed strategies (descending,
+so its head is the [L1409] loo_impact max and [L1450] T-SEN-02 impact order),
+while loo_dominant_metrics keeps the judge-column membership -- flip_rate over
+loo_dominant_flip_rate warns DOMINANT_METRIC -- and is ordered by that ranking.
+The impact estimator itself is derived: the contract names the product but
+gives no formula (disclosed gap, K-22 / ORCH-40 2.2).
+
 Config: the digest fixes stable_max 0.05, review_max 0.15, loo_sampling_
 threshold 60. Everything it leaves open is a required key with no invented
 default (R-12): mc_samples, dirichlet_concentration, loo_dominant_flip_rate,
@@ -223,14 +232,47 @@ def _verdict(rate, stable_max, review_max):
     return _RC.FLIP_RATE_UNUSABLE.value, 'UNSTABLE'
 
 
-def _grades_of(base, weights, config, grade_fn):
+def _frame_and_grades(base, weights, config, grade_fn):
     '''Step 5-6 re-run on the reused Step 1-4 frames; base.grade stays the
-    frozen baseline and is never recomputed here ([L1016]).'''
+    frozen baseline and is never recomputed here ([L1016]). The Step-5 frame is
+    returned next to the grades so LOO reads its composite off the very same
+    compose call it graded: one 口径 per metric, no second compose (RK-6).'''
     frame = aggregate.compose(base.attainment, base.normalized, weights, config)
     result = grade_fn(frame)
     if result is None:
         raise HookRequiredError('grade_fn returned nothing')
-    return {tuple(key): str(grade) for key, grade in result.items()}
+    return frame, {tuple(key): str(grade) for key, grade in result.items()}
+
+
+def _grades_of(base, weights, config, grade_fn):
+    '''Grades only; _frame_and_grades also hands back the Step-5 frame.'''
+    return _frame_and_grades(base, weights, config, grade_fn)[1]
+
+
+def _composites(frame, keys):
+    '''composite_absolute per assessed key out of ONE Step-5 frame. A key the
+    frame does not carry is an explicit error, never a silent 0 (V-14).'''
+    values = {_key(row): row.composite_absolute for row in frame.rows}
+    out = {}
+    for key in keys:
+        value = values.get(key)
+        if value is None:
+            raise SensitivityError(
+                'no composite_absolute for ' + str(key[0]) + '/' + str(key[1]) +
+                ': the LOO impact needs the absolute track of every assessed '
+                'strategy ([L748], [L1018])')
+        out[key] = value
+    return out
+
+
+def _rank_impact(impact):
+    '''[L748] output column: the per-metric LOO impact ranking. Descending by
+    impact, so the head IS the [L1409] loo_impact 最大者. An equal-impact tie
+    keeps metric_id ascending order: that is a serialisation determinism rule
+    (two runs, one byte string, [L1052]) and NOT a business tie-break -- both
+    tied metrics stay listed with their equal value and no unique leader is
+    invented (ORCH-40 2.2 forbids a home-made tie-break).'''
+    return tuple(sorted(impact.items(), key=lambda item: (-item[1], item[0])))
 
 
 def _hits(assessed, grades):
@@ -329,21 +371,66 @@ def _loo_targets(weights, config):
     return [(metric, owner[metric]) for metric in sorted(picked)], True
 
 
+def _loo_impact(baseline, frame, keys):
+    '''[L748] the LOO impact of one dropped metric (evidence level derived: the
+    contract names the product -- the per-metric LOO impact ranking -- but gives
+    no formula, so this estimator is a DISCLOSED specification gap, ORCH-40 2.2
+    / K-22, not a signed-off business number):
+
+        loo_impact[m] = max over the assessed strategies s of
+                        | composite_LOO(m, s) - composite_base(s) |
+
+    composite_LOO(m, s) is Step 4-5 re-run on the [L954] within-dimension
+    renormalised document drop_metric(m) returns. Absolute track only ([L968]:
+    grading reads that one), q12 Decimals end to end, never a float (V-9). A
+    metric that flips nobody still gets its impact measured: the judge column
+    (flip_rate over loo_dominant_flip_rate) and this output column are two
+    different fields and neither replaces the other ([L748], [L1409]).'''
+    moved = _composites(frame, keys)
+    worst = numeric.ZERO
+    for key in keys:
+        delta = abs(numeric.q12(moved[key] - baseline[key]))
+        if delta > worst:
+            worst = delta
+    return numeric.q12(worst)
+
+
 def _run_loo(base, weights, grade_fn, config, assessed):
+    '''[L748] both columns of the LOO row, kept apart on purpose:
+      * the JUDGE column -- a metric whose drop pushes flip_rate over
+        loo_dominant_flip_rate warns DOMINANT_METRIC and files a dictionary
+        ticket (semantics unchanged);
+      * the OUTPUT column -- every target metric's impact, ranked descending,
+        which is what names the leading metric and the [L1409] loo_impact max.
+    loo_dominant_metrics keeps the judge-column membership and is ORDERED by the
+    output column, so its leading entry is the most influential metric rather
+    than whichever one the loop happened to trip over first.'''
     targets, sampled = _loo_targets(weights, config)
     threshold = _number(config, 'loo_dominant_flip_rate', 'LOO')
+    keys = sorted(assessed)
+    baseline = _composites(
+        aggregate.compose(base.attainment, base.normalized, weights, config),
+        keys)
     totals = dict.fromkeys(assessed, 0)
     dominant = []
+    impact = {}
     runs = 0
     for metric, _dim in targets:
-        grades = _grades_of(base, drop_metric(weights, metric), config, grade_fn)
+        doc = drop_metric(weights, metric)
+        frame, grades = _frame_and_grades(base, doc, config, grade_fn)
         runs += 1
         hits = _hits(assessed, grades)
         for key, hit in hits.items():
             totals[key] += hit
         if _flip_rate(sum(hits.values()), len(assessed)) > threshold:
             dominant.append(metric)  # [L748] DOMINANT_METRIC, dictionary ticket
-    return totals, runs, {'dominant': tuple(dominant), 'sampled': sampled}
+        impact[metric] = _loo_impact(baseline, frame, keys)
+    ranking = _rank_impact(impact)
+    position = dict((metric, index)
+                    for index, (metric, _value) in enumerate(ranking))
+    dominant.sort(key=lambda metric: position[metric])
+    return totals, runs, {'dominant': tuple(dominant), 'sampled': sampled,
+                          'impact': ranking}
 
 
 def _swap_frame(base, method, normalizer):
@@ -412,8 +499,8 @@ def _run_norm_swap(base, weights, grade_fn, config, assessed, normalizer):
 def run(base, schemes, config, *, weights, grade_fn, normalizer=None):
     '''[L1014] signature plus the three injected hooks of the module docstring.
     One SensitivityReport out: per-scheme overall_flip_rate ([L1018]), the
-    per-strategy labels, the LOO dominant list, the NORM_SWAP rho, the [L1020]
-    flags and the [L1017] seed.'''
+    per-strategy labels, the LOO dominant list plus the [L748] LOO impact
+    ranking, the NORM_SWAP rho, the [L1020] flags and the [L1017] seed.'''
     if weights is None:
         raise HookRequiredError('the FROZEN WeightVersionDoc must be injected')
     if grade_fn is None:
@@ -432,6 +519,7 @@ def run(base, schemes, config, *, weights, grade_fn, normalizer=None):
     totals = {key: [0, 0] for key in assessed}
     flags = []
     dominant = ()
+    impact = ()
     rho = None
     for scheme in wanted:
         if scheme in _OAT_PCT:
@@ -441,6 +529,7 @@ def run(base, schemes, config, *, weights, grade_fn, normalizer=None):
         elif scheme == 'LOO':
             flips, runs, extra = _run_loo(base, weights, grade_fn, config, assessed)
             dominant = extra['dominant']
+            impact = extra['impact']
             if extra['sampled']:
                 flags.append(_RC.LOO_SAMPLED.value)
             if dominant:
@@ -478,6 +567,7 @@ def run(base, schemes, config, *, weights, grade_fn, normalizer=None):
     return SensitivityReport(
         by_scheme=tuple(by_scheme), by_strategy=tuple(rows),
         loo_dominant_metrics=tuple(dominant), norm_swap_rank_correlation=rho,
+        loo_impact=impact,
         flags=tuple(code for code in _FLAG_ORDER if code in set(flags)),
         seed=base.seed)
 

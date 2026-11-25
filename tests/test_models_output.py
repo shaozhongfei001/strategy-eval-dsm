@@ -333,6 +333,9 @@ OUTPUT_MODELS = {
         ('loo_dominant_metrics', 'empty'),
         ('norm_swap_rank_correlation', 'null'), ('flags', 'empty'),
         ('seed', 'null'),
+        # LOO-1 (ORCH-40 / R-15): [L748] impact ranking carrier, appended last
+        # so no ruling-25 column moves. Data-table sync only, zero assert change.
+        ('loo_impact', 'empty'),
     ),
     # ruling 27 [L1040]-[L1041] + [L1223] grain + the B-018 flags carrier.
     'EntropyDiagnosticRow': (
@@ -579,6 +582,7 @@ SYN_PAYLOADS = {
         'loo_dominant_metrics': (M_ID,),
         'norm_swap_rank_correlation': RATIO,
         'flags': (RC.LOO_SAMPLED.value,), 'seed': SEED,
+        'loo_impact': ((M_ID, RATIO),),
     },
     'EntropyDiagnosticRow': {
         'metric_code': M_ID, 'e_j': RATIO, 'd_j': RATIO_B, 'cv_j': RATIO,
